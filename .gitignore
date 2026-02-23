@@ -1,0 +1,9 @@
+# 빌드 결과물
+backend/build/
+backend/.gradle/
+frontend/node_modules/
+frontend/dist/
+
+# 민감 정보 (이게 핵심!)
+application.properties
+.env
