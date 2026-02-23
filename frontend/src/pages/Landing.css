@@ -1,0 +1,69 @@
+.landing-container {
+  background-color: var(--bg-color); /* 시스템 모드에 맞춰 바뀜 */
+}
+
+.hero-section {
+  padding: 100px 20px;
+  text-align: center;
+}
+
+.hero-title {
+  color: var(--text-primary); /* 흰색으로 변해서 안 보이는 문제 해결 */
+}
+.highlight {
+  color: #3498db;
+}
+
+.hero-subtitle {
+  font-size: 1.25rem;
+  color: #7f8c8d;
+  line-height: 1.6;
+  margin-bottom: 40px;
+}
+
+.start-btn {
+  padding: 18px 45px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: white;
+  background-color: #3498db;
+  border: none;
+  border-radius: 50px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(52, 152, 219, 0.3);
+}
+
+.start-btn:hover {
+  background-color: #2980b9;
+  transform: translateY(-3px);
+  box-shadow: 0 6px 20px rgba(52, 152, 219, 0.4);
+}
+
+.features {
+  display: flex;
+  gap: 20px;
+  padding: 50px 20px;
+  max-width: 1000px;
+}
+
+.feature-card {
+  flex: 1;
+  background: white;
+  padding: 30px;
+  border-radius: 15px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+  text-align: center;
+}
+
+.feature-card {
+  background-color: var(--card-bg);
+  border: 1px solid var(--border-color);
+}
+
+.landing-footer {
+  margin-top: auto;
+  padding: 40px;
+  color: #bdc3c7;
+  font-size: 0.9rem;
+}

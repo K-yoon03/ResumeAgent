@@ -1,0 +1,63 @@
+plugins {
+	id 'java'
+	id 'org.springframework.boot' version '3.4.3'
+	id 'io.spring.dependency-management' version '1.1.7'
+}
+
+group = 'com.kyoon'
+version = '0.0.1-SNAPSHOT'
+description = 'LLM based Resume Assistant Service'
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(17)
+	}
+}
+
+configurations {
+	compileOnly {
+		extendsFrom annotationProcessor
+	}
+}
+
+repositories {
+	mavenCentral()
+	maven { url 'https://repo.spring.io/milestone' }
+	maven { url 'https://repo.spring.io/snapshot' }
+}
+
+// Spring AI 버전을 하나로 통일합니다.
+ext {
+	set('springAiVersion', "1.0.0-M5")
+}
+
+dependencies {
+	// [수정] spring-boot-starter-web 하나면 webmvc 기능이 모두 포함됩니다.
+	implementation 'org.springframework.boot:spring-boot-starter-web'
+	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+
+	implementation 'org.springframework.ai:spring-ai-openai-spring-boot-starter' // 잠시 주석
+	// [수정] Ollama 스타터
+	//implementation 'org.springframework.ai:spring-ai-ollama-spring-boot-starter'
+
+	// [수정] h2-console은 별도 라이브러리가 아니라 h2 엔진에 포함되어 있습니다.
+	runtimeOnly 'com.h2database:h2'
+
+	compileOnly 'org.projectlombok:lombok'
+	annotationProcessor 'org.projectlombok:lombok'
+
+	// [수정] 테스트 도구는 starter-test 하나로 통합하는 것이 표준입니다.
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+dependencyManagement {
+	imports {
+		// 중복된 BOM 선언을 하나로 합쳤습니다.
+		mavenBom "org.springframework.ai:spring-ai-bom:${springAiVersion}"
+	}
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+}
