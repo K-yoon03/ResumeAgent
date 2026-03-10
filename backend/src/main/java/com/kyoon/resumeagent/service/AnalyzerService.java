@@ -1,5 +1,6 @@
 package com.kyoon.resumeagent.service;
 
+
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
@@ -10,21 +11,27 @@ import reactor.core.publisher.Flux;
 public class AnalyzerService {
 
     private final ChatClient chatClient;
+    private final InputCleanerService cleanerService;
 
     @Value("classpath:/prompts/Analyzer.st")
     private Resource analyzerPromptResource;
 
-    public AnalyzerService(ChatClient.Builder builder) {
+    public AnalyzerService(ChatClient.Builder builder,
+                           InputCleanerService cleanerService) {
         this.chatClient = builder.build();
+        this.cleanerService = cleanerService;
     }
 
     public Flux<String> analyzeExperienceStream(String experience) {
+
+        String cleaned = cleanerService.clean(experience);
+
         return chatClient.prompt()
-                .system(s -> s.text(analyzerPromptResource).param("experience", experience))
-                .user("분석을 시작해줘.")
+                .system(s -> s.text(analyzerPromptResource)
+                        .param("experience", cleaned))
+                .user("데이터를 기반으로 역량을 분석하세요.")
                 .stream()
                 .content()
-                // 줄 단위로 버퍼링 - 토큰이 쪼개져도 한 줄씩 완성해서 전송
                 .bufferUntil(token -> token.contains("\n"))
                 .map(tokens -> String.join("", tokens));
     }

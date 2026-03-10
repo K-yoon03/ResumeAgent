@@ -226,6 +226,16 @@
   color: var(--accent-color);
 }
 
+.modal-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.modal-body button {
+  margin: 6px 0;
+}
+
 .modal-body p {
   font-size: 1.1rem;
   line-height: 1.6;
@@ -235,15 +245,21 @@
 
 /* [예] 버튼 */
 .modal-confirm-btn {
-  padding: 12px 40px;
+  width: 150px;
+  padding: 10px 0;
   background-color: var(--accent-color);
   color: #ffffff;
   border: none;
   border-radius: 8px;
-  font-size: 1rem;
+  font-size: 0.95rem;
   font-weight: 700;
   cursor: pointer;
   transition: all 0.2s ease;
+}
+.modal-confirm-btn.secondary {
+  background-color: transparent;
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
 }
 
 .modal-confirm-btn:hover {
@@ -265,4 +281,27 @@
 @keyframes modalPop {
   from { opacity: 0; transform: scale(0.8) translateY(30px); }
   to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.writer-button-container {
+  margin-top: 25px;
+  display: flex;
+  justify-content: center;
+}
+
+.go-writer-btn {
+  padding: 12px 28px;
+  font-size: 1rem;
+  font-weight: 700;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  background-color: var(--accent-color);
+  color: #fff;
+  transition: all 0.2s ease;
+}
+
+.go-writer-btn:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.1);
 }

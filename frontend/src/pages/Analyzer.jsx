@@ -10,6 +10,7 @@ const Analyzer = ({ setGlobalExperience, setGlobalAnalysis }) => {
   const [answer, setAnswer] = useState('');
   const [loading, setLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [showWriterButton, setShowWriterButton] = useState(false);
 
 const askAi = async () => {
   if (question.length < 10) {
@@ -44,7 +45,7 @@ const askAi = async () => {
       buffer = lines.pop() || "";
 
       for (const line of lines) {
-        // 1. [코윤님 로직] 데이터가 있는 경우
+        // 1. [고윤님 로직] 데이터가 있는 경우
         if (line.startsWith("data:")) {
           const text = line.slice(5);
           if (text.trim() === "[DONE]") {
@@ -54,7 +55,7 @@ const askAi = async () => {
           fullText += text; // 검사용 변수에 누적
           setAnswer((prev) => prev + text);
         } 
-        // 2. [코윤님 로직] 빈 줄인 경우 (줄바꿈 유지)
+        // 2. [고윤님 로직] 빈 줄인 경우 (줄바꿈 유지)
         else if (line === "" || line === "\r") {
           fullText += "\n"; // 검사용 변수에 누적
           setAnswer((prev) => {
@@ -86,7 +87,14 @@ const askAi = async () => {
   const goToWriter = () => {
     setGlobalExperience(question);
     setGlobalAnalysis(answer);
-    navigate('/write');
+
+    navigate("/resume-writer", {
+      state: {
+        experience: question,
+        cleanedData: question, // 현재는 InputCleaner가 따로 없으므로 임시
+        analysis: answer
+      }
+    });
   };
 
 return (
@@ -122,6 +130,13 @@ return (
               </div>
             )}
           </div>
+          {showWriterButton && (
+          <div className="writer-button-container">
+            <button className="go-writer-btn" onClick={goToWriter}>
+              ✍️ 자소서 쓰러가기
+            </button>
+          </div>
+        )}
         </div>
       </div>
 
@@ -132,7 +147,16 @@ return (
             <button className="modal-close-x" onClick={() => setIsModalOpen(false)}>×</button>
             <div className="modal-body">
               <p>분석이 완료되었어요!<br />분석 결과를 같이 확인하며 자기소개서 또한 작성해볼까요?</p>
-              <button className="modal-confirm-btn" onClick={goToWriter}>예</button>
+              <button className="modal-confirm-btn" onClick={goToWriter}>자소서 작성하기</button>
+                <button
+                    className="modal-confirm-btn secondary"
+                    onClick={() => {
+                      setIsModalOpen(false);
+                      setShowWriterButton(true);
+                    }}
+                  >
+                  분석부터 읽어볼래요
+                </button>
             </div>
           </div>
         </div>

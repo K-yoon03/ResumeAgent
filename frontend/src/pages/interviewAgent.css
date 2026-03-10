@@ -1,0 +1,188 @@
+.interview-container {
+  width: 100%;
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 60px 20px;
+  color: var(--text-primary);
+}
+
+.setup-section {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  margin-top: 40px;
+}
+
+.setup-card {
+  width: 100%;     
+  background-color: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 40px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+  box-sizing: border-box;
+}
+
+.setup-card h2 {
+  text-align: center;
+  margin-bottom: 30px;
+  font-size: 1.4rem;
+}
+
+.setup-card input[type="number"] {
+  width: 100%;
+  padding: 12px 16px;
+  background-color: var(--bg-color);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  font-size: 1rem;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+.setup-card input[type="number"]:focus {
+  outline: none;
+  border-color: var(--accent-color);
+}
+
+/* 채팅 컨테이너 */
+.chat-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 20px;
+  padding: 24px;
+  background-color: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  height: 500px;      /* max-height → height 고정 */
+  overflow-y: auto;   /* 내용 넘치면 스크롤 */
+}
+
+/* 말풍선 */
+.chat-bubble {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 80%;
+  animation: slideUp 0.3s ease;
+}
+
+.chat-bubble.interviewer,
+.chat-bubble.feedback {
+  align-self: flex-start;
+}
+
+.chat-bubble.user {
+  align-self: flex-end;
+}
+
+.bubble-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.chat-bubble.user .bubble-label {
+  text-align: right;
+}
+
+.bubble-content {
+  padding: 14px 18px;
+  border-radius: 16px;
+  line-height: 1.6;
+  font-size: 0.95rem;
+}
+
+.chat-bubble.interviewer .bubble-content {
+  background-color: var(--bg-color);
+  border: 1px solid var(--border-color);
+  border-top-left-radius: 4px;
+}
+
+.chat-bubble.user .bubble-content {
+  background-color: var(--accent-color);
+  color: #ffffff;
+  border-top-right-radius: 4px;
+}
+
+.chat-bubble.feedback .bubble-content {
+  background-color: rgba(74, 108, 247, 0.08);
+  border: 1px solid var(--accent-color);
+  border-top-left-radius: 4px;
+}
+
+.typing {
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+/* 답변 입력 */
+.answer-section {
+  margin-top: 20px;
+}
+
+.answer-input {
+  width: 100%;
+  padding: 16px;
+  background-color: var(--card-bg);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  line-height: 1.6;
+  resize: none;
+  overflow-y: hidden;
+  min-height: 100px;
+  box-sizing: border-box;
+  transition: border-color 0.2s;
+}
+
+.answer-input:focus {
+  outline: none;
+  border-color: var(--accent-color);
+}
+
+/* 종료 */
+.done-section {
+  margin-top: 30px;
+  text-align: center;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--accent-color);
+  padding: 24px;
+  background-color: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+}
+
+.question-list {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  margin-top: 16px;
+}
+
+.question-item {
+  background-color: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.question-label {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.6;
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
