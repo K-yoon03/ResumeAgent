@@ -6,7 +6,7 @@ import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 
 @RestController
-@RequestMapping("/api/v1/agent")
+@RequestMapping("/api/v1/chat")
 public class ChatController {
 
     private final AnalyzerService analyzerService;

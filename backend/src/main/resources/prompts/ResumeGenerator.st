@@ -16,6 +16,8 @@ Sections
 3. 직무 역량 (채용공고 요구사항에 맞춰 작성)
 4. 입사 후 포부
 
+Output must be plain text. Do not use markdown such as **, *, #, or -.
+
 Experience Profile
 {profile}
 
