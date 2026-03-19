@@ -13,45 +13,35 @@ import Register from './pages/register';
 import JobPostings from './pages/JobPostings';
 import MyAssessments from './pages/MyAssessments';
 import MyResumes from './pages/MyResumes';
-
+import ProtectedRoute from './components/ProtectedRoute';
 
 import './App.css';
 
-
-
-function App() {
 function AnalyzeRoute() {
   const { user, loading } = useAuth();
-    if (loading) return null;
-    return user
-      ? <MyAssessments />
-      : <Analyzer setGlobalExperience={() => {}} setGlobalAnalysis={() => {}} />;
-  }
+  if (loading) return null;
+  return user
+    ? <MyAssessments />
+    : <Analyzer setGlobalExperience={() => {}} setGlobalAnalysis={() => {}} />;
+}
 
+function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
-        <Nav />  {/* Routes 밖에 위치 */}
-        <Toaster
-          position="top-center"
-          toastOptions={{
-            style: { },
-            classNames: { },
-          }}
-          richColors
-        />
+        <Nav />
+        <Toaster position="top-center" richColors />
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/analyze" element={<AnalyzeRoute />} />
-          <Route path="/analyze/new" element={<Analyzer />} />
           <Route path="/analyze/new" element={<Analyzer setGlobalExperience={() => {}} setGlobalAnalysis={() => {}} />} />
-          <Route path="/resume-writer" element={<ResumeWriter />} />
-          <Route path="/interview" element={<InterviewAgent />} />
+          <Route path="/resume-writer" element={<ProtectedRoute><ResumeWriter /></ProtectedRoute>} />
+          <Route path="/interview" element={<ProtectedRoute><InterviewAgent /></ProtectedRoute>} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/job-postings" element={<JobPostings />} />
-          <Route path="/my-assessments" element={<MyAssessments />} />
-          <Route path="/my-resumes" element={<MyResumes />} />
+          <Route path="/my-assessments" element={<ProtectedRoute><MyAssessments /></ProtectedRoute>} />
+          <Route path="/my-resumes" element={<ProtectedRoute><MyResumes /></ProtectedRoute>} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>

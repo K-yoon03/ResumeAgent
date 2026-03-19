@@ -10,7 +10,6 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import java.util.UUID;
 
 @Service
 public class AuthService implements UserDetailsService {
@@ -27,17 +26,15 @@ public class AuthService implements UserDetailsService {
         this.jwtUtil = jwtUtil;
     }
 
-    public AuthController.AuthResponse register(String email, String password, String nickname) {
+    public AuthController.AuthResponse register(String email, String password, String nickname, String name, String birthDate) {
         if (userRepository.existsByEmail(email)) {
             throw new RuntimeException("이미 사용중인 이메일입니다.");
         }
 
-        // 닉네임 미입력 시 자동 생성
         String finalNickname = (nickname != null && !nickname.isBlank())
                 ? nickname
                 : generateNickname();
 
-        // 닉네임 중복 체크
         while (userRepository.existsByNickname(finalNickname)) {
             finalNickname = generateNickname();
         }
@@ -46,8 +43,9 @@ public class AuthService implements UserDetailsService {
                 .email(email)
                 .password(passwordEncoder.encode(password))
                 .nickname(finalNickname)
+                .name(name)
+                .birthDate(birthDate)
                 .provider("LOCAL")
-                .isEmailVerified(false)
                 .build();
 
         userRepository.save(user);

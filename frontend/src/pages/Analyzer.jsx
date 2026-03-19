@@ -10,7 +10,14 @@ import { Sparkles, GraduationCap, Briefcase, Award, FileText, ArrowRight, X, Ale
 
 const MAX_HISTORY = 3;
 const HISTORY_KEY = "analysis_history";
-const CACHE_KEY = (text) => `analysis_${btoa(encodeURIComponent(text)).slice(0, 50)}`;
+const CACHE_KEY = (text) => {
+  let hash = 0;
+  for (let i = 0; i < text.length; i++) {
+    hash = (hash << 5) - hash + text.charCodeAt(i);
+    hash |= 0;
+  }
+  return `analysis_${hash}`;
+};
 
 const Analyzer = ({ setGlobalExperience, setGlobalAnalysis }) => {
   const navigate = useNavigate();
@@ -22,6 +29,7 @@ const Analyzer = ({ setGlobalExperience, setGlobalAnalysis }) => {
   const [noneChecked, setNoneChecked] = useState({
     age: false, education: false, career: false, skills: false, story: false,
   });
+  const [savedAssessmentId, setSavedAssessmentId] = useState(null);
   const [answer, setAnswer] = useState("");
   const [scoreData, setScoreData] = useState(null);
   const scoreDataRef = useRef(null);
@@ -270,20 +278,56 @@ const Analyzer = ({ setGlobalExperience, setGlobalAnalysis }) => {
     }
   };
 
-  const goToWriter = () => {
+  const goToWriter = async () => {
     const question = buildQuestion();
     if (setGlobalExperience) setGlobalExperience(question);
     if (setGlobalAnalysis) setGlobalAnalysis(answer);
+
+    let assessmentId = savedAssessmentId;
+
+    // 아직 저장 안 됐으면 자동 저장
+    if (!saved) {
+      const token = localStorage.getItem("token");
+      if (token) {
+        try {
+          const res = await fetch("http://localhost:8080/api/assessments", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              experience: question,
+              analysis: answer,
+              scoreData: JSON.stringify(scoreData)
+            })
+          });
+          if (res.ok) {
+            const data = await res.json();
+            assessmentId = data.id;
+            setSavedAssessmentId(data.id);
+            setSaved(true);
+          }
+        } catch {
+          // 저장 실패해도 자소서 작성은 진행
+        }
+      }
+    }
+
     navigate("/resume-writer", {
-      state: { experience: question, analysis: answer, scoreData }
+      state: {
+        experience: question,
+        analysis: answer,
+        scoreData,
+        assessmentId
+      }
     });
   };
-
   const saveAssessment = async () => {
     const token = localStorage.getItem("token");
     if (!token) { navigate("/login"); return; }
     try {
-      await fetch("http://localhost:8080/api/assessments", {
+      const res = await fetch("http://localhost:8080/api/assessments", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -295,6 +339,8 @@ const Analyzer = ({ setGlobalExperience, setGlobalAnalysis }) => {
           scoreData: JSON.stringify(scoreData)
         })
       });
+      const data = await res.json();
+      setSavedAssessmentId(data.id);  // ID 저장
       setSaved(true);
       toast.success("저장되었습니다!");
     } catch {

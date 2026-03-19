@@ -23,6 +23,8 @@ public class User {
 
     @Column(nullable = false, unique = true)
     private String nickname;        // 중복 방지, 임시 닉네임 부여
+    private String name;        // 실명
+    private String birthDate;
 
     // 소셜 로그인
     @Column(nullable = false)

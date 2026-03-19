@@ -1,8 +1,8 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { Button } from "./ui/button";
-import { FileText, BarChart2, MessageSquare, Moon, Sun, Zap } from "lucide-react";
-import { useState, useEffect } from "react";
+import { FileText, BarChart2, MessageSquare, Moon, Sun, Zap, User, ChevronDown } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
 
 function Nav() {
   const { user, logout } = useAuth();
@@ -11,21 +11,40 @@ function Nav() {
   const [dark, setDark] = useState(() =>
     document.documentElement.classList.contains("dark")
   );
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef(null);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark);
     localStorage.setItem("theme", dark ? "dark" : "light");
   }, [dark]);
 
+  // 드롭다운 외부 클릭 시 닫기
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   const handleLogout = () => {
     logout();
+    setDropdownOpen(false);
     navigate("/login");
   };
 
   const navItems = [
     { path: "/analyze", label: "역량평가", icon: BarChart2 },
-    { path: "/resume-writer", label: "자기소개서", icon: FileText },
+    { path: "/my-resumes", label: "자기소개서", icon: FileText },
     { path: "/interview", label: "모의면접", icon: MessageSquare },
+  ];
+
+  const userMenuItems = [
+    { path: "/my-assessments", label: "나의 역량평가", icon: BarChart2 },
+    { path: "/my-resumes", label: "나의 자소서", icon: FileText },
   ];
 
   return (
@@ -80,14 +99,44 @@ function Nav() {
           </Button>
 
           {user ? (
-            <>
-              <span className="text-sm text-muted-foreground hidden md:block">
-                {user.name}
-              </span>
-              <Button variant="outline" size="sm" onClick={handleLogout}>
-                로그아웃
+            <div className="relative" ref={dropdownRef}>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                onClick={() => setDropdownOpen(prev => !prev)}
+              >
+                <User className="h-4 w-4" />
+                <span className="hidden md:block">{user.nickname}</span>
+                <ChevronDown className={`h-3.5 w-3.5 transition-transform ${dropdownOpen ? "rotate-180" : ""}`} />
               </Button>
-            </>
+
+              {dropdownOpen && (
+                <div className="absolute right-0 mt-2 w-48 bg-card border border-border rounded-xl shadow-lg py-1 z-50">
+                  {userMenuItems.map(({ path, label, icon: Icon }) => (
+                    <button
+                      key={path}
+                      onClick={() => { navigate(path); setDropdownOpen(false); }}
+                      className={`w-full flex items-center gap-2.5 px-4 py-2.5 text-sm hover:bg-muted transition-colors ${
+                        location.pathname === path
+                          ? "text-[var(--gradient-mid)] font-medium"
+                          : "text-foreground"
+                      }`}
+                    >
+                      <Icon className="h-4 w-4" />
+                      {label}
+                    </button>
+                  ))}
+                  <div className="border-t border-border my-1" />
+                  <button
+                    onClick={handleLogout}
+                    className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-destructive hover:bg-muted transition-colors"
+                  >
+                    로그아웃
+                  </button>
+                </div>
+              )}
+            </div>
           ) : (
             <>
               <Button variant="ghost" size="sm" onClick={() => navigate("/login")}>

@@ -37,7 +37,9 @@ public class InterviewService {
                     """ + resume)
                 .user("자기소개서를 평가해주세요.")
                 .stream()
-                .content();
+                .content()
+                .bufferUntil(token -> token.contains("\n"))
+                .map(tokens -> String.join("", tokens));
     }
 
     // 2. 면접 질문 생성
@@ -61,7 +63,9 @@ public class InterviewService {
                         현재 """ + questionNumber + "/" + totalQuestions + "번째 질문입니다.")
                 .user("다음 면접 질문을 해주세요.")
                 .stream()
-                .content();
+                .content()
+                .bufferUntil(token -> token.contains("\n"))
+                .map(tokens -> String.join("", tokens));
     }
 
     public Flux<String> generateAllQuestions(String resume, String jobPosting, int totalQuestions) {
@@ -80,7 +84,9 @@ public class InterviewService {
                     """.formatted(totalQuestions, totalQuestions, jobPosting, resume))
                 .user("면접 질문을 생성해주세요.")
                 .stream()
-                .content();
+                .content()
+                .bufferUntil(token -> token.contains("\n"))
+                .map(tokens -> String.join("", tokens));
     }
 
     // 3. 답변 피드백
@@ -107,7 +113,9 @@ public class InterviewService {
                     답변: """ + answer)
                 .user("답변을 평가해주세요.")
                 .stream()
-                .content();
+                .content()
+                .bufferUntil(token -> token.contains("\n"))
+                .map(tokens -> String.join("", tokens));
     }
 
     public Flux<String> feedbackAll(String resume, String jobPosting, String questionsAndAnswers) {
@@ -117,10 +125,12 @@ public class InterviewService {
                     지원자의 모든 답변을 종합적으로 평가하세요.
                     
                     규칙:
-                    - 답변이 불성실하거나 짧으면 반드시 지적하세요
-                    - 욕설, 비속어가 포함되면 강하게 경고하세요
-                    - 과도한 칭찬 금지
-                    - 채용공고의 "없음" 항목은 평가에 반영하지 마세요
+                    - 평가는 반드시 지원자의 "답변 내용"만을 기준으로 하세요
+                    - 자기소개서 내용은 참고만 하고, 강점/약점 평가에 사용하지 마세요
+                    - 답변이 "(답변 없음)"이거나 한 글자, 의미없는 내용이면 매우 강하게 지적하세요
+                    - 불성실한 답변이 있으면 합격 가능성은 무조건 "하"입니다
+                    - 과도한 칭찬 절대 금지
+                    - 잘한 점이 없으면 "없음"으로 표시하세요
                     
                     ## 📊 종합 평가
                     ## ✅ 전반적인 강점
@@ -135,6 +145,8 @@ public class InterviewService {
                     """ + questionsAndAnswers)
                 .user("전체 답변을 종합 평가해주세요.")
                 .stream()
-                .content();
+                .content()
+                .bufferUntil(token -> token.contains("\n"))
+                .map(tokens -> String.join("", tokens));
     }
 }

@@ -6,13 +6,19 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { FileText, TrendingUp, Target, Lightbulb, Edit, ArrowRight, CheckCircle, AlertTriangle, RotateCcw, X, Clock } from "lucide-react";
+import { FileText, TrendingUp, Target, Lightbulb, Edit, ArrowRight, CheckCircle, AlertTriangle, RotateCcw, X, Clock, MessageSquare } from "lucide-react";
 
 const MAX_HISTORY = 3;
 const RESUME_HISTORY_KEY = "resume_history";
-const RESUME_CACHE_KEY = (jobPosting, experience) =>
-  `resume_${btoa(encodeURIComponent((jobPosting + experience).slice(0, 80))).slice(0, 50)}`;
-
+const RESUME_CACHE_KEY = (jobPosting, experience) => {
+  const text = jobPosting + experience;
+  let hash = 0;
+  for (let i = 0; i < text.length; i++) {
+    hash = (hash << 5) - hash + text.charCodeAt(i);
+    hash |= 0;
+  }
+  return `resume_${hash}`;
+};
 function ResumeWriter() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -39,7 +45,81 @@ function ResumeWriter() {
     return h ? JSON.parse(h).length > 0 : false;
   });
 
-  if (!experience && !analysis) {
+    useEffect(() => {
+    if (editableSections) {
+      document.querySelectorAll(".section-textarea").forEach(el => {
+        el.style.height = "auto";
+        el.style.height = el.scrollHeight + "px";
+      });
+    }
+  }, [editableSections]);
+
+  useEffect(() => {
+    if (isConfirmed) {
+      document.querySelectorAll(".confirmed-textarea").forEach(el => {
+        el.style.height = "auto";
+        el.style.height = el.scrollHeight + "px";
+      });
+    }
+  }, [isConfirmed]);
+
+  const savedResume = location.state?.savedResume;
+  if (savedResume) {
+    return (
+      <div className="max-w-5xl mx-auto px-4 py-12 space-y-8">
+        <div className="text-center space-y-4">
+          <div className="inline-flex items-center justify-center p-3 rounded-full bg-gradient-to-br from-[var(--gradient-start)] via-[var(--gradient-mid)] to-[var(--gradient-end)]">
+            <FileText className="h-7 w-7 text-white" />
+          </div>
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-[var(--gradient-start)] via-[var(--gradient-mid)] to-[var(--gradient-end)] bg-clip-text text-transparent">
+            {savedResume.title || "자기소개서"}
+          </h1>
+        </div>
+
+        <Card className="border border-border/50">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base flex items-center gap-2">
+                <FileText className="h-5 w-5 text-[var(--gradient-mid)]" />
+                자기소개서
+              </CardTitle>
+              <span className="text-xs text-muted-foreground">
+                {savedResume.createdAt
+                  ? new Date(savedResume.createdAt).toLocaleDateString("ko-KR")
+                  : ""}
+              </span>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="prose prose-sm dark:prose-invert max-w-none">
+              <ReactMarkdown>{savedResume.content}</ReactMarkdown>
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="flex gap-3">
+          <Button
+            variant="outline"
+            className="flex-1"
+            onClick={() => navigate("/my-resumes")}
+          >
+            ← 목록으로
+          </Button>
+          <Button
+            className="flex-1 bg-gradient-to-r from-[var(--gradient-start)] to-[var(--gradient-end)] text-white hover:opacity-90"
+            onClick={() => navigate("/interview", {
+              state: { resume: savedResume.content }
+            })}
+          >
+            <MessageSquare className="mr-2 h-4 w-4" />
+            면접 시작
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!experience && !analysis && !location.state?.savedResume) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-12 text-center space-y-4">
         <h2 className="text-xl font-semibold text-foreground">데이터가 없습니다.</h2>
@@ -59,23 +139,7 @@ function ResumeWriter() {
     { name: "경험 다양성", score: scoreData.diversity },
   ] : [];
 
-  useEffect(() => {
-    if (editableSections) {
-      document.querySelectorAll(".section-textarea").forEach(el => {
-        el.style.height = "auto";
-        el.style.height = el.scrollHeight + "px";
-      });
-    }
-  }, [editableSections]);
 
-  useEffect(() => {
-    if (isConfirmed) {
-      document.querySelectorAll(".confirmed-textarea").forEach(el => {
-        el.style.height = "auto";
-        el.style.height = el.scrollHeight + "px";
-      });
-    }
-  }, [isConfirmed]);
 
   // ── 캐시/히스토리 ──────────────────────────
 
@@ -287,12 +351,58 @@ function ResumeWriter() {
     setLoading(false);
   };
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     const confirmed = Object.entries(editableSections)
       .map(([title, content], i) => `${i + 1}. **${title}**\n\n${content.replace(/\[AI\]|\[\/AI\]/g, "")}`)
       .join("\n\n");
     setResume(confirmed);
     setIsConfirmed(true);
+
+    // 로그인 상태일 때만 저장
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    try {
+      // 1. JobPosting 저장 (form 모드일 때만)
+      let jobPostingId = null;
+      if (jobMode === "form" && jobConfirmed) {
+        const jpRes = await fetch("http://localhost:8080/api/job-postings", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          },
+          body: JSON.stringify(jobForm)
+        });
+        if (jpRes.ok) {
+          const jpData = await jpRes.json();
+          jobPostingId = jpData.id;
+        }
+      }
+
+      // 2. Resume 저장
+      const title = jobForm.companyName
+        ? `${jobForm.companyName}${jobForm.position ? " · " + jobForm.position : ""}`
+        : "자기소개서";
+
+      await fetch("http://localhost:8080/api/resume/save", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          content: confirmed,
+          title,
+          assessmentId: location.state?.assessmentId || null,
+          jobPostingId
+        })
+      });
+
+      toast.success("자소서가 저장되었습니다.");
+    } catch {
+      toast.error("저장에 실패했습니다.");
+    }
   };
 
   const inputClass = "w-full px-4 py-2.5 rounded-lg border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[var(--gradient-mid)]/50 focus:border-[var(--gradient-mid)] transition-all";
@@ -545,7 +655,7 @@ function ResumeWriter() {
             </CardContent>
           </Card>
 
-          {/* 자소서 생성 버튼 + 불러오기/초기화 */}
+{/* 자소서 생성 버튼 + 초기화 */}
           {jobMode && (
             <div className="flex gap-2">
               <Button
@@ -563,77 +673,74 @@ function ResumeWriter() {
               )}
             </div>
           )}
-          {loading && resume && (
-            <Card className="border border-border/50">
-              <CardHeader>
-                <CardTitle className="text-base">✍️ 작성 중...</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="prose prose-sm dark:prose-invert max-w-none">
-                  <ReactMarkdown>{resume}</ReactMarkdown>
-                </div>
-              </CardContent>
-            </Card>
-          )}
 
-          {/* 자소서 검토/수정 */}
-          {editableSections && !loading && (
+          {/* 자소서 작성 중 / 검토 카드 - 하나로 통합 */}
+          {((loading && resume) || editableSections) && (
             <Card className="border border-border/50">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base">
                   <Edit className="h-5 w-5 text-[var(--gradient-mid)]" />
-                  자기소개서 검토 및 수정
+                  {loading ? "✍️ 작성 중..." : "자기소개서 검토 및 수정"}
                 </CardTitle>
-                <CardDescription>⚠️ 표시된 문장은 AI가 추가한 내용입니다. 검토 후 수정해주세요.</CardDescription>
+                {!loading && (
+                  <CardDescription>⚠️ 표시된 문장은 AI가 추가한 내용입니다. 검토 후 수정해주세요.</CardDescription>
+                )}
               </CardHeader>
               <CardContent className="space-y-4">
-                {!isConfirmed && (
+                {loading ? (
+                  <div className="prose prose-sm dark:prose-invert max-w-none">
+                    <ReactMarkdown>{resume}</ReactMarkdown>
+                  </div>
+                ) : (
                   <>
-                    {Object.entries(editableSections).map(([title, content]) => (
-                      <div key={title} className="space-y-2">
-                        <label className="text-sm font-semibold text-[var(--gradient-mid)]">📝 {title}</label>
-                        <div
-                          className="text-sm text-muted-foreground p-3 rounded-lg bg-muted/50 border border-dashed border-border leading-relaxed"
-                          dangerouslySetInnerHTML={{
-                            __html: content.replace(
-                              /\[AI\](.*?)\[\/AI\]/gs,
-                              '<span style="background:rgba(245,158,11,0.15);border-bottom:2px solid #f59e0b;padding:2px 4px;border-radius:4px;">⚠️ $1</span>'
-                            )
-                          }}
-                        />
+                    {!isConfirmed && (
+                      <>
+                        {Object.entries(editableSections).map(([title, content]) => (
+                          <div key={title} className="space-y-2">
+                            <label className="text-sm font-semibold text-[var(--gradient-mid)]">📝 {title}</label>
+                            <div
+                              className="text-sm text-muted-foreground p-3 rounded-lg bg-muted/50 border border-dashed border-border leading-relaxed"
+                              dangerouslySetInnerHTML={{
+                                __html: content.replace(
+                                  /\[AI\](.*?)\[\/AI\]/gs,
+                                  '<span style="background:rgba(245,158,11,0.15);border-bottom:2px solid #f59e0b;padding:2px 4px;border-radius:4px;">⚠️ $1</span>'
+                                )
+                              }}
+                            />
+                            <textarea
+                              className="section-textarea w-full px-4 py-2.5 rounded-lg border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-[var(--gradient-mid)]/50 focus:border-[var(--gradient-mid)] transition-all resize-none overflow-hidden"
+                              value={content.replace(/\[AI\]|\[\/AI\]/g, "")}
+                              onChange={(e) => setEditableSections(prev => ({ ...prev, [title]: e.target.value }))}
+                              onInput={(e) => {
+                                e.target.style.height = "auto";
+                                e.target.style.height = e.target.scrollHeight + "px";
+                              }}
+                            />
+                          </div>
+                        ))}
+                        <Button
+                          className="w-full bg-gradient-to-r from-[var(--gradient-start)] to-[var(--gradient-end)] text-white hover:opacity-90"
+                          onClick={handleConfirm}
+                        >
+                          ✅ 자소서 확정하기
+                        </Button>
+                      </>
+                    )}
+                    {isConfirmed && (
+                      <>
                         <textarea
-                          className="section-textarea w-full px-4 py-2.5 rounded-lg border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-[var(--gradient-mid)]/50 focus:border-[var(--gradient-mid)] transition-all resize-none overflow-hidden"
-                          value={content.replace(/\[AI\]|\[\/AI\]/g, "")}
-                          onChange={(e) => setEditableSections(prev => ({ ...prev, [title]: e.target.value }))}
-                          onInput={(e) => {
-                            e.target.style.height = "auto";
-                            e.target.style.height = e.target.scrollHeight + "px";
-                          }}
+                          className="confirmed-textarea w-full px-4 py-3 rounded-lg border border-[var(--gradient-mid)]/30 bg-background text-foreground text-sm focus:outline-none resize-none overflow-hidden leading-relaxed"
+                          value={Object.entries(editableSections)
+                            .map(([title, content], i) =>
+                              `${i + 1}. ${title}\n\n${content.replace(/\[AI\]|\[\/AI\]/g, "")}`
+                            ).join("\n\n")}
+                          readOnly
                         />
-                      </div>
-                    ))}
-                    <Button
-                      className="w-full bg-gradient-to-r from-[var(--gradient-start)] to-[var(--gradient-end)] text-white hover:opacity-90"
-                      onClick={handleConfirm}
-                    >
-                      ✅ 자소서 확정하기
-                    </Button>
-                  </>
-                )}
-
-                {isConfirmed && (
-                  <>
-                    <textarea
-                      className="confirmed-textarea w-full px-4 py-3 rounded-lg border border-[var(--gradient-mid)]/30 bg-background text-foreground text-sm focus:outline-none resize-none overflow-hidden leading-relaxed"
-                      value={Object.entries(editableSections)
-                        .map(([title, content], i) =>
-                          `${i + 1}. ${title}\n\n${content.replace(/\[AI\]|\[\/AI\]/g, "")}`
-                        ).join("\n\n")}
-                      readOnly
-                    />
-                    <Button variant="outline" className="w-full" onClick={() => setIsConfirmed(false)}>
-                      ✏️ 다시 수정하기
-                    </Button>
+                        <Button variant="outline" className="w-full" onClick={() => setIsConfirmed(false)}>
+                          ✏️ 다시 수정하기
+                        </Button>
+                      </>
+                    )}
                   </>
                 )}
               </CardContent>
