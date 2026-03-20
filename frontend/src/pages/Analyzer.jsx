@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Sparkles, GraduationCap, Briefcase, Award, FileText, ArrowRight, X, AlertTriangle, Calendar, Save, RotateCcw, Clock } from "lucide-react";
+import { BASE_URL } from '../config';
 
 const MAX_HISTORY = 3;
 const HISTORY_KEY = "analysis_history";
@@ -220,12 +221,12 @@ const Analyzer = ({ setGlobalExperience, setGlobalAnalysis }) => {
 
     try {
       const [analysisRes] = await Promise.all([
-        fetch("http://localhost:8080/api/v1/agent/analyze", {
+        fetch(`${BASE_URL}/api/v1/agent/analyze`, {
           method: "POST",
           headers: { "Content-Type": "text/plain" },
           body: question,
         }),
-        fetch("http://localhost:8080/api/v1/agent/score", {
+        fetch(`${BASE_URL}/api/v1/agent/score`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ experience: question }),
@@ -290,7 +291,7 @@ const Analyzer = ({ setGlobalExperience, setGlobalAnalysis }) => {
       const token = localStorage.getItem("token");
       if (token) {
         try {
-          const res = await fetch("http://localhost:8080/api/assessments", {
+          const res = await fetch(`${BASE_URL}/api/assessments`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -327,7 +328,7 @@ const Analyzer = ({ setGlobalExperience, setGlobalAnalysis }) => {
     const token = localStorage.getItem("token");
     if (!token) { navigate("/login"); return; }
     try {
-      const res = await fetch("http://localhost:8080/api/assessments", {
+      const res = await fetch(`${BASE_URL}/api/assessments`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

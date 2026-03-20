@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Sparkles, Plus, TrendingUp, FileText, MessageSquare, Clock, User, GraduationCap, ChevronRight } from "lucide-react";
+import { BASE_URL } from '../config';
 
 function MyAssessments() {
   const navigate = useNavigate();
@@ -17,7 +18,7 @@ function MyAssessments() {
   const fetchAssessments = async () => {
     const token = localStorage.getItem("token");
     try {
-      const res = await fetch("http://localhost:8080/api/assessments", {
+      const res = await fetch(`${BASE_URL}/api/assessments`, {
         headers: { "Authorization": `Bearer ${token}` }
       });
       if (res.ok) {

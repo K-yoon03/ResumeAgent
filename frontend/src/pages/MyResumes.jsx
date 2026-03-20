@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { FileText, Plus, Clock, Trash2, Sparkles, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
+import { BASE_URL } from '../config';
 
 export default function MyResumes() {
   const navigate = useNavigate();
@@ -17,7 +18,7 @@ export default function MyResumes() {
   const fetchResumes = async () => {
     const token = localStorage.getItem("token");
     try {
-      const res = await fetch("http://localhost:8080/api/resume", {
+      const res = await fetch(`${BASE_URL}/api/resume`, {
         headers: { "Authorization": `Bearer ${token}` }
       });
       if (res.ok) {
@@ -34,7 +35,7 @@ export default function MyResumes() {
   const deleteResume = async (id) => {
     const token = localStorage.getItem("token");
     try {
-      const res = await fetch(`http://localhost:8080/api/resume/${id}`, {
+      const res = await fetch(`${BASE_URL}/api/resume/${id}`, {
         method: "DELETE",
         headers: { "Authorization": `Bearer ${token}` }
       });

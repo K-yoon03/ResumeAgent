@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { FileText, TrendingUp, Target, Lightbulb, Edit, ArrowRight, CheckCircle, AlertTriangle, RotateCcw, X, Clock, MessageSquare } from "lucide-react";
+import { BASE_URL } from '../config';
 
 const MAX_HISTORY = 3;
 const RESUME_HISTORY_KEY = "resume_history";
@@ -307,7 +308,7 @@ function ResumeWriter() {
       }
     }
 
-    const response = await fetch("http://localhost:8080/api/resume/generate", {
+    const response = await fetch(`${BASE_URL}/api/resume/generate`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ experience, analysis, jobPosting })
@@ -366,7 +367,7 @@ function ResumeWriter() {
       // 1. JobPosting 저장 (form 모드일 때만)
       let jobPostingId = null;
       if (jobMode === "form" && jobConfirmed) {
-        const jpRes = await fetch("http://localhost:8080/api/job-postings", {
+        const jpRes = await fetch(`${BASE_URL}/api/job-postings`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -385,7 +386,7 @@ function ResumeWriter() {
         ? `${jobForm.companyName}${jobForm.position ? " · " + jobForm.position : ""}`
         : "자기소개서";
 
-      await fetch("http://localhost:8080/api/resume/save", {
+      await fetch(`${BASE_URL}/api/resume/save`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

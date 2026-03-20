@@ -2,6 +2,7 @@ import { useState } from 'react'
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import './App.css'
+import BASE_URL from './config';
 
 function App() {
   const [question, setQuestion] = useState('')
@@ -11,7 +12,7 @@ function App() {
     setAnswer("");
 
     try {
-      const response = await fetch("http://localhost:8080/api/v1/agent/analyze", {
+      const response = await fetch(`${BASE_URL}/api/v1/agent/analyze`, {
         method: "POST",
         headers: { "Content-Type": "text/plain" },
         body: question,

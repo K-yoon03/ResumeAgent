@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { MessageSquare, FileText, Settings, ChevronRight, Send, RotateCcw } from "lucide-react";
+import { BASE_URL } from '../config';
 
 function InterviewAgent() {
   const location = useLocation();
@@ -94,7 +95,7 @@ function InterviewAgent() {
     setLoading(true);
     setEvaluation("");
     await streamSSE(
-      "http://localhost:8080/api/interview/evaluate",
+      `${BASE_URL}/api/interview/evaluate`,
       { resume, jobPosting },
       (chunk) => setEvaluation(prev => prev + chunk),
       () => { setPhase("evaluated"); setLoading(false); }
@@ -104,7 +105,7 @@ function InterviewAgent() {
   const fetchNextQuestion = async (history, nextCount) => {
     setLoading(true);
     await streamSSE(
-      "http://localhost:8080/api/interview/question",
+      `${BASE_URL}/api/interview/question`,
       { resume, jobPosting, history, questionNumber: nextCount, totalQuestions },
       (chunk) => {},
       (full) => {
@@ -123,7 +124,7 @@ function InterviewAgent() {
     setLoading(true);
 
     await streamSSE(
-      "http://localhost:8080/api/interview/feedback",
+      `${BASE_URL}/api/interview/feedback`,
       { resume, jobPosting, question, answer: userAnswer },
       (chunk) => {},
       (full) => {
@@ -147,7 +148,7 @@ function InterviewAgent() {
   const fetchAllQuestions = async () => {
     setLoading(true);
     await streamSSE(
-      "http://localhost:8080/api/interview/questions-all",
+      `${BASE_URL}/api/interview/questions-all`,
       { resume, jobPosting, totalQuestions },
       (chunk) => {},
       (full) => {
@@ -169,7 +170,7 @@ function InterviewAgent() {
     setLoading(true);
     setFinalFeedback("");
     await streamSSE(
-      "http://localhost:8080/api/interview/feedback-all",
+      `${BASE_URL}/api/interview/feedback-all`,
       { resume, jobPosting, questionsAndAnswers },
       (chunk) => setFinalFeedback(prev => prev + chunk),
       () => { setPhase("done"); setLoading(false); }

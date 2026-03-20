@@ -4,6 +4,7 @@ import { useAuth } from "../context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Zap, Mail, Lock, User, AlertCircle, Calendar } from "lucide-react";
+import { BASE_URL } from '../config';
 
 function Register() {
   const [form, setForm] = useState({ email: "", password: "", nickname: "", name: "", birthYear: "", birthMonth: "", birthDay: "" });
@@ -42,7 +43,7 @@ function Register() {
 
     setLoading(true);
     try {
-      const res = await fetch("http://localhost:8080/api/auth/register", {
+      const res = await fetch(`${BASE_URL}/api/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
