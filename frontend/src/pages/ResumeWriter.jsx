@@ -675,7 +675,7 @@ function ResumeWriter() {
           )}
 
           {/* 자소서 작성 중 / 검토 카드 - 하나로 통합 */}
-          {((loading && resume) || editableSections) && (
+          {((loading) || editableSections) && (
             <Card className="border border-border/50">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base">
