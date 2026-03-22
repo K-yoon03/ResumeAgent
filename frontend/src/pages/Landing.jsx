@@ -1,8 +1,9 @@
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Sparkles, FileText, MessageSquare, ArrowRight, BarChart2, Zap } from "lucide-react";
+import { Sparkles, FileText, MessageSquare, ArrowRight, BarChart2 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import CareerPilotHelmIcon from '../components/CareerPilotHelmIcon';
 
 const Landing = () => {
   const navigate = useNavigate();
@@ -35,6 +36,37 @@ const Landing = () => {
     { step: "03", title: "자소서 생성", desc: "맞춤 자소서를 작성합니다" },
     { step: "04", title: "모의면접", desc: "실전 면접을 연습합니다" },
   ];
+    const CareerPilotHelmIcon = ({ className }) => (
+    <svg 
+      className={className} 
+      viewBox="0 0 24 24" 
+      fill="none" 
+      stroke="currentColor" 
+      strokeWidth="1.5" 
+      strokeLinecap="round" 
+      strokeLinejoin="round"
+    >
+      {/* 메인 원형 림 */}
+      <circle cx="12" cy="12" r="6" />
+      
+      {/* 8방향 살(Spokes) */}
+      <path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
+      <path d="M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+      
+      {/* 핸들 끝의 둥근 그립 - 이게 있어야 기어 부품처럼 안 보입니다! */}
+      <circle cx="12" cy="2" r="1" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="22" r="1" fill="currentColor" stroke="none" />
+      <circle cx="2" cy="12" r="1" fill="currentColor" stroke="none" />
+      <circle cx="22" cy="12" r="1" fill="currentColor" stroke="none" />
+      <circle cx="4.93" cy="4.93" r="0.8" fill="currentColor" stroke="none" />
+      <circle cx="19.07" cy="19.07" r="0.8" fill="currentColor" stroke="none" />
+      <circle cx="4.93" cy="19.07" r="0.8" fill="currentColor" stroke="none" />
+      <circle cx="19.07" cy="4.93" r="0.8" fill="currentColor" stroke="none" />
+      
+      {/* 중앙 축 */}
+      <circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none" />
+    </svg>
+  );
 
   return (
     <div className="min-h-screen bg-background">
@@ -69,7 +101,7 @@ const Landing = () => {
               className="bg-gradient-to-r from-[var(--gradient-start)] via-[var(--gradient-mid)] to-[var(--gradient-end)] text-white hover:opacity-90 transition-opacity px-8"
               onClick={() => navigate("/analyze")}
             >
-              <Zap className="mr-2 h-4 w-4" />
+              <CareerPilotHelmIcon className="h-7 w-7 text-white" />
               지금 분석 시작하기
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
@@ -153,18 +185,6 @@ const Landing = () => {
           </CardContent>
         </Card>
       </section>
-
-      {/* 푸터 */}
-      <footer className="border-t border-border/40 px-4 py-8 text-center text-sm text-muted-foreground">
-        <div className="flex items-center justify-center gap-2 mb-2">
-          <div className="p-1 rounded bg-gradient-to-br from-[var(--gradient-start)] to-[var(--gradient-end)]">
-            <Zap className="h-3 w-3 text-white" />
-          </div>
-          <span className="font-semibold text-foreground">CareerBoost</span>
-        </div>
-        <p>AI 기반 취업 준비 플랫폼 · 더 나은 취업을 위해</p>
-      </footer>
-
     </div>
   );
 };

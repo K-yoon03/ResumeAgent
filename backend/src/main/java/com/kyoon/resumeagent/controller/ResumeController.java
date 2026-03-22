@@ -32,12 +32,12 @@ public class ResumeController {
     private final UserRepository userRepository;
 
     // 자소서 생성 (SSE 스트리밍) - 기존 유지
-    record GenerateRequest(String experience, String analysis, String jobPosting) {}
+    record GenerateRequest(String experience, String analysis, String jobPosting, String additionalInfo) {}
 
     @PostMapping(value = "/generate", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<String> generate(@RequestBody GenerateRequest request) {
         return resumeGeneratorService.generate(
-                request.experience(), request.analysis(), request.jobPosting());
+                request.experience(), request.analysis(), request.jobPosting(), request.additionalInfo());
     }
 
     // 자소서 저장

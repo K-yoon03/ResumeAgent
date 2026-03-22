@@ -3,8 +3,10 @@ import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Zap, Mail, Lock, User, AlertCircle, Calendar } from "lucide-react";
+import { Mail, Lock, User, AlertCircle, Calendar } from "lucide-react";
 import { BASE_URL } from '../config';
+import CareerPilotHelmIcon from '../components/CareerPilotHelmIcon';
+import { toast } from "sonner";
 
 function Register() {
   const [form, setForm] = useState({ email: "", password: "", nickname: "", name: "", birthYear: "", birthMonth: "", birthDay: "" });
@@ -12,6 +14,12 @@ function Register() {
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
+  const [nicknameError, setNicknameError] = useState('');
+  const [codeSent, setCodeSent] = useState(false);
+  const [code, setCode] = useState("");
+  const [emailVerified, setEmailVerified] = useState(false);
+  const [codeLoading, setCodeLoading] = useState(false);
+  const [codeError, setCodeError] = useState("");
 
   const monthRef = useRef(null);
   const dayRef = useRef(null);
@@ -26,9 +34,83 @@ function Register() {
     }
   };
 
+  const checkNickname = async (nickname) => {
+    if (!nickname || nickname.trim() === '') {
+        setNicknameError('');
+        return;
+    }
+    try {
+        const res = await fetch(`${BASE_URL}/api/auth/check-nickname?nickname=${nickname}`);
+        const isDuplicate = await res.json();
+        if (isDuplicate) {
+            setNicknameError('이미 사용중인 닉네임입니다.');
+        } else {
+            setNicknameError('');
+        }
+    } catch (err) {
+        // 에러 시 무시
+    }
+  };
+  const sendCode = async () => {
+    if (!form.email) {
+      setError("이메일을 입력해주세요.");
+      return;
+    }
+    setCodeLoading(true);
+    setCodeError("");
+    try {
+      const res = await fetch(`${BASE_URL}/api/auth/send-code`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: form.email }),
+      });
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.message || "발송 실패");
+      }
+      setCodeSent(true);
+      toast.success("인증코드가 발송되었습니다!");
+    } catch (err) {
+      setCodeError(err.message);
+    } finally {
+      setCodeLoading(false);
+    }
+  };
+
+  const verifyCode = async () => {
+    if (!code) {
+      setCodeError("인증코드를 입력해주세요.");
+      return;
+    }
+    setCodeLoading(true);
+    setCodeError("");
+    try {
+      const res = await fetch(`${BASE_URL}/api/auth/verify-code`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: form.email, code }),
+      });
+      const isValid = await res.json();
+      if (isValid) {
+        setEmailVerified(true);
+        setCodeError("");
+        toast.success("이메일 인증 완료!");
+      } else {
+        setCodeError("인증코드가 올바르지 않습니다.");
+      }
+    } catch {
+      setCodeError("인증 확인에 실패했습니다.");
+    } finally {
+      setCodeLoading(false);
+    }
+  };
+
   const handleSubmit = async () => {
     setError("");
-
+    if (nicknameError) {
+      setError("닉네임을 확인해주세요.");
+      return;
+    }
     // 생년월일 조합
     const { birthYear, birthMonth, birthDay } = form;
     let birthDate = null;
@@ -55,8 +137,8 @@ function Register() {
         })
       });
       if (!res.ok) {
-        const msg = await res.text();
-        throw new Error(msg || "회원가입 실패");
+        const errData = await res.json();
+        throw new Error(errData.message || "회원가입 실패");
       }
       const data = await res.json();
       login(data);
@@ -65,6 +147,10 @@ function Register() {
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+    if (!emailVerified) {
+      setError("이메일 인증을 완료해주세요.");
+      return;
     }
   };
 
@@ -77,7 +163,7 @@ function Register() {
         {/* 로고 */}
         <div className="text-center space-y-3">
           <div className="inline-flex items-center justify-center p-3 rounded-full bg-gradient-to-br from-[var(--gradient-start)] via-[var(--gradient-mid)] to-[var(--gradient-end)]">
-            <Zap className="h-7 w-7 text-white" />
+            <CareerPilotHelmIcon className="h-7 w-7 text-white" />
           </div>
           <div>
             <h1 className="text-3xl font-bold bg-gradient-to-r from-[var(--gradient-start)] via-[var(--gradient-mid)] to-[var(--gradient-end)] bg-clip-text text-transparent">
@@ -125,11 +211,15 @@ function Register() {
               <input
                 type="text" name="nickname" value={form.nickname}
                 onChange={handleChange}
+                onBlur={(e) => checkNickname(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
                 placeholder="닉네임을 입력하세요"
                 className={inputClass}
               />
-              <p className="text-xs text-muted-foreground pl-1">비워두면 자동으로 생성됩니다</p>
+              {nicknameError
+                ? <p className="text-xs text-destructive pl-1">{nicknameError}</p>
+                : <p className="text-xs text-muted-foreground pl-1">비워두면 자동으로 생성됩니다</p>
+              }
             </div>
 
             {/* 이메일 */}
@@ -138,13 +228,61 @@ function Register() {
                 <Mail className="h-4 w-4 text-[var(--gradient-mid)]" />
                 이메일
               </label>
-              <input
-                type="email" name="email" value={form.email}
-                onChange={handleChange}
-                onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
-                placeholder="example@email.com"
-                className={inputClass}
-              />
+              <div className="flex gap-2">
+                <input
+                  type="email" name="email" value={form.email}
+                  onChange={(e) => {
+                    handleChange(e);
+                    setEmailVerified(false);
+                    setCodeSent(false);
+                    setCode("");
+                    setCodeError("");
+                  }}
+                  placeholder="example@email.com"
+                  className={inputClass}
+                  disabled={emailVerified}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={sendCode}
+                  disabled={codeLoading || emailVerified || !form.email}
+                  className="shrink-0 h-[42px] px-4 text-sm whitespace-nowrap"
+                >
+                  {emailVerified ? "인증완료" : codeLoading ? "발송중..." : codeSent ? "재발송" : "인증코드 발송"}
+                </Button>
+              </div>
+
+              {/* 인증코드 입력 */}
+              {codeSent && !emailVerified && (
+                <div className="flex gap-2 mt-2">
+                  <input
+                    type="text"
+                    value={code}
+                    onChange={(e) => setCode(e.target.value)}
+                    placeholder="6자리 인증코드"
+                    maxLength={6}
+                    className={inputClass}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={verifyCode}
+                    disabled={codeLoading || !code}
+                    className="shrink-0 h-[42px] px-4 text-sm whitespace-nowrap"
+                  >
+                    {codeLoading ? "확인중..." : "확인"}
+                  </Button>
+                </div>
+              )}
+
+              {/* 인증 상태 메시지 */}
+              {emailVerified && (
+                <p className="text-xs text-green-600 pl-1">✓ 이메일 인증이 완료되었습니다</p>
+              )}
+              {codeError && (
+                <p className="text-xs text-destructive pl-1">{codeError}</p>
+              )}
             </div>
 
             {/* 비밀번호 */}
@@ -202,7 +340,7 @@ function Register() {
             <Button
               className="w-full bg-gradient-to-r from-[var(--gradient-start)] via-[var(--gradient-mid)] to-[var(--gradient-end)] text-white hover:opacity-90 transition-opacity mt-2"
               onClick={handleSubmit}
-              disabled={loading}
+              disabled={loading || !emailVerified}
             >
               {loading ? "가입 중..." : "회원가입"}
             </Button>

@@ -29,6 +29,7 @@ public class AgentController {
     record ScoreRequest(String experience) {}
     record CrawlRequest(String url) {}
     record SummarizeRequest(String jobPosting) {}
+    record FollowUpRequest(String experience, String analysis) {}
 
     @PostMapping(value = "/analyze", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<String> analyze(@RequestBody String experience) {
@@ -48,5 +49,11 @@ public class AgentController {
     @PostMapping("/summarize")
     public String summarize(@RequestBody SummarizeRequest request) {
         return jobSummaryService.summarize(request.jobPosting());
+    }
+    @PostMapping("/follow-up-questions")
+    public ResponseEntity<String> followUpQuestions(@RequestBody FollowUpRequest req) {
+        return ResponseEntity.ok(
+                analyzerService.generateFollowUpQuestions(req.experience(), req.analysis())
+        );
     }
 }

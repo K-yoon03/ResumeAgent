@@ -5,8 +5,7 @@ import remarkGfm from "remark-gfm";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Sparkles, GraduationCap, Briefcase, Award, FileText, ArrowRight, X, AlertTriangle, Calendar, Save, RotateCcw, Clock } from "lucide-react";
+import { Sparkles, GraduationCap, Briefcase, Award, FileText, ArrowRight, X, AlertTriangle, Calendar, Save, RotateCcw, Clock, Target } from "lucide-react";
 import { BASE_URL } from '../config';
 
 const MAX_HISTORY = 3;
@@ -23,7 +22,7 @@ const CACHE_KEY = (text) => {
 const Analyzer = ({ setGlobalExperience, setGlobalAnalysis }) => {
   const navigate = useNavigate();
 
-  const [freeText, setFreeText] = useState("");
+  const [targetJob, setTargetJob] = useState("");
   const [structForm, setStructForm] = useState({
     age: "", education: "", career: "", skills: "", story: "",
   });
@@ -38,7 +37,6 @@ const Analyzer = ({ setGlobalExperience, setGlobalAnalysis }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [showWriterButton, setShowWriterButton] = useState(false);
-  const [inputMode, setInputMode] = useState("structured");
   const [saved, setSaved] = useState(false);
   const [hasCache, setHasCache] = useState(
     () => {
@@ -47,21 +45,15 @@ const Analyzer = ({ setGlobalExperience, setGlobalAnalysis }) => {
     }
   );
 
-  // 히스토리 저장
-  const saveToHistory = (cacheKey, fullText, scoreDataVal, form, freeTextVal, mode, noneCheckedVal) => {
+  const saveToHistory = (cacheKey, fullText, scoreDataVal, form, noneCheckedVal, targetJobVal) => {
     const history = JSON.parse(sessionStorage.getItem(HISTORY_KEY) || "[]");
 
-    // 입력 요약 생성
     const previewParts = [];
-    if (mode === "free") {
-      previewParts.push(freeTextVal.slice(0, 40) + (freeTextVal.length > 40 ? "..." : ""));
-    } else {
-      if (form.age) previewParts.push(`나이: ${form.age}`);
-      if (form.education) previewParts.push(`학력: ${form.education.slice(0, 15)}`);
-      if (form.career) previewParts.push(`경력: ${form.career.slice(0, 20)}...`);
-    }
+    if (targetJobVal) previewParts.push(`목표: ${targetJobVal}`);
+    if (form.age) previewParts.push(`나이: ${form.age}`);
+    if (form.education) previewParts.push(`학력: ${form.education.slice(0, 15)}`);
+    if (form.career) previewParts.push(`경력: ${form.career.slice(0, 20)}...`);
 
-    // 결과 첫 줄 미리보기
     const resultPreview = fullText
       .replace(/#+\s*/g, "")
       .replace(/\*+/g, "")
@@ -75,16 +67,12 @@ const Analyzer = ({ setGlobalExperience, setGlobalAnalysis }) => {
       preview: previewParts.join(" · ") || "입력 내용 없음",
       resultPreview,
       savedForm: form,
-      savedFreeText: freeTextVal,
-      savedInputMode: mode,
       savedNoneChecked: noneCheckedVal,
+      savedTargetJob: targetJobVal,
     };
 
-    // 기존 동일 키 제거 후 앞에 추가
     const filtered = history.filter(h => h.key !== cacheKey);
     const updated = [newEntry, ...filtered].slice(0, MAX_HISTORY);
-
-    // 삭제된 항목의 캐시도 제거
     const removedKeys = filtered.slice(MAX_HISTORY - 1).map(h => h.key);
     removedKeys.forEach(k => sessionStorage.removeItem(k));
 
@@ -92,7 +80,6 @@ const Analyzer = ({ setGlobalExperience, setGlobalAnalysis }) => {
     setHasCache(true);
   };
 
-  // 히스토리에서 복원
   const restoreFromHistory = (entry) => {
     const cached = sessionStorage.getItem(entry.key);
     if (!cached) {
@@ -101,10 +88,9 @@ const Analyzer = ({ setGlobalExperience, setGlobalAnalysis }) => {
     }
     try {
       const { answer: a, scoreData: s } = JSON.parse(cached);
-      if (entry.savedInputMode) setInputMode(entry.savedInputMode);
       if (entry.savedForm) setStructForm(entry.savedForm);
-      if (entry.savedFreeText) setFreeText(entry.savedFreeText);
       if (entry.savedNoneChecked) setNoneChecked(entry.savedNoneChecked);
+      if (entry.savedTargetJob) setTargetJob(entry.savedTargetJob);
       if (a) setAnswer(a);
       if (s) { setScoreData(s); scoreDataRef.current = s; }
       setIsHistoryOpen(false);
@@ -125,9 +111,10 @@ const Analyzer = ({ setGlobalExperience, setGlobalAnalysis }) => {
     }
     setIsHistoryOpen(true);
   };
+
   const resetInput = () => {
+    setTargetJob("");
     setStructForm({ age: "", education: "", career: "", skills: "", story: "" });
-    setFreeText("");
     setNoneChecked({ age: false, education: false, career: false, skills: false, story: false });
     setAnswer("");
     setScoreData(null);
@@ -165,12 +152,12 @@ const Analyzer = ({ setGlobalExperience, setGlobalAnalysis }) => {
   };
 
   const buildQuestion = () => {
-    if (inputMode === "free") return freeText;
     const getValue = (field, label) => {
       if (noneChecked[field]) return `${label}: 없음`;
       return structForm[field] ? `${label}: ${structForm[field]}` : null;
     };
     return [
+      targetJob ? `목표 직무/분야: ${targetJob}` : null,
       getValue("age", "나이"),
       getValue("education", "학력"),
       getValue("career", "경력 및 경험"),
@@ -180,7 +167,6 @@ const Analyzer = ({ setGlobalExperience, setGlobalAnalysis }) => {
   };
 
   const isWeak = () => {
-    if (inputMode === "free") return freeText.length < 20;
     return Object.keys(structForm).filter(k =>
       !noneChecked[k] && structForm[k].trim().length > 0
     ).length < 2;
@@ -188,11 +174,7 @@ const Analyzer = ({ setGlobalExperience, setGlobalAnalysis }) => {
 
   const askAi = async () => {
     const question = buildQuestion();
-    if (inputMode === "free" && freeText.length < 20) {
-      toast.error("20자 이상 입력해주세요!");
-      return;
-    }
-    if (inputMode === "structured" && question.trim().length < 10) {
+    if (question.trim().length < 10) {
       toast.error("최소 하나 이상의 항목을 입력해주세요!");
       return;
     }
@@ -269,7 +251,14 @@ const Analyzer = ({ setGlobalExperience, setGlobalAnalysis }) => {
           answer: fullText,
           scoreData: scoreDataRef.current,
         }));
-        saveToHistory(cacheKey, fullText, scoreDataRef.current, structForm, freeText, inputMode, noneChecked);
+        saveToHistory(cacheKey, fullText, scoreDataRef.current, structForm, noneChecked, targetJob);
+
+        sessionStorage.setItem("pendingAssessment", JSON.stringify({
+          experience: buildQuestion(),
+          analysis: fullText,
+          scoreData: JSON.stringify(scoreDataRef.current),
+        }));
+
         setIsModalOpen(true);
       }
     } catch (error) {
@@ -278,7 +267,6 @@ const Analyzer = ({ setGlobalExperience, setGlobalAnalysis }) => {
       setLoading(false);
     }
   };
-
   const goToWriter = async () => {
     const question = buildQuestion();
     if (setGlobalExperience) setGlobalExperience(question);
@@ -286,7 +274,6 @@ const Analyzer = ({ setGlobalExperience, setGlobalAnalysis }) => {
 
     let assessmentId = savedAssessmentId;
 
-    // 아직 저장 안 됐으면 자동 저장
     if (!saved) {
       const token = localStorage.getItem("token");
       if (token) {
@@ -300,12 +287,12 @@ const Analyzer = ({ setGlobalExperience, setGlobalAnalysis }) => {
             body: JSON.stringify({
               experience: question,
               analysis: answer,
-              scoreData: JSON.stringify(scoreData)
+              scoreData: scoreData ? JSON.stringify(scoreData) : null
             })
           });
           if (res.ok) {
             const data = await res.json();
-            assessmentId = data.id;
+            assessmentId = data.id;  // ← 지역 변수 업데이트
             setSavedAssessmentId(data.id);
             setSaved(true);
           }
@@ -315,15 +302,17 @@ const Analyzer = ({ setGlobalExperience, setGlobalAnalysis }) => {
       }
     }
 
+    // ← 여기가 핵심! assessmentId가 제대로 설정된 후 navigate
     navigate("/resume-writer", {
       state: {
         experience: question,
         analysis: answer,
         scoreData,
-        assessmentId
+        assessmentId  // ← 이제 data.id가 들어감!
       }
     });
   };
+
   const saveAssessment = async () => {
     const token = localStorage.getItem("token");
     if (!token) { navigate("/login"); return; }
@@ -337,11 +326,11 @@ const Analyzer = ({ setGlobalExperience, setGlobalAnalysis }) => {
         body: JSON.stringify({
           experience: buildQuestion(),
           analysis: answer,
-          scoreData: JSON.stringify(scoreData)
+          scoreData: scoreData ? JSON.stringify(scoreData) : null
         })
       });
       const data = await res.json();
-      setSavedAssessmentId(data.id);  // ID 저장
+      setSavedAssessmentId(data.id);
       setSaved(true);
       toast.success("저장되었습니다!");
     } catch {
@@ -352,10 +341,12 @@ const Analyzer = ({ setGlobalExperience, setGlobalAnalysis }) => {
   const structFields = [
     { name: "age", label: "나이", icon: Calendar, placeholder: "예: 25", type: "input" },
     { name: "education", label: "학력", icon: GraduationCap, placeholder: "예: 서울대학교 컴퓨터공학과 졸업", type: "input" },
-    { name: "career", label: "경력 및 경험", icon: Briefcase, placeholder: "예: IT 스타트업에서 인턴 경험 6개월", type: "textarea" },
+    { name: "career", label: "경력 및 경험", icon: Briefcase, placeholder: "예: IT 스타트업에서 인턴 경험 6개월, 팀 프로젝트 3회 등", type: "textarea" },
     { name: "skills", label: "보유 스킬 및 자격증", icon: Award, placeholder: "예: Python, JavaScript, AWS, 정보처리기사 등", type: "textarea" },
     { name: "story", label: "자신의 이야기", icon: FileText, placeholder: "성장 배경, 가치관, 목표 등 자유롭게 작성하세요", type: "textarea" },
   ];
+
+  const inputClass = "w-full px-4 py-2.5 rounded-lg border border-input text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[var(--gradient-mid)]/50 focus:border-[var(--gradient-mid)] transition-all";
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-12 space-y-8">
@@ -383,109 +374,90 @@ const Analyzer = ({ setGlobalExperience, setGlobalAnalysis }) => {
               <CardDescription>자세히 작성할수록 더 정확한 분석 결과를 받을 수 있습니다</CardDescription>
             </div>
             <div className="flex items-center gap-1">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={openHistory}
-                  className="shrink-0"
-                >
+              <Button variant="outline" size="sm" onClick={openHistory} className="shrink-0">
                 <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
-                  이전 내용 불러오기
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={resetInput}
-                  className="shrink-0 text-muted-foreground"
-                >
+                이전 내용 불러오기
+              </Button>
+              <Button variant="outline" size="sm" onClick={resetInput} className="shrink-0 text-muted-foreground">
                 <X className="mr-1.5 h-3.5 w-3.5" />
                 초기화
               </Button>
             </div>
           </div>
         </CardHeader>
-        <CardContent>
-          <Tabs value={inputMode} onValueChange={setInputMode} className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-6">
-              <TabsTrigger value="structured">☰ 구조화된 입력</TabsTrigger>
-              <TabsTrigger value="free">≡ 자유 입력</TabsTrigger>
-            </TabsList>
+        <CardContent className="space-y-5">
 
-            <TabsContent value="structured" className="space-y-5">
-              {structFields.map(({ name, label, icon: Icon, placeholder, type }) => (
-                <div key={name} className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <label className="text-sm font-medium flex items-center gap-2 text-foreground">
-                      <Icon className="h-4 w-4 text-[var(--gradient-mid)]" />
-                      {label}
-                    </label>
-                    <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none">
-                      <input
-                        type="checkbox"
-                        checked={noneChecked[name]}
-                        onChange={() => handleNoneCheck(name)}
-                        className="w-3.5 h-3.5 accent-[var(--gradient-mid)]"
-                      />
-                      없음
-                    </label>
-                  </div>
-                  {type === "input" ? (
-                    <input
-                      type="text" name={name}
-                      value={noneChecked[name] ? "" : structForm[name]}
-                      onChange={handleStructChange}
-                      placeholder={noneChecked[name] ? "없음으로 처리됩니다" : placeholder}
-                      disabled={noneChecked[name]}
-                      className={`w-full px-4 py-2.5 rounded-lg border border-input text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[var(--gradient-mid)]/50 focus:border-[var(--gradient-mid)] transition-all ${noneChecked[name] ? "bg-muted text-muted-foreground cursor-not-allowed opacity-50" : "bg-background text-foreground"}`}
-                    />
-                  ) : (
-                    <textarea
-                      name={name}
-                      value={noneChecked[name] ? "" : structForm[name]}
-                      onChange={handleStructChange}
-                      placeholder={noneChecked[name] ? "없음으로 처리됩니다" : placeholder}
-                      disabled={noneChecked[name]}
-                      rows={3}
-                      className={`w-full px-4 py-2.5 rounded-lg border border-input text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[var(--gradient-mid)]/50 focus:border-[var(--gradient-mid)] transition-all resize-none overflow-hidden ${noneChecked[name] ? "bg-muted text-muted-foreground cursor-not-allowed opacity-50" : "bg-background text-foreground"}`}
-                    />
-                  )}
-                </div>
-              ))}
-              {isWeak() && (
-                <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-sm">
-                  <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
-                  내용이 너무 짧거나 부족할 경우 AI가 분석을 거부할 수 있습니다.
-                </div>
-              )}
-            </TabsContent>
+          {/* 목표 직무 */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium flex items-center gap-2 text-foreground">
+              <Target className="h-4 w-4 text-[var(--gradient-mid)]" />
+              목표 직무/분야
+              <span className="text-xs text-muted-foreground font-normal">(선택)</span>
+            </label>
+            <input
+              type="text"
+              value={targetJob}
+              onChange={(e) => setTargetJob(e.target.value)}
+              placeholder="예: 백엔드 개발자, 데이터 분석가, 마케터 등"
+              className={`${inputClass} bg-background text-foreground`}
+            />
+            <p className="text-xs text-muted-foreground pl-1">
+              목표 직무를 입력하면 해당 관점에서 맞춤 분석과 조언을 받을 수 있어요
+            </p>
+          </div>
 
-            <TabsContent value="free" className="space-y-3">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-sm font-medium text-foreground">경험을 자유롭게 입력해주세요</label>
-                  <span className={`text-xs ${freeText.length < 20 ? "text-amber-500" : "text-muted-foreground"}`}>
-                    {freeText.length}자
-                  </span>
-                </div>
-                <textarea
-                  value={freeText}
-                  onChange={(e) => setFreeText(e.target.value)}
-                  placeholder="분석할 경험, 스펙, 역량 등을 자유롭게 입력해 주세요."
-                  rows={12}
-                  className="w-full px-4 py-3 rounded-lg border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[var(--gradient-mid)]/50 focus:border-[var(--gradient-mid)] transition-all resize-none"
-                />
+          <div className="border-t border-border/40" />
+
+          {/* 구조화 입력 필드 */}
+          {structFields.map(({ name, label, icon: Icon, placeholder, type }) => (
+            <div key={name} className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium flex items-center gap-2 text-foreground">
+                  <Icon className="h-4 w-4 text-[var(--gradient-mid)]" />
+                  {label}
+                </label>
+                <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={noneChecked[name]}
+                    onChange={() => handleNoneCheck(name)}
+                    className="w-3.5 h-3.5 accent-[var(--gradient-mid)]"
+                  />
+                  없음
+                </label>
               </div>
-              {freeText.length > 0 && freeText.length < 20 && (
-                <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-sm">
-                  <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
-                  내용이 너무 짧거나 부족할 경우 AI가 분석을 거부할 수 있습니다.
-                </div>
+              {type === "input" ? (
+                <input
+                  type="text" name={name}
+                  value={noneChecked[name] ? "" : structForm[name]}
+                  onChange={handleStructChange}
+                  placeholder={noneChecked[name] ? "없음으로 처리됩니다" : placeholder}
+                  disabled={noneChecked[name]}
+                  className={`${inputClass} ${noneChecked[name] ? "bg-muted text-muted-foreground cursor-not-allowed opacity-50" : "bg-background text-foreground"}`}
+                />
+              ) : (
+                <textarea
+                  name={name}
+                  value={noneChecked[name] ? "" : structForm[name]}
+                  onChange={handleStructChange}
+                  placeholder={noneChecked[name] ? "없음으로 처리됩니다" : placeholder}
+                  disabled={noneChecked[name]}
+                  rows={3}
+                  className={`${inputClass} resize-none overflow-hidden ${noneChecked[name] ? "bg-muted text-muted-foreground cursor-not-allowed opacity-50" : "bg-background text-foreground"}`}
+                />
               )}
-            </TabsContent>
-          </Tabs>
+            </div>
+          ))}
+
+          {isWeak() && (
+            <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-sm">
+              <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+              내용이 너무 짧거나 부족할 경우 AI가 분석을 거부할 수 있습니다.
+            </div>
+          )}
 
           <Button
-            className="w-full mt-6 bg-gradient-to-r from-[var(--gradient-start)] via-[var(--gradient-mid)] to-[var(--gradient-end)] text-white hover:opacity-90 transition-opacity"
+            className="w-full bg-gradient-to-r from-[var(--gradient-start)] via-[var(--gradient-mid)] to-[var(--gradient-end)] text-white hover:opacity-90 transition-opacity"
             onClick={askAi}
             disabled={loading}
           >
@@ -583,17 +555,14 @@ const Analyzer = ({ setGlobalExperience, setGlobalAnalysis }) => {
             >
               <X className="h-5 w-5" />
             </button>
-
             <h3 className="text-lg font-bold text-foreground mb-1">이전 분석 내용</h3>
-            <p className="text-sm text-muted-foreground mb-5">불러올 분석을 선택해주세요<br/>최대 3개까지 저장</p>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={clearHistory}
-                className="text-muted-foreground hover:text-destructive text-xs"
-              >
+            <div className="flex items-center justify-between mb-5">
+              <p className="text-sm text-muted-foreground">불러올 분석을 선택해주세요 (최대 3개)</p>
+              <Button variant="ghost" size="sm" onClick={clearHistory}
+                className="text-muted-foreground hover:text-destructive text-xs">
                 전체 삭제
               </Button>
+            </div>
             <div className="space-y-3">
               {getHistory().map((entry, idx) => (
                 <button

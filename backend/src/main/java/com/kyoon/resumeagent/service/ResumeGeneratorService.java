@@ -18,19 +18,24 @@ public class ResumeGeneratorService {
         this.chatClient = builder.build();
     }
 
-    public Flux<String> generate(String profile, String analysis, String jobPosting) {
+    public Flux<String> generate(String profile, String analysis, String jobPosting, String additionalInfo) {
 
         String finalJobPosting = (jobPosting == null || jobPosting.isBlank())
                 ? "회사명 : 00회사\n우대사항: 없음\n회사 비전: 성장하는 스타트업"
-                :jobPosting;
+                : jobPosting;
+
+        String finalAdditionalInfo = (additionalInfo == null || additionalInfo.isBlank())
+                ? "없음"
+                : additionalInfo;
 
         return chatClient.prompt()
                 .system(s -> s.text(prompt)
                         .param("profile", profile)
                         .param("analysis", analysis)
-                        .param("jobPosting", finalJobPosting))
+                        .param("jobPosting", finalJobPosting)
+                        .param("additionalInfo", finalAdditionalInfo))
                 .user("자기소개서를 작성하세요.")
                 .stream()
-                .content(); // bufferUntil 제거
+                .content();
     }
 }

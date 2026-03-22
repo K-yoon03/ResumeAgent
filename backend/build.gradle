@@ -60,6 +60,8 @@ dependencies {
 
 	runtimeOnly 'com.mysql:mysql-connector-j'        // MySQL 드라이버
 	implementation 'org.springframework.boot:spring-boot-starter-data-redis'  // Redis
+
+	implementation 'org.springframework.boot:spring-boot-starter-mail'
 }
 
 dependencyManagement {

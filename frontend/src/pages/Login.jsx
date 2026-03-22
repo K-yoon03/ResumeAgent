@@ -3,8 +3,9 @@ import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Zap, Mail, Lock, AlertCircle } from "lucide-react";
+import { Mail, Lock, AlertCircle } from "lucide-react";
 import { BASE_URL } from '../config';
+import CareerPilotHelmIcon from '../components/CareerPilotHelmIcon';
 
 function Login() {
   const [email, setEmail] = useState("");
@@ -24,8 +25,8 @@ function Login() {
         body: JSON.stringify({ email, password })
       });
       if (!res.ok) {
-        const msg = await res.text();
-        throw new Error(msg || "로그인 실패");
+        const errData = await res.json();
+        throw new Error(errData.message || "로그인 실패");
       }
       const data = await res.json();
       login(data);
@@ -44,11 +45,11 @@ function Login() {
         {/* 로고 */}
         <div className="text-center space-y-3">
           <div className="inline-flex items-center justify-center p-3 rounded-full bg-gradient-to-br from-[var(--gradient-start)] via-[var(--gradient-mid)] to-[var(--gradient-end)]">
-            <Zap className="h-7 w-7 text-white" />
+            <CareerPilotHelmIcon className="h-7 w-7 text-white" />
           </div>
           <div>
             <h1 className="text-3xl font-bold bg-gradient-to-r from-[var(--gradient-start)] via-[var(--gradient-mid)] to-[var(--gradient-end)] bg-clip-text text-transparent">
-              CareerBoost
+              CareerPilot
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
               AI 기반 취업 준비 플랫폼

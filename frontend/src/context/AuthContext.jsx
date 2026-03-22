@@ -1,35 +1,127 @@
 import { createContext, useContext, useState, useEffect } from "react";
+import { BASE_URL } from '../config';
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null); // { token, name, email }
+  const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // 앱 시작 시 token 있으면 DB에서 유저 정보 가져오기
   useEffect(() => {
     const token = localStorage.getItem("token");
-    const name = localStorage.getItem("name");
-    const email = localStorage.getItem("email");
-    if (token) setUser({ token, name, email });
-    setLoading(false);
+    if (!token) {
+      setLoading(false);
+      return;
+    }
+    fetch(`${BASE_URL}/api/auth/me`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then(res => {
+        if (!res.ok) throw new Error("인증 실패");
+        return res.json();
+      })
+      .then(data => setUser({ token, ...data }))
+      .catch(async () => {
+        // Access Token 만료 시 Refresh Token으로 갱신 시도
+        const refreshToken = localStorage.getItem("refreshToken");
+        if (refreshToken) {
+          try {
+            const res = await fetch(`${BASE_URL}/api/auth/refresh`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ refreshToken }),
+            });
+            if (res.ok) {
+              const data = await res.json();
+              localStorage.setItem("token", data.token);
+              setUser(data);
+              return;
+            }
+          } catch {
+            // Refresh도 실패하면 로그아웃
+          }
+        }
+        localStorage.removeItem("token");
+        localStorage.removeItem("refreshToken");
+        setUser(null);
+      })
+      .finally(() => setLoading(false));
   }, []);
 
-  const login = (data) => {
+  const login = async (data) => {
     localStorage.setItem("token", data.token);
-    localStorage.setItem("name", data.name);
-    localStorage.setItem("email", data.email);
+    if (data.refreshToken) {
+      localStorage.setItem("refreshToken", data.refreshToken);
+    }
     setUser(data);
-  };
 
-  const logout = () => {
+    // 비회원 때 했던 역량평가 있으면 자동으로 DB에 저장
+    const pending = sessionStorage.getItem("pendingAssessment");
+    if (pending) {
+      try {
+        const { experience, analysis, scoreData } = JSON.parse(pending);
+        await fetch(`${BASE_URL}/api/assessments`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${data.token}`,
+          },
+          body: JSON.stringify({ experience, analysis, scoreData }),
+        });
+        sessionStorage.removeItem("pendingAssessment");
+      } catch {
+        // 저장 실패해도 로그인은 정상 진행
+      }
+    }
+  };
+  const logout = async () => {
+    const token = localStorage.getItem("token");
+    if (token) {
+      try {
+        await fetch(`${BASE_URL}/api/auth/logout`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      } catch {
+        // 실패해도 로컬은 무조건 지움
+      }
+    }
     localStorage.removeItem("token");
-    localStorage.removeItem("name");
-    localStorage.removeItem("email");
+    localStorage.removeItem("refreshToken");
     setUser(null);
   };
 
+  // 유저 정보 갱신 (마이페이지 수정 후 호출)
+  const refreshUser = async () => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    const res = await fetch(`${BASE_URL}/api/auth/me`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      setUser({ token, ...data });
+    } else if (res.status === 401) {
+      // Access Token 만료 시 갱신 시도
+      const refreshToken = localStorage.getItem("refreshToken");
+      if (refreshToken) {
+        const refreshRes = await fetch(`${BASE_URL}/api/auth/refresh`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ refreshToken }),
+        });
+        if (refreshRes.ok) {
+          const newData = await refreshRes.json();
+          localStorage.setItem("token", newData.token);
+          setUser(newData);
+        }
+      }
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading }}>
+    <AuthContext.Provider value={{ user, login, logout, loading, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

@@ -39,6 +39,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/resume/generate").permitAll()
                         .requestMatchers("/api/interview/**").permitAll()
                         .requestMatchers("/h2-console/**").permitAll()
+                        .requestMatchers("/api/projects/**").authenticated()
                         .anyRequest().authenticated()
                 ).headers(headers -> headers.frameOptions(frame -> frame.disable()))
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);

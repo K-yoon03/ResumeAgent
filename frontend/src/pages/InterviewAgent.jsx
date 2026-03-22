@@ -134,6 +134,10 @@ function InterviewAgent() {
           setMessages(prev => [...prev, { role: "feedback", content: full }]);
           setPhase("done");
           setLoading(false);
+          const qna = [...newMessages, { role: "feedback", content: full }]
+            .map(m => `${m.role === "user" ? "지원자" : m.role === "interviewer" ? "면접관" : "피드백"}: ${m.content}`)
+            .join("\n\n");
+          saveInterviewResult(full, qna);
         } else {
           setMessages(prev => [...prev, { role: "feedback", content: full }]);
           const history = newMessages
@@ -173,10 +177,35 @@ function InterviewAgent() {
       `${BASE_URL}/api/interview/feedback-all`,
       { resume, jobPosting, questionsAndAnswers },
       (chunk) => setFinalFeedback(prev => prev + chunk),
-      () => { setPhase("done"); setLoading(false); }
+      (full) => {
+          setPhase("done");
+          setLoading(false);
+          saveInterviewResult(full, questionsAndAnswers);
+      }
     );
   };
-
+  const saveInterviewResult = async (feedback, qna) => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    try {
+        await fetch(`${BASE_URL}/api/interview/save`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+                mode: interviewMode,
+                resumeContent: resume,
+                questionsAndAnswers: qna,
+                feedback,
+                totalQuestions,
+            }),
+        });
+    } catch {
+        // 저장 실패해도 면접은 정상 진행
+    }
+};
   const startInterview = () => {
     setPhase("interviewing");
     if (interviewMode === "list") fetchAllQuestions();

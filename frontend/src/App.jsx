@@ -14,6 +14,9 @@ import JobPostings from './pages/JobPostings';
 import MyAssessments from './pages/MyAssessments';
 import MyResumes from './pages/MyResumes';
 import ProtectedRoute from './components/ProtectedRoute';
+import MyPage from './pages/MyPage';
+import MyInterviews from './pages/MyInterviews';
+import Footer from './components/Footer';
 
 import './App.css';
 
@@ -42,7 +45,10 @@ function App() {
           <Route path="/job-postings" element={<JobPostings />} />
           <Route path="/my-assessments" element={<ProtectedRoute><MyAssessments /></ProtectedRoute>} />
           <Route path="/my-resumes" element={<ProtectedRoute><MyResumes /></ProtectedRoute>} />
+          <Route path="/my-page" element={<ProtectedRoute><MyPage /></ProtectedRoute>} />
+          <Route path="/my-interviews" element={<ProtectedRoute><MyInterviews /></ProtectedRoute>} />
         </Routes>
+        <Footer />
       </BrowserRouter>
     </AuthProvider>
   );

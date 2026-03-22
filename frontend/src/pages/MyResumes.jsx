@@ -135,7 +135,9 @@ export default function MyResumes() {
                     size="sm"
                     className="bg-gradient-to-r from-[var(--gradient-start)] to-[var(--gradient-end)] text-white hover:opacity-90"
                     onClick={() => navigate("/resume-writer", {
-                      state: { savedResume: resume }
+                      state: { savedResume: resume,
+                        assessmentId: resume.assessmentId
+                       }
                     })}
                   >
                     <FileText className="mr-1.5 h-3.5 w-3.5" />

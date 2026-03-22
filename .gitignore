@@ -7,3 +7,4 @@ frontend/dist/
 # 민감 정보 (이게 핵심!)
 application.properties
 .env
+*.db

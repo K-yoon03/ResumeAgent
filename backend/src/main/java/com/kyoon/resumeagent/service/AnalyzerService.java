@@ -86,4 +86,61 @@ public class AnalyzerService {
                     List.of("다시 시도해주세요."));
         }
     }
+    public String generateFollowUpQuestions(String experience, String analysis) {
+        String result = chatClient.prompt()
+                .user("""
+            아래는 취준생의 경험과 역량 분석 결과입니다.
+            자기소개서 작성에 도움이 될 구체적인 질문을 생성하세요.
+            
+            규칙:
+            - 경험 개수가 3개 미만이면 경험 개수만큼만 질문 생성
+            - 경험 개수가 3개 이상이면 자기소개서에 가장 임팩트 있을 경험 3개 선택
+            - 각 질문은 STAR 기법(상황/행동/결과)을 유도하는 방식으로 작성
+            - 목표 직무가 있다면 해당 직무 관점에서 질문 생성
+            
+            반드시 아래 JSON 형식으로만 반환하세요. 다른 텍스트 없이 JSON만 반환하세요.
+            {
+              "questions": [
+                {"id": 1, "experience": "관련 경험명", "question": "구체적인 질문"},
+                {"id": 2, "experience": "관련 경험명", "question": "구체적인 질문"}
+              ]
+            }
+            
+            경험: """ + experience + """
+            
+            분석 결과: """ + analysis
+                )
+                .call()
+                .content();
+
+        // JSON 파싱 안전하게 처리
+        try {
+            String clean = result.trim()
+                    .replaceAll("```json", "")
+                    .replaceAll("```", "")
+                    .trim();
+            return clean;
+        } catch (Exception e) {
+            return "{\"questions\": []}";
+        }
+    }
+    public String extractProjects(String experience) {
+        String result = chatClient.prompt()
+                .user("""
+            아래 경험에서 프로젝트/활동을 추출하세요.
+            반드시 JSON만 반환하세요.
+            {
+              "projects": [
+                {"name": "프로젝트명", "techStack": "기술스택", "period": "기간"}
+              ]
+            }
+            경험: """ + experience)
+                .call()
+                .content();
+        try {
+            return result.trim().replaceAll("```json","").replaceAll("```","").trim();
+        } catch (Exception e) {
+            return "{\"projects\": []}";
+        }
+    }
 }

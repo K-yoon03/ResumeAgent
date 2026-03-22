@@ -48,4 +48,10 @@ public class User {
     @CreatedDate
     @Column(updatable = false)
     private LocalDateTime createdAt;
+
+    public void updateInfo(String nickname, String name, String birthDate) {
+        if (nickname != null && !nickname.isBlank()) this.nickname = nickname;
+        if (name != null && !name.isBlank()) this.name = name;
+        if (birthDate != null && !birthDate.isBlank()) this.birthDate = birthDate;
+    }
 }

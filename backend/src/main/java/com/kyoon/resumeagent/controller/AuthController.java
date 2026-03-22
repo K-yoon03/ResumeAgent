@@ -1,9 +1,14 @@
 package com.kyoon.resumeagent.controller;
 
+import com.kyoon.resumeagent.Component.JwtUtil;
 import com.kyoon.resumeagent.service.AuthService;
+import com.kyoon.resumeagent.service.EmailService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import com.kyoon.resumeagent.repository.UserRepository;
+import com.kyoon.resumeagent.DTO.UserInfoResponse;
+import com.kyoon.resumeagent.DTO.UpdateRequest;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -11,10 +16,16 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final AuthService authService;
+    private final UserRepository userRepository;
+    private final JwtUtil jwtUtil;
+    private final EmailService emailService;
 
     public record RegisterRequest(String email, String password, String nickname, String name, String birthDate) {}
     public record LoginRequest(String email, String password) {}
-    public record AuthResponse(String token, String nickname, String email) {}
+    public record AuthResponse(String token, String refreshToken, String nickname, String email) {}
+    public record RefreshRequest(String refreshToken) {}  // ← 여기 같이 있어야 해요
+    public record SendCodeRequest(String email) {}
+    public record VerifyCodeRequest(String email, String code) {}
 
     @PostMapping("/register")
     public ResponseEntity<AuthResponse> register(@RequestBody RegisterRequest req) {
@@ -26,5 +37,61 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@RequestBody LoginRequest req) {
         return ResponseEntity.ok(authService.login(req.email(), req.password()));
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(
+            @RequestHeader("Authorization") String authHeader) {
+        String email = extractEmail(authHeader);
+        authService.logout(email);
+        return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/check-nickname")
+    public ResponseEntity<Boolean> checkNickname(@RequestParam String nickname) {
+        return ResponseEntity.ok(authService.isNicknameDuplicate(nickname));
+    }
+    @PostMapping("/refresh")
+    public ResponseEntity<AuthResponse> refresh(@RequestBody RefreshRequest req) {
+        return ResponseEntity.ok(authService.refresh(req.refreshToken()));
+    }
+
+    @GetMapping("/me")
+    public ResponseEntity<UserInfoResponse> getMyInfo(
+            @RequestHeader("Authorization") String authHeader) {
+        String email = extractEmail(authHeader);
+        return ResponseEntity.ok(authService.getMyInfo(email));
+    }
+
+    @PutMapping("/me")
+    public ResponseEntity<UserInfoResponse> updateMyInfo(
+            @RequestHeader("Authorization") String authHeader,
+            @RequestBody UpdateRequest req) {
+        String email = extractEmail(authHeader);
+        return ResponseEntity.ok(authService.updateMyInfo(email, req.nickname(), req.name(), req.birthDate()));
+    }
+
+    @DeleteMapping("/me")
+    public ResponseEntity<Void> deleteMyAccount(
+            @RequestHeader("Authorization") String authHeader) {
+        String email = extractEmail(authHeader);
+        authService.deleteMyAccount(email);
+        return ResponseEntity.noContent().build();
+    }
+
+    private String extractEmail(String authHeader) {
+        String token = authHeader.replace("Bearer ", "");
+        return jwtUtil.extractEmail(token);
+    }
+
+    @PostMapping("/send-code")
+    public ResponseEntity<Void> sendCode(@RequestBody SendCodeRequest req) {
+        emailService.sendVerificationCode(req.email());
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/verify-code")
+    public ResponseEntity<Boolean> verifyCode(@RequestBody VerifyCodeRequest req) {
+        return ResponseEntity.ok(emailService.verifyCode(req.email(), req.code()));
     }
 }

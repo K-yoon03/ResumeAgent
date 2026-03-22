@@ -160,9 +160,10 @@ function MyAssessments() {
                     </div>
 
                     {/* 연관 자소서 */}
-                    <div className="flex items-center gap-2">
-                      <FileText className="h-3.5 w-3.5 text-muted-foreground" />
-                      <span className="text-sm text-muted-foreground">연관 자소서:</span>
+                    <div className="flex items-start gap-2">
+                    <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <span className="text-sm text-muted-foreground block mb-1">연관 자소서:</span>
                       {hasResume ? (
                         <div className="flex items-center gap-2 flex-wrap">
                           {assessment.resumes.map((resume, idx) => (
@@ -173,7 +174,8 @@ function MyAssessments() {
                                   experience: assessment.experience,
                                   analysis: assessment.analysis,
                                   scoreData,
-                                  savedResume: resume
+                                  savedResume: resume,
+                                  assessmentId: assessment.id 
                                 }
                               })}
                               className="text-sm text-[var(--gradient-mid)] hover:underline flex items-center gap-0.5"
@@ -182,12 +184,13 @@ function MyAssessments() {
                               <ChevronRight className="h-3 w-3" />
                             </button>
                           ))}
+                          </div>
+                          ) : (
+                            <span className="text-sm text-muted-foreground italic">생성된 자소서가 없음</span>
+                          )}
                         </div>
-                      ) : (
-                        <span className="text-sm text-muted-foreground italic">생성된 자소서가 없음</span>
-                      )}
+                      </div>
                     </div>
-                  </div>
 
                   {/* 오른쪽 버튼 */}
                   <div className="flex flex-col gap-2 shrink-0">
@@ -199,6 +202,7 @@ function MyAssessments() {
                           experience: assessment.experience,
                           analysis: assessment.analysis,
                           scoreData,
+                          assessmentId: assessment.id
                         }
                       })}
                     >
