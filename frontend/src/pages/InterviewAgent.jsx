@@ -43,9 +43,14 @@ function InterviewAgent() {
 
   // SSE 스트리밍
   const streamSSE = async (url, body, onChunk, onDone) => {
+    const token = localStorage.getItem("token"); // 🔥 추가!
+    
     const response = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { 
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}` // 🔥 추가!
+      },
       body: JSON.stringify(body)
     });
 

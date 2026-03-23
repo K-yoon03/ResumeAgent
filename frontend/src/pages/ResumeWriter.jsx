@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { FileText, TrendingUp, Target, Lightbulb, Edit, ArrowRight, CheckCircle, AlertTriangle, RotateCcw, X, Clock, MessageSquare, ChevronDown, ChevronUp, Loader2, Plus, ChevronRight, Sparkles, BarChart, MapPin } from "lucide-react";
 import { BASE_URL } from '../config';
 import EvaluationResult from '../components/EvaluationResult';
+import { MagicPaste } from '@/components/MagicPaste';
 
 const MAX_HISTORY = 3;
 const RESUME_HISTORY_KEY = "resume_history";
@@ -141,7 +142,7 @@ function StarModal({ project, onClose, onSave, aiHints, aiHintUsed, onAiHintFetc
             {STAR_STEPS.map((s, i) => (
               <button
                 key={s.key}
-                onClick={() => { setStep(i); setShowExample(false); setAiHints(null); }}
+                onClick={() => { setStep(i); setShowExample(false);}}
                 className={`text-xs py-1.5 rounded-md transition-colors ${
                   step === i
                     ? "bg-[var(--gradient-mid)]/20 text-[var(--gradient-mid)] font-semibold"
@@ -297,9 +298,6 @@ function ResumeWriter() {
   const [deleteConfirm, setDeleteConfirm] = useState(null);
 
   const [showMagicPaste, setShowMagicPaste] = useState(false);
-  const [rawPaste, setRawPaste] = useState("");
-  const [parsing, setParsing] = useState(false);
-
   const [showSavedPostings, setShowSavedPostings] = useState(false);
   const [savedPostings, setSavedPostings] = useState([]);
   const [loadingPostings, setLoadingPostings] = useState(false);
@@ -712,57 +710,6 @@ const deleteSavedPosting = async (id) => {
     toast.error("삭제에 실패했습니다.");
   }
 };
- 
-// 매직 페이스트 파싱
-const parseMagicPaste = async () => {
-  setParsing(true);
-  try {
-    const token = localStorage.getItem("token");
-    const res = await fetch(`${BASE_URL}/api/v1/agent/parse-job-posting`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(token && { "Authorization": `Bearer ${token}` }),
-      },
-      body: JSON.stringify({ rawText: rawPaste })
-    });
-    
-    if (res.ok) {
-      const text = await res.text();
-      const data = JSON.parse(text);
-      
-      // 파싱된 데이터로 폼 채우기
-      setJobForm({
-        companyName: data.companyName || "",
-        position: data.position || "",
-        mainTasks: data.mainTasks || "",
-        requirements: data.requirements || "",
-        preferred: data.preferred || "",
-        techStack: data.techStack || "",
-        workPlace: data.workPlace || "",
-        employmentType: data.employmentType || "",
-        vision: data.vision || "",
-      });
-      
-      setShowMagicPaste(false);
-      setRawPaste("");
-      setJobMode("form");
-      toast.success("공고가 자동으로 입력되었습니다! 🎉");
-      
-      // 부족한 내용 경고
-      const emptyFields = Object.values(data).filter(v => !v || v.trim() === "").length;
-      if (emptyFields > 3) {
-        toast.info("부족한 내용은 직접 추가해주세요!", { duration: 4000 });
-      }
-    }
-  } catch {
-    toast.error("파싱에 실패했습니다. 직접 입력해주세요.");
-  } finally {
-    setParsing(false);
-  }
-};
- 
-
   const confirmJobForm = () => {
     if (!jobForm.companyName && !jobForm.position && !jobForm.mainTasks) {
       toast.error("최소 회사명, 직무, 주요 업무 중 하나는 입력해주세요."); return;
@@ -840,9 +787,14 @@ const parseMagicPaste = async () => {
       } catch { sessionStorage.removeItem(cacheKey); }
     }
 
+    const token = localStorage.getItem("token"); // 🔥 추가!
+
     const response = await fetch(`${BASE_URL}/api/resume/generate`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { 
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}` // 🔥 추가!
+      },
       body: JSON.stringify({ experience, analysis, jobPosting, additionalInfo })
     });
 
@@ -1456,75 +1408,15 @@ const parseMagicPaste = async () => {
                       </div>
                     </>
                   )}
-                  {showMagicPaste && (
-                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-                    <div className="relative w-full max-w-2xl bg-card border border-border rounded-2xl shadow-2xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
-                      <button
-                        className="absolute top-4 right-4 text-muted-foreground hover:text-foreground"
-                        onClick={() => {
-                          setShowMagicPaste(false);
-                          setRawPaste("");
-                        }}
-                      >
-                        <X className="h-5 w-5" />
-                      </button>
-                
-                      <div>
-                        <h3 className="text-xl font-bold text-foreground mb-2 flex items-center gap-2">
-                          <Sparkles className="h-6 w-6 text-[var(--gradient-mid)]" />
-                          매직 페이스트
-                        </h3>
-                        <p className="text-sm text-muted-foreground">
-                          채용 공고 전체를 <kbd className="px-1.5 py-0.5 rounded bg-muted text-xs font-semibold">Ctrl+A</kbd> → <kbd className="px-1.5 py-0.5 rounded bg-muted text-xs font-semibold">Ctrl+C</kbd> 해서 붙여넣으세요!<br />
-                          AI가 알아서 필요한 정보만 추출합니다. (광고, 버튼 등 포함되어도 괜찮아요!)
-                        </p>
-                      </div>
-                
-                      <textarea
-                        value={rawPaste}
-                        onChange={(e) => setRawPaste(e.target.value)}
-                        placeholder="채용 공고를 여기에 붙여넣으세요..."
-                        className="w-full min-h-[300px] px-4 py-3 rounded-lg border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-[var(--gradient-mid)]/50 resize-none font-mono"
-                      />
-                
-                      <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800">
-                        <p className="text-xs text-amber-800 dark:text-amber-300 flex items-center gap-2">
-                          <AlertTriangle className="h-3.5 w-3.5" />
-                          AI가 추출하지 못한 정보는 직접 추가해주세요!
-                        </p>
-                      </div>
-                
-                      <div className="flex gap-3">
-                        <Button
-                          onClick={parseMagicPaste}
-                          disabled={!rawPaste.trim() || parsing}
-                          className="flex-1 bg-gradient-to-r from-[var(--gradient-start)] to-[var(--gradient-end)] text-white"
-                        >
-                          {parsing ? (
-                            <>
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              AI가 분석 중...
-                            </>
-                          ) : (
-                            <>
-                              <Sparkles className="mr-2 h-4 w-4" />
-                              자동 입력하기
-                            </>
-                          )}
-                        </Button>
-                        <Button 
-                          variant="outline" 
-                          onClick={() => {
-                            setShowMagicPaste(false);
-                            setRawPaste("");
-                          }}
-                        >
-                          취소
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                )}
+                  <MagicPaste 
+                    isOpen={showMagicPaste}
+                    onClose={() => setShowMagicPaste(false)}
+                    onParsed={(json) => {
+                      // 파싱된 데이터로 jobPosting 채우기
+                      setJobPosting(JSON.stringify(json, null, 2));
+                      toast.success('채용공고 정보가 자동 입력되었습니다!');
+                    }}
+                  />
                 {showSavedPostings && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
                   <div className="relative w-full max-w-2xl bg-card border border-border rounded-2xl shadow-2xl p-6 max-h-[90vh] overflow-y-auto">
@@ -1637,7 +1529,7 @@ const parseMagicPaste = async () => {
                         { name: "mainTasks", label: "📋 주요 업무", type: "textarea", placeholder: "주요 업무 내용" },
                         { name: "requirements", label: "✅ 자격 요건", type: "textarea", placeholder: "자격 요건" },
                         { name: "preferred", label: "⭐ 우대 사항", type: "textarea", placeholder: "우대 사항" },
-                        { name: "techStack", label: "🛠 기술 스택", type: "input", placeholder: "기술 스택" },
+                        { name: "techStack", label: "🛠 필요 역량 / 기술", type: "input", placeholder: "사용 도구, 기술, 역량 등" },
                         { name: "workPlace", label: "📍 근무지", type: "input", placeholder: "근무지" },
                         { name: "employmentType", label: "📄 고용 형태", type: "input", placeholder: "정규직, 인턴 등" },
                         { name: "vision", label: "💡 회사 비전/문화", type: "textarea", placeholder: "회사 비전 및 문화" },

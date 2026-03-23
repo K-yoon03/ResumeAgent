@@ -15,8 +15,6 @@ export default function OAuth2Callback() {
       // localStorage에 저장
       localStorage.setItem("token", token);
       
-      toast.success("로그인 성공!");
-      
       // 메인 페이지로 이동
       setTimeout(() => {
         navigate("/");

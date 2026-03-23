@@ -5,7 +5,10 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
+import org.springframework.util.MimeTypeUtils;
 
 import java.util.*;
 
@@ -143,33 +146,62 @@ public class AgentService {
             사용자가 복사해온 텍스트에서 핵심 정보만 추출합니다.
             
             추출할 정보:
-            - companyName (회사명)
-            - position (직무/포지션)
-            - mainTasks (주요 업무)
-            - requirements (자격 요건)
-            - preferred (우대 사항)
-            - techStack (기술 스택)
-            - workPlace (근무지)
-            - employmentType (고용 형태)
-            - vision (회사 비전/문화)
+            - companyName (String)
+            - position (String)
+            - mainTasks (String)
+            - requirements (String)
+            - preferred (String)
+            - techStack (String)
+            - workPlace (String)
+            - employmentType (String)
+            - vision (String)
             
-            응답 형식 (반드시 JSON으로만):
+            Rules:
+            - 광고, 추천공고, 무관한 내용은 무시
+            - 정보가 없는 필드는 반드시 빈 문자열 "" 반환
+            - 모든 값은 반드시 문자열(String)로 반환
+            - null 사용 금지
+            - 원문을 요약하거나 재작성하지 말고 가능한 그대로 추출
+            - JSON 외 텍스트 절대 출력 금지
+            - 필드명 절대 변경 금지
+            
+            분류 기준:
+            - 담당업무/주요업무 → mainTasks
+            - 자격요건/필수조건 → requirements
+            - 우대사항 → preferred
+            
+            응답 형식 (반드시 아래 JSON 구조 그대로):
+            
             {
-              "companyName": "현대차 정몽구 재단",
-              "position": "지식.공간_경력",
-              "mainTasks": "재단 운영 지원",
-              "requirements": "경력 1년 이상, 대졸 이상",
+              "companyName": "",
+              "position": "",
+              "mainTasks": "",
+              "requirements": "",
               "preferred": "",
               "techStack": "",
-              "workPlace": "서울 종로구 계동",
-              "employmentType": "정규직 전환형 계약직",
+              "workPlace": "",
+              "employmentType": "",
               "vision": ""
             }
             
-            **중요**:
-            - 광고, 추천공고, 무관한 내용은 무시하세요.
-            - 정보가 없는 필드는 빈 문자열 ""로 반환하세요.
-            - 마크다운, 코드블록(```), 추가 설명 없이 순수 JSON만 반환하세요.
+            예시:
+            
+            {
+              "companyName": "현대자동차",
+              "position": "백엔드 개발자",
+              "mainTasks": "API 개발 및 서버 운영",
+              "requirements": "Java, Spring 경험",
+              "preferred": "AWS 경험",
+              "techStack": "Java, Spring, AWS",
+              "workPlace": "서울",
+              "employmentType": "정규직",
+              "vision": "미래 모빌리티 혁신"
+            }
+            
+            중요:
+            - 반드시 JSON만 출력
+            - 코드블록, 설명, 추가 텍스트 절대 금지
+            - 하나라도 형식이 틀리면 안 됨
             """;
 
         String userPrompt = String.format("""
@@ -270,4 +302,35 @@ public class AgentService {
                 """;
         }
     }
+    public String parseJobPostingFromImage(byte[] imageBytes) {
+        // Base64 인코딩
+        Resource imageResource = new ByteArrayResource(imageBytes);
+
+        return chatClient.prompt()
+                .user(userSpec -> userSpec
+                        .text("""
+                    이미지 속 채용공고를 분석하여 JSON 형식으로 변환해주세요.
+                    
+                    필수 필드:
+                    - title: 채용 제목
+                    - company: 회사명
+                    - location: 근무지
+                    - requirements: 자격요건 (객체로, 세부 항목들 포함)
+                    - salary: 급여 (없으면 "협의")
+                    - experience: 경력 (없으면 "신입/경력")
+                    - education: 학력 (없으면 "무관")
+                    - employmentType: 고용형태 (정규직/계약직 등)
+                    - contact: 연락처 정보 (이메일, 전화번호 등)
+                    
+                    이미지에 있는 모든 텍스트를 최대한 정확하게 추출하여
+                    구조화된 JSON으로 변환해주세요.
+                    
+                    JSON만 반환해주세요 (```json 태그 없이).
+                    """)
+                        .media(MimeTypeUtils.IMAGE_PNG, imageResource)
+                )
+                .call()
+                .content();
+    }
+
 }

@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/v1/agent")
@@ -73,5 +74,17 @@ public class AgentController {
 
         String parsed = agentService.parseJobPosting(req.rawText());
         return ResponseEntity.ok(parsed);
+    }
+    @PostMapping("/parse-job-posting-image")
+    public ResponseEntity<String> parseJobPostingImage(
+            @RequestParam("image") MultipartFile image) {
+
+        try {
+            byte[] imageBytes = image.getBytes();
+            String result = agentService.parseJobPostingFromImage(imageBytes);
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("이미지 처리 실패: " + e.getMessage());
+        }
     }
 }

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Sparkles, GraduationCap, Briefcase, Award, FileText, ArrowRight, X, AlertTriangle, Calendar, Save, RotateCcw, Clock, Target } from "lucide-react";
 import { BASE_URL } from '../config';
+import { useAuth } from '@/hooks/useAuth';
 
 const MAX_HISTORY = 3;
 const HISTORY_KEY = "analysis_history";
@@ -172,60 +173,59 @@ const Analyzer = ({ setGlobalExperience, setGlobalAnalysis }) => {
     ).length < 2;
   };
 
-  const askAi = async () => {
+const askAi = async () => {
     const question = buildQuestion();
     if (question.trim().length < 10) {
       toast.error("최소 하나 이상의 항목을 입력해주세요!");
       return;
     }
 
-  const cacheKey = CACHE_KEY(question);
-  const cached = sessionStorage.getItem(cacheKey);
-  if (cached) {
-    try {
-      const { answer: cachedAnswer, scoreData: cachedScore } = JSON.parse(cached);
-      setAnswer(cachedAnswer);
-      setScoreData(cachedScore);
-      scoreDataRef.current = cachedScore;
-      setIsModalOpen(true);
-      return;
-    } catch {
-      sessionStorage.removeItem(cacheKey);
+    const cacheKey = CACHE_KEY(question);
+    const cached = sessionStorage.getItem(cacheKey);
+    if (cached) {
+      try {
+        const { answer: cachedAnswer, scoreData: cachedScore } = JSON.parse(cached);
+        setAnswer(cachedAnswer);
+        setScoreData(cachedScore);
+        scoreDataRef.current = cachedScore;
+        setIsModalOpen(true);
+        return;
+      } catch {
+        sessionStorage.removeItem(cacheKey);
+      }
     }
-  }
  
-  setLoading(true);
-  setAnswer("");
-  setScoreData(null);
-  scoreDataRef.current = null;
-  setSaved(false);
-  let fullText = "";
+    setLoading(true);
+    setAnswer("");
+    setScoreData(null);
+    scoreDataRef.current = null;
+    setSaved(false);
+    let fullText = "";
  
-  // 🔥 토큰 가져오기
-  const token = localStorage.getItem("token");
+    const token = localStorage.getItem("token");
  
-  try {
-    const [analysisRes] = await Promise.all([
-      fetch(`${BASE_URL}/api/v1/agent/analyze`, {
-        method: "POST",
-        headers: { 
-          "Content-Type": "text/plain",
-          "Authorization": `Bearer ${token}` // 🔥 추가!
-        },
-        body: question,
-      }),
-      fetch(`${BASE_URL}/api/v1/agent/score`, {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}` // 🔥 추가!
-        },
-        body: JSON.stringify({ experience: question }),
-      })
-        .then(r => r.json())
-        .then(data => { setScoreData(data); scoreDataRef.current = data; })
-        .catch(() => {})
-    ]);
+    try {
+      const [analysisRes] = await Promise.all([
+        fetch(`${BASE_URL}/api/v1/agent/analyze`, {
+          method: "POST",
+          headers: { 
+            "Content-Type": "text/plain",
+            "Authorization": `Bearer ${token}`
+          },
+          body: question,
+        }),
+        fetch(`${BASE_URL}/api/v1/agent/score`, {
+          method: "POST",
+          headers: { 
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          },
+          body: JSON.stringify({ experience: question }),
+        })
+          .then(r => r.json())
+          .then(data => { setScoreData(data); scoreDataRef.current = data; })
+          .catch(() => {})
+      ]);
 
       if (!analysisRes.ok) throw new Error("네트워크 응답에 문제가 있습니다.");
 
@@ -252,10 +252,13 @@ const Analyzer = ({ setGlobalExperience, setGlobalAnalysis }) => {
           }
         }
       }
-
+      
       if (fullText.includes("[REJECT]")) {
         setAnswer(fullText.replace("[REJECT]", "⚠️ **내용을 보강해 주세요:**\n\n"));
       } else {
+        // 🔥 성공! 크레딧 갱신!
+        refreshCredits();
+        
         sessionStorage.setItem(cacheKey, JSON.stringify({
           answer: fullText,
           scoreData: scoreDataRef.current,
@@ -276,6 +279,7 @@ const Analyzer = ({ setGlobalExperience, setGlobalAnalysis }) => {
       setLoading(false);
     }
   };
+
   const goToWriter = async () => {
     const question = buildQuestion();
     if (setGlobalExperience) setGlobalExperience(question);

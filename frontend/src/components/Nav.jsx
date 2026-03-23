@@ -4,10 +4,9 @@ import { Button } from "./ui/button";
 import { FileText, BarChart2, MessageSquare, Moon, Sun, User, ChevronDown, Settings, Coins } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import CareerPilotHelmIcon from './CareerPilotHelmIcon';
-import { BASE_URL } from '../config';
 
 function Nav() {
-  const { user, logout } = useAuth();
+  const { user, logout, credits } = useAuth(); // 🔥 credits Context에서 가져오기!
   const navigate = useNavigate();
   const location = useLocation();
   const [dark, setDark] = useState(() => {
@@ -16,45 +15,14 @@ function Nav() {
     return window.matchMedia("(prefers-color-scheme: dark)").matches;
   });
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [credits, setCredits] = useState(null);
   const dropdownRef = useRef(null);
-  const intervalRef = useRef(null);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark);
     localStorage.setItem("theme", dark ? "dark" : "light");
   }, [dark]);
 
-  // 🔥 크레딧 조회 + 주기적 업데이트
-  useEffect(() => {
-    if (user) {
-      fetchCredits();
-      // 5초마다 크레딧 갱신
-      intervalRef.current = setInterval(fetchCredits, 5000);
-    }
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-    };
-  }, [user]);
-
-  const fetchCredits = async () => {
-    const token = localStorage.getItem('token');
-    if (!token) return;
-
-    try {
-      const res = await fetch(`${BASE_URL}/api/auth/me`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setCredits(data.remainingCredits);
-      }
-    } catch (err) {
-      // 에러 무시
-    }
-  };
+  // 🔥 interval 제거! Context가 알아서 관리!
 
   // 드롭다운 외부 클릭 시 닫기
   useEffect(() => {
