@@ -74,11 +74,17 @@ public class AssessmentController {
                     List<ResumeController.ResumeResponse> resumes = resumeRepository
                             .findByAssessmentId(a.getId())
                             .stream()
+                            // 기존 (잘못된 버전)
                             .map(r -> new ResumeController.ResumeResponse(
-                                    r.getId(), r.getContent(), r.getTitle(),
-                                    a.getId(),
+                                    r.getId(),
+                                    r.getContent(),
+                                    r.getTitle(),
+                                    r.getStatus(),  // ← 추가!
+                                    r.getEvaluation(),  // ← 추가!
+                                    r.getAssessment() != null ? r.getAssessment().getId() : null,
                                     r.getJobPosting() != null ? r.getJobPosting().getId() : null,
-                                    r.getCreatedAt()
+                                    r.getCreatedAt(),
+                                    r.getUpdatedAt()  // ← 추가!
                             )).toList();
 
                     return new AssessmentResponse(

@@ -8,6 +8,8 @@ import org.springframework.boot.ApplicationRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDate;
+
 @Component
 @RequiredArgsConstructor
 public class DataInitializer implements ApplicationRunner {
@@ -17,6 +19,7 @@ public class DataInitializer implements ApplicationRunner {
 
     @Override
     public void run(ApplicationArguments args) {
+        // 관리자 계정 생성
         if (userRepository.findByEmail("admin@careerpilot.com").isEmpty()) {
             User admin = User.builder()
                     .email("admin@careerpilot.com")
@@ -24,7 +27,11 @@ public class DataInitializer implements ApplicationRunner {
                     .nickname("admin")
                     .name("관리자")
                     .birthDate("2000-01-01")
-                    .provider("local")  // 추가
+                    .provider("local")
+                    .role("ADMIN")
+                    .dailyCredits(999999)  // 🔥 관리자는 무제한
+                    .usedCredits(0)
+                    .lastResetDate(LocalDate.now())
                     .build();
             userRepository.save(admin);
             System.out.println("✅ Admin 계정 생성 완료: admin@careerpilot.com / admin1234!");

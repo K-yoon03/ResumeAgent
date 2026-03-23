@@ -1,26 +1,60 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { Button } from "./ui/button";
-import { FileText, BarChart2, MessageSquare, Moon, Sun, User, ChevronDown, Settings } from "lucide-react";
+import { FileText, BarChart2, MessageSquare, Moon, Sun, User, ChevronDown, Settings, Coins } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import CareerPilotHelmIcon from './CareerPilotHelmIcon';
+import { BASE_URL } from '../config';
 
 function Nav() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [dark, setDark] = useState(() => {
-  const saved = localStorage.getItem("theme");
+    const saved = localStorage.getItem("theme");
     if (saved) return saved === "dark";
     return window.matchMedia("(prefers-color-scheme: dark)").matches;
   });
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [credits, setCredits] = useState(null);
   const dropdownRef = useRef(null);
+  const intervalRef = useRef(null);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark);
     localStorage.setItem("theme", dark ? "dark" : "light");
   }, [dark]);
+
+  // 🔥 크레딧 조회 + 주기적 업데이트
+  useEffect(() => {
+    if (user) {
+      fetchCredits();
+      // 5초마다 크레딧 갱신
+      intervalRef.current = setInterval(fetchCredits, 5000);
+    }
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    };
+  }, [user]);
+
+  const fetchCredits = async () => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    try {
+      const res = await fetch(`${BASE_URL}/api/auth/me`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setCredits(data.remainingCredits);
+      }
+    } catch (err) {
+      // 에러 무시
+    }
+  };
 
   // 드롭다운 외부 클릭 시 닫기
   useEffect(() => {
@@ -60,9 +94,7 @@ function Nav() {
           className="flex items-center gap-2.5 cursor-pointer group"
           onClick={() => navigate("/")}
         >
-          {/* 윤님이 주신 Indigo-Violet 그라데이션 적용 */}
           <div className="p-1.5 rounded-lg bg-gradient-to-br from-[#6366f1] via-[#8b5cf6] to-[#a78bfa] shadow-lg transition-transform group-hover:scale-105 active:scale-95">
-            {/* 위에서 정의한 컴포넌트 호출 */}
             <CareerPilotHelmIcon className="h-5 w-5 text-white" />
           </div>
           
@@ -95,6 +127,17 @@ function Nav() {
 
         {/* 우측 유틸리티 섹션 */}
         <div className="flex items-center gap-2">
+          
+          {/* 🔥 크레딧 표시 (로그인 시에만) */}
+          {user && credits !== null && (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-amber-100 to-yellow-100 dark:from-amber-900/20 dark:to-yellow-900/20 border border-amber-200 dark:border-amber-800">
+              <Coins className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+              <span className="text-xs font-semibold text-amber-700 dark:text-amber-300">
+                {credits >= 999999 ? '∞' : credits}
+              </span>
+            </div>
+          )}
+
           {/* 다크모드 토글 */}
           <Button
             variant="ghost"
@@ -113,7 +156,6 @@ function Nav() {
                 className="gap-2"
                 onClick={() => setDropdownOpen(prev => !prev)}
               >
-                {/* 사용자 프로필 아이콘에 그라데이션 적용 */}
                 <div className="w-5 h-5 rounded-full bg-gradient-to-tr from-[#6366f1] to-[#a78bfa] flex items-center justify-center">
                    <User className="h-3 w-3 text-white" />
                 </div>

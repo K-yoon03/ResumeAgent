@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { FileText, TrendingUp, Target, Lightbulb, Edit, ArrowRight, CheckCircle, AlertTriangle, RotateCcw, X, Clock, MessageSquare, ChevronDown, ChevronUp, Loader2, Plus, ChevronRight, Sparkles } from "lucide-react";
+import { FileText, TrendingUp, Target, Lightbulb, Edit, ArrowRight, CheckCircle, AlertTriangle, RotateCcw, X, Clock, MessageSquare, ChevronDown, ChevronUp, Loader2, Plus, ChevronRight, Sparkles, BarChart, MapPin } from "lucide-react";
 import { BASE_URL } from '../config';
+import EvaluationResult from '../components/EvaluationResult';
 
 const MAX_HISTORY = 3;
 const RESUME_HISTORY_KEY = "resume_history";
@@ -203,6 +204,20 @@ function StarModal({ project, onClose, onSave, aiHints, aiHintUsed, onAiHintFetc
               {current.example}
             </div>
           )}
+          {/* ========= 여기부터 추가! ========= */}
+          {/* AI 힌트 표시 */}
+          {currentHints && currentHints.length > 0 && (
+            <div className="space-y-2 p-3 rounded-lg bg-[var(--gradient-mid)]/5 border border-[var(--gradient-mid)]/20">
+              <p className="text-xs font-semibold text-[var(--gradient-mid)] flex items-center gap-1.5">
+                <Sparkles className="h-3 w-3" />
+                AI 추천 질문
+              </p>
+              {currentHints.map((hint, i) => (
+                <p key={i} className="text-xs text-muted-foreground">• {hint}</p>
+              ))}
+            </div>
+          )}
+          {/* ========= 여기까지 추가! ========= */}
 
           {/* AI 도움 버튼 */}
           {!isUsed ? (
@@ -263,9 +278,7 @@ function ResumeWriter() {
     ? (() => { try { return JSON.parse(rawScoreData); } catch { return null; } })()
     : rawScoreData;
   
-  const assessmentId = location.state?.savedResume?.assessmentId 
-  || location.state?.assessmentId 
-  || null;
+  const assessmentId = location.state?.assessmentId || null;
 
   // ── 프로젝트 STAR 관련 state ──
   const [projects, setProjects] = useState([]);
@@ -282,6 +295,19 @@ function ResumeWriter() {
   const extractedRef = useRef(false);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+
+  const [showMagicPaste, setShowMagicPaste] = useState(false);
+  const [rawPaste, setRawPaste] = useState("");
+  const [parsing, setParsing] = useState(false);
+
+  const [showSavedPostings, setShowSavedPostings] = useState(false);
+  const [savedPostings, setSavedPostings] = useState([]);
+  const [loadingPostings, setLoadingPostings] = useState(false);
+  const [deletingPosting, setDeletingPosting] = useState(null);
+
+  const [savedResumeId, setSavedResumeId] = useState(null); // 추가!
+  const [evaluation, setEvaluation] = useState(null); // 추가!
+  const [evaluating, setEvaluating] = useState(false); 
 
   const [resume, setResume] = useState("");
   const [editedResume, setEditedResume] = useState("");
@@ -507,49 +533,9 @@ const extractProjects = async () => {
       ).join("\n\n");
   };
 
-  const savedResume = location.state?.savedResume;
-  if (savedResume) {
-    return (
-      <div className="max-w-5xl mx-auto px-4 py-12 space-y-8">
-        <div className="text-center space-y-4">
-          <div className="inline-flex items-center justify-center p-3 rounded-full bg-gradient-to-br from-[var(--gradient-start)] via-[var(--gradient-mid)] to-[var(--gradient-end)]">
-            <FileText className="h-7 w-7 text-white" />
-          </div>
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-[var(--gradient-start)] via-[var(--gradient-mid)] to-[var(--gradient-end)] bg-clip-text text-transparent">
-            {savedResume.title || "자기소개서"}
-          </h1>
-        </div>
-        <Card className="border border-border/50">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base flex items-center gap-2">
-                <FileText className="h-5 w-5 text-[var(--gradient-mid)]" />자기소개서
-              </CardTitle>
-              <span className="text-xs text-muted-foreground">
-                {savedResume.createdAt ? new Date(savedResume.createdAt).toLocaleDateString("ko-KR") : ""}
-              </span>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="prose prose-sm dark:prose-invert max-w-none">
-              <ReactMarkdown>{savedResume.content}</ReactMarkdown>
-            </div>
-          </CardContent>
-        </Card>
-        <div className="flex gap-3">
-          <Button variant="outline" className="flex-1" onClick={() => navigate("/my-resumes")}>← 목록으로</Button>
-          <Button
-            className="flex-1 bg-gradient-to-r from-[var(--gradient-start)] to-[var(--gradient-end)] text-white hover:opacity-90"
-            onClick={() => navigate("/interview", { state: { resume: savedResume.content } })}
-          >
-            <MessageSquare className="mr-2 h-4 w-4" />면접 시작
-          </Button>
-        </div>
-      </div>
-    );
-  }
 
-  if (!experience && !analysis && !location.state?.savedResume) {
+
+  if (!experience && !analysis) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-12 text-center space-y-4">
         <h2 className="text-xl font-semibold text-foreground">데이터가 없습니다.</h2>
@@ -672,6 +658,110 @@ const extractProjects = async () => {
     e.target.style.height = "auto";
     e.target.style.height = e.target.scrollHeight + "px";
   };
+  // 저장된 공고 목록 불러오기
+const fetchSavedPostings = async () => {
+  setLoadingPostings(true);
+  const token = localStorage.getItem("token");
+  try {
+    const res = await fetch(`${BASE_URL}/api/job-postings`, {
+      headers: { "Authorization": `Bearer ${token}` }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      setSavedPostings(data);
+    }
+  } catch {
+    toast.error("공고를 불러오는데 실패했습니다.");
+  } finally {
+    setLoadingPostings(false);
+  }
+};
+ 
+// 저장된 공고 선택
+const selectSavedPosting = (posting) => {
+  setJobForm({
+    companyName: posting.companyName || "",
+    position: posting.position || "",
+    mainTasks: posting.mainTasks || "",
+    requirements: posting.requirements || "",
+    preferred: posting.preferred || "",
+    techStack: posting.techStack || "",
+    workPlace: posting.workPlace || "",
+    employmentType: posting.employmentType || "",
+    vision: posting.vision || "",
+  });
+  setShowSavedPostings(false);
+  setJobMode("form");
+  toast.success("저장된 공고를 불러왔습니다!");
+};
+ 
+// 저장된 공고 삭제
+const deleteSavedPosting = async (id) => {
+  const token = localStorage.getItem("token");
+  try {
+    const res = await fetch(`${BASE_URL}/api/job-postings/${id}`, {
+      method: "DELETE",
+      headers: { "Authorization": `Bearer ${token}` }
+    });
+    if (res.ok) {
+      setSavedPostings(prev => prev.filter(p => p.id !== id));
+      setDeletingPosting(null);
+      toast.success("공고가 삭제되었습니다.");
+    }
+  } catch {
+    toast.error("삭제에 실패했습니다.");
+  }
+};
+ 
+// 매직 페이스트 파싱
+const parseMagicPaste = async () => {
+  setParsing(true);
+  try {
+    const token = localStorage.getItem("token");
+    const res = await fetch(`${BASE_URL}/api/v1/agent/parse-job-posting`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token && { "Authorization": `Bearer ${token}` }),
+      },
+      body: JSON.stringify({ rawText: rawPaste })
+    });
+    
+    if (res.ok) {
+      const text = await res.text();
+      const data = JSON.parse(text);
+      
+      // 파싱된 데이터로 폼 채우기
+      setJobForm({
+        companyName: data.companyName || "",
+        position: data.position || "",
+        mainTasks: data.mainTasks || "",
+        requirements: data.requirements || "",
+        preferred: data.preferred || "",
+        techStack: data.techStack || "",
+        workPlace: data.workPlace || "",
+        employmentType: data.employmentType || "",
+        vision: data.vision || "",
+      });
+      
+      setShowMagicPaste(false);
+      setRawPaste("");
+      setJobMode("form");
+      toast.success("공고가 자동으로 입력되었습니다! 🎉");
+      
+      // 부족한 내용 경고
+      const emptyFields = Object.values(data).filter(v => !v || v.trim() === "").length;
+      if (emptyFields > 3) {
+        toast.info("부족한 내용은 직접 추가해주세요!", { duration: 4000 });
+      }
+    }
+  } catch {
+    toast.error("파싱에 실패했습니다. 직접 입력해주세요.");
+  } finally {
+    setParsing(false);
+  }
+};
+ 
 
   const confirmJobForm = () => {
     if (!jobForm.companyName && !jobForm.position && !jobForm.mainTasks) {
@@ -799,6 +889,8 @@ const extractProjects = async () => {
 
     try {
       let jobPostingId = null;
+      let resumeId = null;
+      
       if (jobMode === "form" && jobConfirmed) {
         const jpRes = await fetch(`${BASE_URL}/api/job-postings`, {
           method: "POST",
@@ -807,16 +899,58 @@ const extractProjects = async () => {
         });
         if (jpRes.ok) { const jpData = await jpRes.json(); jobPostingId = jpData.id; }
       }
+      
       const title = jobForm.companyName
         ? `${jobForm.companyName}${jobForm.position ? " · " + jobForm.position : ""}`
         : "자기소개서";
-      await fetch(`${BASE_URL}/api/resume/save`, {
+        
+      // 자소서 저장
+      const saveRes = await fetch(`${BASE_URL}/api/resume/save`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
         body: JSON.stringify({ content: editedResume, title, assessmentId: location.state?.assessmentId || null, jobPostingId })
       });
-      toast.success("자소서가 저장되었습니다.");
-    } catch { toast.error("저장에 실패했습니다."); }
+      
+      if (saveRes.ok) {
+        const savedData = await saveRes.json();
+        resumeId = savedData.id;
+        setSavedResumeId(resumeId); // 🔥 이 줄 추가!!!
+        
+        // 확정 API 호출
+        await fetch(`${BASE_URL}/api/resume/${resumeId}/confirm`, {
+          method: "PUT",
+          headers: { "Authorization": `Bearer ${token}` }
+        });
+        
+        toast.success("자소서가 저장되었습니다.");
+      }
+    } catch { 
+      toast.error("저장에 실패했습니다."); 
+    }
+  };
+  const handleEvaluate = async () => {
+    if (!savedResumeId) {
+      toast.error("자소서 ID가 없습니다. 다시 확정해주세요.");
+      return;
+    }
+      
+    setEvaluating(true);
+    const token = localStorage.getItem("token");
+    try {
+      const res = await fetch(`${BASE_URL}/api/resume/${savedResumeId}/evaluate`, {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setEvaluation(data.evaluation);
+        toast.success("평가가 완료되었습니다!");
+      }
+    } catch {
+      toast.error("평가에 실패했습니다.");
+    } finally {
+      setEvaluating(false);
+    }
   };
 
   const inputClass = "w-full px-4 py-2.5 rounded-lg border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[var(--gradient-mid)]/50 focus:border-[var(--gradient-mid)] transition-all";
@@ -1285,10 +1419,36 @@ const extractProjects = async () => {
                       <p className="text-sm text-amber-600 dark:text-amber-400 flex items-center gap-2">
                         <AlertTriangle className="h-4 w-4" />바로 만들기 시 모의 면접 진행이 불가능합니다.
                       </p>
+                      
+                      <div className="grid grid-cols-2 gap-3">
+                        {/* 매직 페이스트 버튼 */}
+                        <Button
+                          variant="outline"
+                          className="border-2 border-dashed border-[var(--gradient-mid)]/40 hover:bg-[var(--gradient-mid)]/5"
+                          onClick={() => setShowMagicPaste(true)}
+                        >
+                          <Sparkles className="mr-2 h-4 w-4 text-[var(--gradient-mid)]" />
+                          매직 페이스트
+                        </Button>
+                        
+                        {/* 저장된 공고 불러오기 */}
+                        <Button
+                          variant="outline"
+                          className="border-2 border-dashed border-blue-400/40 hover:bg-blue-50 dark:hover:bg-blue-950/20"
+                          onClick={() => {
+                            setShowSavedPostings(true);
+                            fetchSavedPostings();
+                          }}
+                        >
+                          <FileText className="mr-2 h-4 w-4 text-blue-600" />
+                          불러오기
+                        </Button>
+                      </div>
+                      
                       <div className="flex gap-3">
                         <Button className="flex-1 bg-gradient-to-r from-[var(--gradient-start)] to-[var(--gradient-end)] text-white hover:opacity-90"
                           onClick={() => setJobMode("form")}>
-                          📋 회사 정보 입력하고 만들기
+                          📋 직접 입력하기
                         </Button>
                         <Button variant="outline" className="flex-1" onClick={() => setJobMode("quick")}>
                           ⚡ 바로 만들기
@@ -1296,6 +1456,172 @@ const extractProjects = async () => {
                       </div>
                     </>
                   )}
+                  {showMagicPaste && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+                    <div className="relative w-full max-w-2xl bg-card border border-border rounded-2xl shadow-2xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+                      <button
+                        className="absolute top-4 right-4 text-muted-foreground hover:text-foreground"
+                        onClick={() => {
+                          setShowMagicPaste(false);
+                          setRawPaste("");
+                        }}
+                      >
+                        <X className="h-5 w-5" />
+                      </button>
+                
+                      <div>
+                        <h3 className="text-xl font-bold text-foreground mb-2 flex items-center gap-2">
+                          <Sparkles className="h-6 w-6 text-[var(--gradient-mid)]" />
+                          매직 페이스트
+                        </h3>
+                        <p className="text-sm text-muted-foreground">
+                          채용 공고 전체를 <kbd className="px-1.5 py-0.5 rounded bg-muted text-xs font-semibold">Ctrl+A</kbd> → <kbd className="px-1.5 py-0.5 rounded bg-muted text-xs font-semibold">Ctrl+C</kbd> 해서 붙여넣으세요!<br />
+                          AI가 알아서 필요한 정보만 추출합니다. (광고, 버튼 등 포함되어도 괜찮아요!)
+                        </p>
+                      </div>
+                
+                      <textarea
+                        value={rawPaste}
+                        onChange={(e) => setRawPaste(e.target.value)}
+                        placeholder="채용 공고를 여기에 붙여넣으세요..."
+                        className="w-full min-h-[300px] px-4 py-3 rounded-lg border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-[var(--gradient-mid)]/50 resize-none font-mono"
+                      />
+                
+                      <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800">
+                        <p className="text-xs text-amber-800 dark:text-amber-300 flex items-center gap-2">
+                          <AlertTriangle className="h-3.5 w-3.5" />
+                          AI가 추출하지 못한 정보는 직접 추가해주세요!
+                        </p>
+                      </div>
+                
+                      <div className="flex gap-3">
+                        <Button
+                          onClick={parseMagicPaste}
+                          disabled={!rawPaste.trim() || parsing}
+                          className="flex-1 bg-gradient-to-r from-[var(--gradient-start)] to-[var(--gradient-end)] text-white"
+                        >
+                          {parsing ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              AI가 분석 중...
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles className="mr-2 h-4 w-4" />
+                              자동 입력하기
+                            </>
+                          )}
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          onClick={() => {
+                            setShowMagicPaste(false);
+                            setRawPaste("");
+                          }}
+                        >
+                          취소
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {showSavedPostings && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+                  <div className="relative w-full max-w-2xl bg-card border border-border rounded-2xl shadow-2xl p-6 max-h-[90vh] overflow-y-auto">
+                    <button
+                      className="absolute top-4 right-4 text-muted-foreground hover:text-foreground"
+                      onClick={() => setShowSavedPostings(false)}
+                    >
+                      <X className="h-5 w-5" />
+                    </button>
+              
+                    <h3 className="text-xl font-bold text-foreground mb-1">저장된 채용공고</h3>
+                    <p className="text-sm text-muted-foreground mb-5">불러올 공고를 선택해주세요</p>
+              
+                    {loadingPostings ? (
+                      <div className="flex items-center justify-center py-12">
+                        <Loader2 className="h-8 w-8 animate-spin text-[var(--gradient-mid)]" />
+                      </div>
+                    ) : savedPostings.length === 0 ? (
+                      <div className="text-center py-12 text-muted-foreground">
+                        <FileText className="h-12 w-12 mx-auto mb-3 opacity-30" />
+                        <p>저장된 공고가 없습니다.</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {savedPostings.map((posting) => (
+                          <div
+                            key={posting.id}
+                            className="group relative p-4 rounded-xl border border-border hover:border-[var(--gradient-mid)]/40 hover:bg-[var(--gradient-mid)]/5 transition-all cursor-pointer"
+                            onClick={() => selectSavedPosting(posting)}
+                          >
+                            {/* 삭제 버튼 */}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setDeletingPosting(posting.id);
+                              }}
+                              className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+              
+                            <div className="space-y-2 pr-8">
+                              <div className="flex items-center gap-2">
+                                <h4 className="font-semibold text-foreground">{posting.companyName}</h4>
+                                {posting.position && (
+                                  <Badge variant="secondary" className="text-xs">{posting.position}</Badge>
+                                )}
+                              </div>
+                              
+                              {posting.workPlace && (
+                                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                                  <MapPin className="h-3 w-3" />
+                                  {posting.workPlace}
+                                </p>
+                              )}
+                              
+                              {posting.employmentType && (
+                                <p className="text-xs text-muted-foreground">{posting.employmentType}</p>
+                              )}
+                              
+                              <p className="text-xs text-muted-foreground">
+                                {new Date(posting.createdAt).toLocaleDateString("ko-KR")}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+              {deletingPosting && (
+              <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+                <div className="relative w-full max-w-sm bg-card border border-border rounded-2xl shadow-2xl p-6 space-y-4">
+                  <h3 className="text-lg font-bold text-foreground">공고 삭제</h3>
+                  <p className="text-sm text-muted-foreground">
+                    선택한 채용공고를 삭제하시겠습니까?<br />
+                    이 작업은 되돌릴 수 없습니다.
+                  </p>
+                  <div className="flex gap-3">
+                    <Button 
+                      variant="outline" 
+                      className="flex-1"
+                      onClick={() => setDeletingPosting(null)}
+                    >
+                      취소
+                    </Button>
+                    <Button 
+                      className="flex-1 bg-red-500 text-white hover:bg-red-600"
+                      onClick={() => deleteSavedPosting(deletingPosting)}
+                    >
+                      삭제
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
                   {jobMode === "quick" && (
                     <div className="space-y-3">
                       <p className="text-sm text-muted-foreground">⚠️ 임의의 회사로 자기소개서가 제작됩니다.</p>
@@ -1455,27 +1781,44 @@ const extractProjects = async () => {
               )}
 
               {isConfirmed && !loading && (
-                <Card className="border-2 border-[var(--gradient-mid)]/20 bg-gradient-to-br from-[var(--gradient-start)]/10 via-[var(--gradient-mid)]/10 to-[var(--gradient-end)]/10">
-                  <CardContent className="pt-6">
-                    <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-                      <div className="flex flex-col justify-center">
-                        <h3 className="text-lg font-semibold mb-1">다음 단계: 모의면접</h3>
-                        <p className="text-sm text-muted-foreground">작성한 자기소개서를 바탕으로 실전 면접을 연습해보세요</p>
+                <>
+                  {/* 평가 결과 (있으면 표시) */}
+                  {evaluation && <EvaluationResult evaluation={evaluation} />}
+                  
+                  <Card className="border-2 border-[var(--gradient-mid)]/20 ...">
+                    <CardContent className="pt-6">
+                      <div className="flex flex-col gap-4">
+                        <div>
+                          <h3 className="text-lg font-semibold mb-1">다음 단계</h3>
+                          <p className="text-sm text-muted-foreground">평가를 받거나 모의면접을 진행하세요</p>
+                        </div>
+                        <div className="flex gap-3">
+                          {/* 평가받기 버튼 */}
+                          {!evaluation && (
+                            <Button
+                              onClick={handleEvaluate}
+                              disabled={evaluating}
+                              className="flex-1 bg-gradient-to-r from-blue-500 to-indigo-500 text-white"
+                            >
+                              {evaluating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <BarChart className="mr-2 h-4 w-4" />}
+                              평가받기
+                            </Button>
+                          )}
+                          {/* 모의면접 버튼 */}
+                          {jobPosting && (
+                            <Button
+                              size="lg"
+                              className="flex-1 bg-gradient-to-r from-[var(--gradient-start)] to-[var(--gradient-end)] text-white"
+                              onClick={() => navigate("/interview", { state: { resume: editedResume, jobPosting, analysis } })}
+                            >
+                              모의면접 시작<ArrowRight className="ml-2 h-5 w-5" />
+                            </Button>
+                          )}
+                        </div>
                       </div>
-                      {jobPosting ? (
-                        <Button size="lg"
-                          className="bg-gradient-to-r from-[var(--gradient-start)] via-[var(--gradient-mid)] to-[var(--gradient-end)] text-white hover:opacity-90 shrink-0"
-                          onClick={() => navigate("/interview", { state: { resume: editedResume, jobPosting, analysis } })}>
-                          모의면접 시작<ArrowRight className="ml-2 h-5 w-5" />
-                        </Button>
-                      ) : (
-                        <p className="text-sm text-amber-600 dark:text-amber-400 flex items-center gap-2">
-                          <AlertTriangle className="h-4 w-4" />채용공고 입력 시 면접 가능합니다
-                        </p>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
+                    </CardContent>
+                  </Card>
+                </>
               )}
             </>
           )}

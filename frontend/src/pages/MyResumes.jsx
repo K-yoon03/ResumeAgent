@@ -2,14 +2,16 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { FileText, Plus, Clock, Trash2, Sparkles, MessageSquare } from "lucide-react";
+import { FileText, Plus, Clock, Trash2, Sparkles, MessageSquare, CheckCircle, Edit, BarChart, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { BASE_URL } from '../config';
+import { useAuth } from '@/hooks/useAuth';
 
 export default function MyResumes() {
   const navigate = useNavigate();
   const [resumes, setResumes] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { isAdmin, loading: authLoading } = useAuth();
 
   useEffect(() => {
     fetchResumes();
@@ -52,6 +54,167 @@ export default function MyResumes() {
     if (!dateStr) return "";
     const d = new Date(dateStr);
     return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`;
+  };
+
+  const getStatusBadge = (status) => {
+    switch (status) {
+      case "DRAFT":
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">
+            <Edit className="h-3 w-3" />
+            작성 중
+          </span>
+        );
+      case "CONFIRMED":
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+            <CheckCircle className="h-3 w-3" />
+            확정 완료
+          </span>
+        );
+      case "EVALUATED":
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
+            <BarChart className="h-3 w-3" />
+            평가 완료
+          </span>
+        );
+      default:
+        return null;
+    }
+  };
+
+  const getActionButtons = (resume) => {
+    const token = localStorage.getItem("token");
+
+    // 공통: 보기 버튼
+    const viewButton = (
+      <Button
+        size="sm"
+        className="bg-gradient-to-r from-[var(--gradient-start)] to-[var(--gradient-end)] text-white hover:opacity-90"
+        onClick={() => navigate(`/resume/${resume.id}`)}
+      >
+        <FileText className="mr-1.5 h-3.5 w-3.5" />
+        보기
+      </Button>
+    );
+
+    if (resume.status === "DRAFT") {
+      // 작성 중: 보기, 수정, 삭제
+      return (
+        <>
+          {viewButton}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => navigate(`/resume/${resume.id}?edit=true`)}
+          >
+            <Edit className="mr-1.5 h-3.5 w-3.5" />
+            수정
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-muted-foreground hover:text-destructive"
+            onClick={() => deleteResume(resume.id)}
+          >
+            <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+            삭제
+          </Button>
+        </>
+      );
+    }
+
+    if (resume.status === "CONFIRMED") {
+      // 확정 완료: 보기, 평가받기, 모의면접, 삭제
+      return (
+        <>
+          {viewButton}
+          <BarChart className="mr-1.5 h-3.5 w-3.5" />
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => navigate("/interview", {
+              state: { resume: resume.content }
+            })}
+          >
+          <MessageSquare className="mr-1.5 h-3.5 w-3.5" />
+            모의면접
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-muted-foreground hover:text-destructive"
+            onClick={() => deleteResume(resume.id)}
+          >
+            <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+            삭제
+          </Button>
+        </>
+      );
+    }
+
+    if (resume.status === "EVALUATED") {
+      // 평가 완료: 보기, 다시 수정, 모의면접, 삭제
+      return (
+        <>
+          {viewButton}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => navigate(`/resume/${resume.id}?edit=true`)}
+          >
+            <Edit className="mr-1.5 h-3.5 w-3.5" />
+            다시 수정
+          </Button>
+          {isAdmin && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-purple-500 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950/20"
+              onClick={() => navigate("/interview/advanced", { 
+                state: { 
+                  resume: resume.content,
+                  jobPosting: resume.jobPosting || ""
+                } 
+              })}
+            >
+              <Zap className="mr-1.5 h-3.5 w-3.5" />
+              Advanced 면접
+            </Button>
+          )}
+          {/* Advanced (보라색 테두리로 구분) */}
+          
+
+          {/* 기본 면접 */}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => navigate("/interview", {
+              state: { 
+                resume: resume.content,
+                jobPosting: resume.jobPosting || ""
+              }
+            })}
+          >
+            <MessageSquare className="mr-1.5 h-3.5 w-3.5" />
+            모의면접
+          </Button>
+
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-muted-foreground hover:text-destructive"
+            onClick={() => deleteResume(resume.id)}
+          >
+            <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+            삭제
+          </Button>
+        </>
+      );
+    }
+
+    return viewButton;
   };
 
   if (loading) {
@@ -118,6 +281,7 @@ export default function MyResumes() {
                     <span className="font-semibold text-foreground">
                       {resume.title || "자기소개서"}
                     </span>
+                    {getStatusBadge(resume.status)}
                   </div>
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <Clock className="h-3 w-3" />
@@ -131,37 +295,7 @@ export default function MyResumes() {
 
                 {/* 오른쪽 버튼 */}
                 <div className="flex flex-col gap-2 shrink-0">
-                  <Button
-                    size="sm"
-                    className="bg-gradient-to-r from-[var(--gradient-start)] to-[var(--gradient-end)] text-white hover:opacity-90"
-                    onClick={() => navigate("/resume-writer", {
-                      state: { savedResume: resume,
-                        assessmentId: resume.assessmentId
-                       }
-                    })}
-                  >
-                    <FileText className="mr-1.5 h-3.5 w-3.5" />
-                    보기
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => navigate("/interview", {
-                      state: { resume: resume.content }
-                    })}
-                  >
-                    <MessageSquare className="mr-1.5 h-3.5 w-3.5" />
-                    면접 시작
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="text-muted-foreground hover:text-destructive"
-                    onClick={() => deleteResume(resume.id)}
-                  >
-                    <Trash2 className="mr-1.5 h-3.5 w-3.5" />
-                    삭제
-                  </Button>
+                  {getActionButtons(resume)}
                 </div>
 
               </div>

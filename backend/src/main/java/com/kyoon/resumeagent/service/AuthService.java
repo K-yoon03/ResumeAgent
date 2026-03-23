@@ -89,11 +89,15 @@ public class AuthService implements UserDetailsService {
 
     @Override
     public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
-        return org.springframework.security.core.userdetails.User
-                .withUsername(email)
-                .password(user.getPassword())
+        com.kyoon.resumeagent.Entity.User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new UsernameNotFoundException("사용자를 찾을 수 없습니다: " + email));
+
+        // 소셜 로그인 유저는 password가 null일 수 있음
+        String password = user.getPassword() != null ? user.getPassword() : "";
+
+        return org.springframework.security.core.userdetails.User.builder()
+                .username(user.getEmail())
+                .password(password)  // ← null 대신 빈 문자열
                 .roles(user.getRole())
                 .build();
     }
@@ -121,7 +125,16 @@ public class AuthService implements UserDetailsService {
     public UserInfoResponse getMyInfo(String email) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("존재하지 않는 유저입니다."));
-        return new UserInfoResponse(user.getEmail(), user.getNickname(), user.getName(), user.getBirthDate());
+        return new UserInfoResponse(
+                user.getEmail(),
+                user.getNickname(),
+                user.getName(),
+                user.getBirthDate(),
+                user.getRole(),
+                user.getRemainingCredits(),  // 🔥
+                user.getDailyCredits(),      // 🔥
+                user.isAdmin()               // 🔥
+        );
     }
 
     // 내 정보 수정
@@ -152,7 +165,16 @@ public class AuthService implements UserDetailsService {
                 .build();
 
         userRepository.save(updated);
-        return new UserInfoResponse(updated.getEmail(), updated.getNickname(), updated.getName(), updated.getBirthDate());
+        return new UserInfoResponse(
+                user.getEmail(),
+                user.getNickname(),
+                user.getName(),
+                user.getBirthDate(),
+                user.getRole(),
+                user.getRemainingCredits(),  // 🔥
+                user.getDailyCredits(),      // 🔥
+                user.isAdmin()               // 🔥
+        );
     }
 
     // 회원탈퇴

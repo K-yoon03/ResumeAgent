@@ -22,19 +22,19 @@ import lombok.RequiredArgsConstructor;
 public class InterviewController {
 
     private final InterviewService interviewService;
-    private final InterviewResultRepository interviewResultRepository; // 추가
+    private final InterviewResultRepository interviewResultRepository;
     private final UserRepository userRepository;
 
-    record EvaluateRequest(String resume, String jobPosting) {}
     record QuestionRequest(String resume, String jobPosting, String history, int questionNumber, int totalQuestions) {}
     record FeedbackRequest(String resume, String jobPosting, String question, String answer) {}
-    record AllQuestionsRequest(String resume, String jobPosting, int totalQuestions) {}
-    record FeedbackAllRequest(String resume, String jobPosting, String questionsAndAnswers) {}
+    record SummaryRequest(String resume, String jobPosting, String questionsAndAnswers) {} // 🔥 신규!
+
     record SaveInterviewRequest(
             String mode,
             String resumeContent,
             String questionsAndAnswers,
             String feedback,
+            String summaryFeedback, // 🔥 신규!
             int totalQuestions
     ) {}
 
@@ -44,14 +44,10 @@ public class InterviewController {
             String resumeContent,
             String questionsAndAnswers,
             String feedback,
+            String summaryFeedback, // 🔥 신규!
             int totalQuestions,
             LocalDateTime createdAt
     ) {}
-
-    @PostMapping(value = "/evaluate", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public Flux<String> evaluate(@RequestBody EvaluateRequest request) {
-        return interviewService.evaluate(request.resume(), request.jobPosting());
-    }
 
     @PostMapping(value = "/question", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<String> question(@RequestBody QuestionRequest request) {
@@ -67,15 +63,10 @@ public class InterviewController {
                 request.question(), request.answer());
     }
 
-    @PostMapping(value = "/questions-all", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public Flux<String> allQuestions(@RequestBody AllQuestionsRequest request) {
-        return interviewService.generateAllQuestions(
-                request.resume(), request.jobPosting(), request.totalQuestions());
-    }
-
-    @PostMapping(value = "/feedback-all", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public Flux<String> feedbackAll(@RequestBody FeedbackAllRequest request) {
-        return interviewService.feedbackAll(
+    // 🔥 신규: 종합 총평 생성
+    @PostMapping(value = "/summary", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<String> summary(@RequestBody SummaryRequest request) {
+        return interviewService.generateSummary(
                 request.resume(), request.jobPosting(), request.questionsAndAnswers());
     }
 
@@ -92,6 +83,7 @@ public class InterviewController {
                 .resumeContent(req.resumeContent())
                 .questionsAndAnswers(req.questionsAndAnswers())
                 .feedback(req.feedback())
+                .summaryFeedback(req.summaryFeedback()) // 🔥 신규!
                 .totalQuestions(req.totalQuestions())
                 .build();
 
@@ -103,6 +95,7 @@ public class InterviewController {
                 saved.getResumeContent(),
                 saved.getQuestionsAndAnswers(),
                 saved.getFeedback(),
+                saved.getSummaryFeedback(), // 🔥 신규!
                 saved.getTotalQuestions(),
                 saved.getCreatedAt()
         ));
@@ -122,6 +115,7 @@ public class InterviewController {
                         r.getResumeContent(),
                         r.getQuestionsAndAnswers(),
                         r.getFeedback(),
+                        r.getSummaryFeedback(), // 🔥 신규!
                         r.getTotalQuestions(),
                         r.getCreatedAt()
                 )).toList();

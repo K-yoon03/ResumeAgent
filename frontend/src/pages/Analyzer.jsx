@@ -179,44 +179,53 @@ const Analyzer = ({ setGlobalExperience, setGlobalAnalysis }) => {
       return;
     }
 
-    const cacheKey = CACHE_KEY(question);
-    const cached = sessionStorage.getItem(cacheKey);
-    if (cached) {
-      try {
-        const { answer: cachedAnswer, scoreData: cachedScore } = JSON.parse(cached);
-        setAnswer(cachedAnswer);
-        setScoreData(cachedScore);
-        scoreDataRef.current = cachedScore;
-        setIsModalOpen(true);
-        return;
-      } catch {
-        sessionStorage.removeItem(cacheKey);
-      }
-    }
-
-    setLoading(true);
-    setAnswer("");
-    setScoreData(null);
-    scoreDataRef.current = null;
-    setSaved(false);
-    let fullText = "";
-
+  const cacheKey = CACHE_KEY(question);
+  const cached = sessionStorage.getItem(cacheKey);
+  if (cached) {
     try {
-      const [analysisRes] = await Promise.all([
-        fetch(`${BASE_URL}/api/v1/agent/analyze`, {
-          method: "POST",
-          headers: { "Content-Type": "text/plain" },
-          body: question,
-        }),
-        fetch(`${BASE_URL}/api/v1/agent/score`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ experience: question }),
-        })
-          .then(r => r.json())
-          .then(data => { setScoreData(data); scoreDataRef.current = data; })
-          .catch(() => {})
-      ]);
+      const { answer: cachedAnswer, scoreData: cachedScore } = JSON.parse(cached);
+      setAnswer(cachedAnswer);
+      setScoreData(cachedScore);
+      scoreDataRef.current = cachedScore;
+      setIsModalOpen(true);
+      return;
+    } catch {
+      sessionStorage.removeItem(cacheKey);
+    }
+  }
+ 
+  setLoading(true);
+  setAnswer("");
+  setScoreData(null);
+  scoreDataRef.current = null;
+  setSaved(false);
+  let fullText = "";
+ 
+  // 🔥 토큰 가져오기
+  const token = localStorage.getItem("token");
+ 
+  try {
+    const [analysisRes] = await Promise.all([
+      fetch(`${BASE_URL}/api/v1/agent/analyze`, {
+        method: "POST",
+        headers: { 
+          "Content-Type": "text/plain",
+          "Authorization": `Bearer ${token}` // 🔥 추가!
+        },
+        body: question,
+      }),
+      fetch(`${BASE_URL}/api/v1/agent/score`, {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}` // 🔥 추가!
+        },
+        body: JSON.stringify({ experience: question }),
+      })
+        .then(r => r.json())
+        .then(data => { setScoreData(data); scoreDataRef.current = data; })
+        .catch(() => {})
+    ]);
 
       if (!analysisRes.ok) throw new Error("네트워크 응답에 문제가 있습니다.");
 

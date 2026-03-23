@@ -4,7 +4,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { MessageSquare, FileText, Settings, ChevronRight, Send, RotateCcw } from "lucide-react";
+import { MessageSquare, FileText, ChevronRight, Send, RotateCcw, Loader2 } from "lucide-react";
 import { BASE_URL } from '../config';
 
 function InterviewAgent() {
@@ -14,30 +14,17 @@ function InterviewAgent() {
   const jobPosting = location.state?.jobPosting || "";
 
   const [totalQuestions, setTotalQuestions] = useState(5);
-  const [interviewMode, setInterviewMode] = useState("chat");
-  const [phase, setPhase] = useState("evaluating");
-  const [evaluation, setEvaluation] = useState("");
+  const [phase, setPhase] = useState("setup");
   const [messages, setMessages] = useState([]);
   const [userAnswer, setUserAnswer] = useState("");
   const [questionCount, setQuestionCount] = useState(0);
-  const [questionList, setQuestionList] = useState([]);
-  const [answers, setAnswers] = useState({});
-  const [finalFeedback, setFinalFeedback] = useState("");
+  const [summaryFeedback, setSummaryFeedback] = useState(""); // 🔥 종합 총평
   const [loading, setLoading] = useState(false);
   const bottomRef = useRef(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, evaluation]);
-
-  const hasStarted = useRef(false);
-
-  useEffect(() => {
-    if (resume && !hasStarted.current) {
-      hasStarted.current = true;
-      startEvaluation();
-    }
-  }, []);
+  }, [messages, summaryFeedback]);
 
   if (!resume) {
     return (
@@ -54,7 +41,7 @@ function InterviewAgent() {
     );
   }
 
-  // SSE 스트리밍 - 파싱 수정
+  // SSE 스트리밍
   const streamSSE = async (url, body, onChunk, onDone) => {
     const response = await fetch(url, {
       method: "POST",
@@ -90,18 +77,6 @@ function InterviewAgent() {
     onDone(result);
   };
 
-  const startEvaluation = async () => {
-    setPhase("evaluating");
-    setLoading(true);
-    setEvaluation("");
-    await streamSSE(
-      `${BASE_URL}/api/interview/evaluate`,
-      { resume, jobPosting },
-      (chunk) => setEvaluation(prev => prev + chunk),
-      () => { setPhase("evaluated"); setLoading(false); }
-    );
-  };
-
   const fetchNextQuestion = async (history, nextCount) => {
     setLoading(true);
     await streamSSE(
@@ -130,16 +105,12 @@ function InterviewAgent() {
       (full) => {
         const nextCount = questionCount + 1;
         setQuestionCount(nextCount);
+        setMessages(prev => [...prev, { role: "feedback", content: full }]);
+        
         if (nextCount >= totalQuestions) {
-          setMessages(prev => [...prev, { role: "feedback", content: full }]);
-          setPhase("done");
-          setLoading(false);
-          const qna = [...newMessages, { role: "feedback", content: full }]
-            .map(m => `${m.role === "user" ? "지원자" : m.role === "interviewer" ? "면접관" : "피드백"}: ${m.content}`)
-            .join("\n\n");
-          saveInterviewResult(full, qna);
+          // 🔥 마지막 질문 완료 → 종합 총평 생성
+          generateSummary([...newMessages, { role: "feedback", content: full }]);
         } else {
-          setMessages(prev => [...prev, { role: "feedback", content: full }]);
           const history = newMessages
             .map(m => `${m.role === "user" ? "지원자" : "면접관"}: ${m.content}`)
             .join("\n");
@@ -149,67 +120,58 @@ function InterviewAgent() {
     );
   };
 
-  const fetchAllQuestions = async () => {
+  // 🔥 종합 총평 생성
+  const generateSummary = async (allMessages) => {
     setLoading(true);
+    setSummaryFeedback("");
+    
+    const qna = allMessages
+      .map(m => `${m.role === "user" ? "지원자" : m.role === "interviewer" ? "면접관" : "피드백"}: ${m.content}`)
+      .join("\n\n");
+
     await streamSSE(
-      `${BASE_URL}/api/interview/questions-all`,
-      { resume, jobPosting, totalQuestions },
-      (chunk) => {},
+      `${BASE_URL}/api/interview/summary`,
+      { resume, jobPosting, questionsAndAnswers: qna },
+      (chunk) => setSummaryFeedback(prev => prev + chunk),
       (full) => {
-        const parsed = full
-          .split("\n")
-          .filter(line => /^\d+\./.test(line.trim()))
-          .map(line => line.replace(/^\d+\.\s*/, "").trim());
-        setQuestionList(parsed);
-        setAnswers(Object.fromEntries(parsed.map((_, i) => [i, ""])));
+        setPhase("done");
         setLoading(false);
+        saveInterviewResult(qna, full);
       }
     );
   };
 
-  const submitAllAnswers = async () => {
-    const questionsAndAnswers = questionList
-      .map((q, i) => `Q${i + 1}. ${q}\nA${i + 1}. ${answers[i] || "(답변 없음)"}`)
-      .join("\n\n");
-    setLoading(true);
-    setFinalFeedback("");
-    await streamSSE(
-      `${BASE_URL}/api/interview/feedback-all`,
-      { resume, jobPosting, questionsAndAnswers },
-      (chunk) => setFinalFeedback(prev => prev + chunk),
-      (full) => {
-          setPhase("done");
-          setLoading(false);
-          saveInterviewResult(full, questionsAndAnswers);
-      }
-    );
-  };
-  const saveInterviewResult = async (feedback, qna) => {
+  const saveInterviewResult = async (qna, summary) => {
     const token = localStorage.getItem("token");
     if (!token) return;
+    
+    // 마지막 피드백 추출
+    const lastFeedback = messages.filter(m => m.role === "feedback").pop()?.content || "";
+    
     try {
-        await fetch(`${BASE_URL}/api/interview/save`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({
-                mode: interviewMode,
-                resumeContent: resume,
-                questionsAndAnswers: qna,
-                feedback,
-                totalQuestions,
-            }),
-        });
+      await fetch(`${BASE_URL}/api/interview/save`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          mode: "chat",
+          resumeContent: resume,
+          questionsAndAnswers: qna,
+          feedback: lastFeedback,
+          summaryFeedback: summary,
+          totalQuestions,
+        }),
+      });
     } catch {
-        // 저장 실패해도 면접은 정상 진행
+      // 저장 실패해도 면접은 정상 진행
     }
-};
+  };
+
   const startInterview = () => {
     setPhase("interviewing");
-    if (interviewMode === "list") fetchAllQuestions();
-    else fetchNextQuestion("", 1);
+    fetchNextQuestion("", 1);
   };
 
   return (
@@ -223,80 +185,20 @@ function InterviewAgent() {
         <h1 className="text-4xl font-bold bg-gradient-to-r from-[var(--gradient-start)] via-[var(--gradient-mid)] to-[var(--gradient-end)] bg-clip-text text-transparent">
           AI 모의면접
         </h1>
-        <p className="text-muted-foreground">자기소개서 기반 실전 면접을 연습해보세요</p>
+        <p className="text-muted-foreground">1:1 대화형 실전 면접을 연습해보세요</p>
       </div>
-
-      {/* 자소서 평가 */}
-      {(phase === "evaluating" || phase === "evaluated" || phase === "setup") && (
-        <Card className="border border-border/50">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <FileText className="h-5 w-5 text-[var(--gradient-mid)]" />
-              자기소개서 평가
-            </CardTitle>
-            {loading && <CardDescription>AI가 자기소개서를 분석하고 있습니다...</CardDescription>}
-          </CardHeader>
-          <CardContent>
-            <div className="prose prose-sm dark:prose-invert max-w-none min-h-[100px]">
-              {evaluation ? (
-                <ReactMarkdown>{evaluation}</ReactMarkdown>
-              ) : (
-                <div className="flex items-center justify-center h-24 text-muted-foreground text-sm border-2 border-dashed border-border rounded-lg">
-                  분석 중입니다...
-                </div>
-              )}
-            </div>
-            {phase === "evaluated" && (
-              <Button
-                className="w-full mt-6 bg-gradient-to-r from-[var(--gradient-start)] to-[var(--gradient-end)] text-white hover:opacity-90"
-                onClick={() => setPhase("setup")}
-              >
-                <Settings className="mr-2 h-4 w-4" />
-                면접 설정하기
-              </Button>
-            )}
-          </CardContent>
-        </Card>
-      )}
 
       {/* 면접 설정 */}
       {phase === "setup" && (
         <Card className="border border-border/50">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
-              <Settings className="h-5 w-5 text-[var(--gradient-mid)]" />
+              <MessageSquare className="h-5 w-5 text-[var(--gradient-mid)]" />
               면접 설정
             </CardTitle>
+            <CardDescription>질문 수를 선택하고 면접을 시작하세요</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="space-y-3">
-              <label className="text-sm font-medium text-foreground">면접 방식</label>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  onClick={() => setInterviewMode("chat")}
-                  className={`p-4 rounded-xl border-2 text-sm font-medium transition-all ${
-                    interviewMode === "chat"
-                      ? "border-[var(--gradient-mid)] bg-[var(--gradient-mid)]/10 text-[var(--gradient-mid)]"
-                      : "border-border text-muted-foreground hover:border-[var(--gradient-mid)]/50"
-                  }`}
-                >
-                  💬 1:1 대화형
-                  <p className="text-xs font-normal mt-1 opacity-70">질문에 바로 답변</p>
-                </button>
-                <button
-                  onClick={() => setInterviewMode("list")}
-                  className={`p-4 rounded-xl border-2 text-sm font-medium transition-all ${
-                    interviewMode === "list"
-                      ? "border-[var(--gradient-mid)] bg-[var(--gradient-mid)]/10 text-[var(--gradient-mid)]"
-                      : "border-border text-muted-foreground hover:border-[var(--gradient-mid)]/50"
-                  }`}
-                >
-                  📋 질문 목록형
-                  <p className="text-xs font-normal mt-1 opacity-70">전체 질문 한번에</p>
-                </button>
-              </div>
-            </div>
-
             <div className="space-y-3">
               <label className="text-sm font-medium text-foreground">
                 질문 수 <span className="text-muted-foreground font-normal">(1 ~ 10개)</span>
@@ -323,7 +225,7 @@ function InterviewAgent() {
       )}
 
       {/* 대화형 면접 */}
-      {(phase === "interviewing" || phase === "done") && interviewMode === "chat" && (
+      {(phase === "interviewing" || phase === "done") && (
         <Card className="border border-border/50">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
@@ -352,16 +254,31 @@ function InterviewAgent() {
                   </div>
                 </div>
               ))}
-              {loading && (
+              {loading && !summaryFeedback && (
                 <div className="flex flex-col gap-1 items-start">
-                  <span className="text-xs text-muted-foreground px-1">🧑‍💼 면접관</span>
-                  <div className="bg-muted px-4 py-3 rounded-2xl rounded-tl-sm text-sm text-muted-foreground">
+                  <span className="text-xs text-muted-foreground px-1">
+                    {questionCount >= totalQuestions ? "📊 종합 총평 생성 중..." : "🧑‍💼 면접관"}
+                  </span>
+                  <div className="bg-muted px-4 py-3 rounded-2xl rounded-tl-sm text-sm text-muted-foreground flex items-center gap-2">
+                    <Loader2 className="h-3 w-3 animate-spin" />
                     입력 중...
                   </div>
                 </div>
               )}
               <div ref={bottomRef} />
             </div>
+
+            {/* 🔥 종합 총평 표시 */}
+            {summaryFeedback && (
+              <div className="space-y-3 pt-4 border-t-2 border-[var(--gradient-mid)]/20">
+                <p className="text-sm font-semibold text-[var(--gradient-mid)] flex items-center gap-2">
+                  📊 종합 총평
+                </p>
+                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 border-2 border-blue-200 dark:border-blue-800 rounded-xl px-5 py-4 text-sm prose prose-sm dark:prose-invert max-w-none">
+                  <ReactMarkdown>{summaryFeedback}</ReactMarkdown>
+                </div>
+              </div>
+            )}
 
             {phase === "interviewing" && !loading && (
               <div className="space-y-3 pt-2 border-t border-border">
@@ -389,79 +306,24 @@ function InterviewAgent() {
             {phase === "done" && !loading && (
               <div className="pt-4 text-center space-y-4 border-t border-border">
                 <p className="text-sm font-medium text-foreground">🎉 면접이 종료되었습니다. 수고하셨습니다!</p>
-                <Button variant="outline" onClick={() => navigate(-1)}>
-                  <RotateCcw className="mr-2 h-4 w-4" />
-                  돌아가기
-                </Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* 목록형 면접 */}
-      {(phase === "interviewing" || phase === "done") && interviewMode === "list" && (
-        <Card className="border border-border/50">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <FileText className="h-5 w-5 text-[var(--gradient-mid)]" />
-              면접 질문 목록
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {loading && questionList.length === 0 && (
-              <div className="flex items-center justify-center h-24 text-muted-foreground text-sm border-2 border-dashed border-border rounded-lg">
-                질문을 생성 중입니다...
-              </div>
-            )}
-
-            {questionList.length > 0 && phase === "interviewing" && (
-              <div className="space-y-6">
-                {questionList.map((q, i) => (
-                  <div key={i} className="space-y-2">
-                    <p className="text-sm font-semibold text-[var(--gradient-mid)]">Q{i + 1}. {q}</p>
-                    <textarea
-                      className="w-full px-4 py-3 rounded-lg border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[var(--gradient-mid)]/50 focus:border-[var(--gradient-mid)] transition-all resize-none"
-                      placeholder="답변을 입력하세요..."
-                      rows={4}
-                      value={answers[i] || ""}
-                      onChange={(e) => setAnswers(prev => ({ ...prev, [i]: e.target.value }))}
-                    />
-                  </div>
-                ))}
-                <Button
-                  className="w-full bg-gradient-to-r from-[var(--gradient-start)] to-[var(--gradient-end)] text-white hover:opacity-90"
-                  onClick={submitAllAnswers}
-                  disabled={loading}
-                >
-                  <Send className="mr-2 h-4 w-4" />
-                  전체 답변 제출
-                </Button>
-              </div>
-            )}
-
-            {loading && questionList.length > 0 && (
-              <div className="flex items-center justify-center h-16 text-muted-foreground text-sm">
-                피드백을 생성 중입니다...
-              </div>
-            )}
-
-            {finalFeedback && (
-              <div className="space-y-3 pt-4 border-t border-border">
-                <p className="text-sm font-semibold text-foreground">💡 종합 피드백</p>
-                <div className="prose prose-sm dark:prose-invert max-w-none">
-                  <ReactMarkdown>{finalFeedback}</ReactMarkdown>
+                <div className="flex gap-3">
+                  <Button 
+                    variant="outline" 
+                    className="flex-1"
+                    onClick={() => navigate("/my-interviews")}
+                  >
+                    <FileText className="mr-2 h-4 w-4" />
+                    면접 기록 보기
+                  </Button>
+                  <Button 
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => navigate(-1)}
+                  >
+                    <RotateCcw className="mr-2 h-4 w-4" />
+                    돌아가기
+                  </Button>
                 </div>
-              </div>
-            )}
-
-            {phase === "done" && !loading && (
-              <div className="pt-4 text-center space-y-4 border-t border-border">
-                <p className="text-sm font-medium text-foreground">🎉 면접이 종료되었습니다. 수고하셨습니다!</p>
-                <Button variant="outline" onClick={() => navigate(-1)}>
-                  <RotateCcw className="mr-2 h-4 w-4" />
-                  돌아가기
-                </Button>
               </div>
             )}
           </CardContent>

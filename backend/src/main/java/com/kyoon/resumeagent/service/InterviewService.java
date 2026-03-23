@@ -13,56 +13,7 @@ public class InterviewService {
         this.chatClient = builder.build();
     }
 
-    // 1. 자소서 평가
-    public Flux<String> evaluate(String resume, String jobPosting) {
-        return chatClient.prompt()
-                .system("""
-                당신은 실제 채용을 결정하는 실무 면접관입니다.
-                지원자의 자기소개서를 냉정하고 실무 중심적으로 평가하세요.
-                
-                규칙:
-                - 채용공고에서 "없음"으로 표시된 항목은 절대 언급하지 마세요
-                - 채용공고에 없는 기준으로 지원자를 평가하지 마세요
-                - 오직 자기소개서 내용만으로 판단하세요
-                - 추상적인 칭찬은 금지하고, 반드시 근거 기반으로 평가하세요
-                - 기술, 경험, 성과는 "구체성 / 실무 연관성 / 임팩트" 기준으로 판단하세요
-                - 부족한 점은 모호하게 돌려 말하지 말고 명확하게 지적하세요
-                - 단순 나열이 아니라, 왜 강점/약점인지 짧게 설명하세요
-                
-                평가 기준 (내부 기준으로 활용):
-                - 직무 적합성 (기술과 경험이 직무와 얼마나 연결되는지)
-                - 경험의 구체성 (역할, 기술, 문제 해결 과정이 드러나는지)
-                - 성과의 명확성 (정량적 또는 명확한 결과가 있는지)
-                - 실무 투입 가능성 (바로 활용 가능한 수준인지)
-                
-                출력 형식:
-                
-                ## 📝 전반적 평가
-                - 한두 문장으로 수준과 방향성 평가
-                
-                ## ✅ 강점
-                - 핵심 강점 2~3개만, 근거와 함께 간결하게
-                
-                ## ⚠️ 아쉬운 점
-                - 실제 감점 요소 위주로 2~3개 명확하게 지적
-                
-                ## 💡 면접 시 주목할 부분
-                - 반드시 검증이 필요한 부분 위주로 작성
-                
-                채용공고:
-                """ + jobPosting + """
-                
-                자기소개서:
-                """ + resume + """
-                """)
-                .user("자기소개서를 평가해주세요.")
-                .stream()
-                .content()
-                .bufferUntil(token -> token.contains("\n"))
-                .map(tokens -> String.join("", tokens));
-    }
-
-    // 2. 면접 질문 생성
+    // 1. 면접 질문 생성 (1:1 대화형)
     public Flux<String> generateQuestion(String resume, String jobPosting, String history, int questionNumber, int totalQuestions) {
         return chatClient.prompt()
                 .system("""
@@ -88,28 +39,7 @@ public class InterviewService {
                 .map(tokens -> String.join("", tokens));
     }
 
-    public Flux<String> generateAllQuestions(String resume, String jobPosting, int totalQuestions) {
-        return chatClient.prompt()
-                .system("""
-                    당신은 채용 담당 면접관입니다.
-                    자기소개서와 채용공고를 바탕으로 면접 질문 %d개를 생성하세요.
-                    
-                    규칙:
-                    - 반드시 %d개의 질문만 생성하세요
-                    - 번호를 붙여서 출력하세요 (1. 2. 3. ...)
-                    - 질문만 출력하고 다른 말은 하지 마세요
-                    
-                    채용공고: %s
-                    자기소개서: %s
-                    """.formatted(totalQuestions, totalQuestions, jobPosting, resume))
-                .user("면접 질문을 생성해주세요.")
-                .stream()
-                .content()
-                .bufferUntil(token -> token.contains("\n"))
-                .map(tokens -> String.join("", tokens));
-    }
-
-    // 3. 답변 피드백
+    // 2. 답변 피드백
     public Flux<String> feedback(String resume, String jobPosting, String question, String answer) {
         return chatClient.prompt()
                 .system("""
@@ -138,32 +68,47 @@ public class InterviewService {
                 .map(tokens -> String.join("", tokens));
     }
 
-    public Flux<String> feedbackAll(String resume, String jobPosting, String questionsAndAnswers) {
+    // 3. 종합 총평 생성 (🔥 신규!)
+    public Flux<String> generateSummary(String resume, String jobPosting, String questionsAndAnswers) {
         return chatClient.prompt()
                 .system("""
                     당신은 냉철하고 엄격한 채용 면접관입니다.
-                    지원자의 모든 답변을 종합적으로 평가하세요.
+                    면접 전체를 종합하여 최종 평가를 내리세요.
                     
                     규칙:
-                    - 평가는 반드시 지원자의 "답변 내용"만을 기준으로 하세요
-                    - 자기소개서 내용은 참고만 하고, 강점/약점 평가에 사용하지 마세요
-                    - 답변이 "(답변 없음)"이거나 한 글자, 의미없는 내용이면 매우 강하게 지적하세요
-                    - 불성실한 답변이 있으면 합격 가능성은 무조건 "하"입니다
+                    - 한 줄 요약은 30자 이내로 핵심만 담으세요
+                    - 채용 여부를 판단할 만한 명확한 기준을 제시하세요
+                    - 불성실한 답변이 하나라도 있으면 합격 가능성은 "하"입니다
                     - 과도한 칭찬 절대 금지
                     - 잘한 점이 없으면 "없음"으로 표시하세요
+                    - 개선 방향은 구체적이고 실행 가능해야 합니다
+                    
+                    ## 🎯 한 줄 요약
+                    (30자 이내로 핵심만)
                     
                     ## 📊 종합 평가
-                    ## ✅ 전반적인 강점
-                    ## ⚠️ 전반적인 아쉬운 점
+                    
+                    ## ✅ 강점
+                    (답변 기준, 없으면 "없음")
+                    
+                    ## ⚠️ 약점
+                    (명확하게 지적)
+                    
                     ## 💡 개선 방향
-                    ## 🎯 합격 가능성 (상/중/하)
+                    (구체적인 실행 방안)
                     
-                    채용공고: """ + jobPosting + """
-                    자기소개서: """ + resume + """
+                    ## 🏆 합격 가능성
+                    상/중/하 중 하나 선택하고 한 줄로 이유 설명
                     
-                    질문 및 답변:
+                    채용공고:
+                    """ + jobPosting + """
+                    
+                    자기소개서:
+                    """ + resume + """
+                    
+                    면접 내용:
                     """ + questionsAndAnswers)
-                .user("전체 답변을 종합 평가해주세요.")
+                .user("면접 전체를 종합 평가해주세요.")
                 .stream()
                 .content()
                 .bufferUntil(token -> token.contains("\n"))

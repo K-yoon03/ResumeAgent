@@ -26,6 +26,8 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtFilter jwtFilter;
+    private final CustomOAuth2UserService customOAuth2UserService;
+    private final OAuth2SuccessHandler oAuth2SuccessHandler;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -35,19 +37,28 @@ public class SecurityConfig {
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll()
-                        .requestMatchers("/api/v1/agent/**").permitAll() // AI 기능은 일단 허용
+                        .requestMatchers("/api/v1/agent/**").permitAll()
                         .requestMatchers("/api/resume/generate").permitAll()
+                        .requestMatchers("/api/interview/advanced/**").hasRole("ADMIN") // 🔥 추가!
                         .requestMatchers("/api/interview/**").permitAll()
                         .requestMatchers("/h2-console/**").permitAll()
+                        .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
                         .requestMatchers("/api/projects/**").authenticated()
                         .anyRequest().authenticated()
-                ).headers(headers -> headers.frameOptions(frame -> frame.disable()))
+                )
+                .headers(headers -> headers.frameOptions(frame -> frame.disable()))
+                .oauth2Login(oauth2 -> oauth2
+                        .userInfoEndpoint(userInfo -> userInfo
+                                .userService(customOAuth2UserService)
+                        )
+                        .successHandler(oAuth2SuccessHandler)
+                )
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
 
     @Bean
-    public CorsConfigurationSource corsConfigurationSource() { // 추가
+    public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOrigins(List.of("http://localhost:5173"));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));

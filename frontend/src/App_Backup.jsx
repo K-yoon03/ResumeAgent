@@ -54,7 +54,6 @@ function App() {
         }
       }
     } catch (error) {
-      console.error("스트리밍 에러:", error);
       setAnswer("에러가 발생했습니다: " + error.message);
     }
   };
