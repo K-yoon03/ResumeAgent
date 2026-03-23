@@ -8,6 +8,7 @@ import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
+import org.springframework.util.MimeType;
 import org.springframework.util.MimeTypeUtils;
 
 import java.util.*;
@@ -144,6 +145,7 @@ public class AgentService {
         String systemPrompt = """
             당신은 채용 공고 파싱 전문가입니다.
             사용자가 복사해온 텍스트에서 핵심 정보만 추출합니다.
+            입력 텍스트에 여러 기업의 공고가 포함되어 있을 경우, 가장 상단에 위치한 메인 채용 정보 하나만 추출하세요. 하단의 추천 공고 리스트는 무시하세요.
             
             추출할 정보:
             - companyName (String)
@@ -303,34 +305,65 @@ public class AgentService {
         }
     }
     public String parseJobPostingFromImage(byte[] imageBytes) {
-        // Base64 인코딩
         Resource imageResource = new ByteArrayResource(imageBytes);
+
+        // MIME 타입 자동 감지 (PNG, JPEG, WEBP 등)
+        String mimeType = detectMimeType(imageBytes);
 
         return chatClient.prompt()
                 .user(userSpec -> userSpec
                         .text("""
-                    이미지 속 채용공고를 분석하여 JSON 형식으로 변환해주세요.
+                    이미지 속 채용공고를 분석하여 다음 JSON 형식으로 변환해주세요.
                     
-                    필수 필드:
-                    - title: 채용 제목
-                    - company: 회사명
-                    - location: 근무지
-                    - requirements: 자격요건 (객체로, 세부 항목들 포함)
-                    - salary: 급여 (없으면 "협의")
-                    - experience: 경력 (없으면 "신입/경력")
-                    - education: 학력 (없으면 "무관")
-                    - employmentType: 고용형태 (정규직/계약직 등)
-                    - contact: 연락처 정보 (이메일, 전화번호 등)
+                    {
+                      "companyName": "회사명",
+                      "position": "직무",
+                      "mainTasks": "담당업무",
+                      "requirements": "자격요건",
+                      "preferred": "우대사항",
+                      "techStack": "기술스택",
+                      "workPlace": "근무지",
+                      "employmentType": "고용형태",
+                      "vision": "비전"
+                    }
                     
-                    이미지에 있는 모든 텍스트를 최대한 정확하게 추출하여
-                    구조화된 JSON으로 변환해주세요.
-                    
-                    JSON만 반환해주세요 (```json 태그 없이).
+                    정보가 없는 필드는 빈 문자열 ""로 반환해주세요.
+                    JSON만 반환해주세요 (코드블록 없이).
                     """)
-                        .media(MimeTypeUtils.IMAGE_PNG, imageResource)
+                        .media(MimeType.valueOf(mimeType), imageResource)
                 )
                 .call()
                 .content();
+    }
+
+    private String detectMimeType(byte[] imageBytes) {
+        if (imageBytes.length < 4) {
+            return MimeTypeUtils.IMAGE_PNG.toString();
+        }
+
+        // PNG: 89 50 4E 47
+        if (imageBytes[0] == (byte) 0x89 && imageBytes[1] == 0x50 &&
+                imageBytes[2] == 0x4E && imageBytes[3] == 0x47) {
+            return MimeTypeUtils.IMAGE_PNG.toString();
+        }
+
+        // JPEG: FF D8 FF
+        if (imageBytes[0] == (byte) 0xFF && imageBytes[1] == (byte) 0xD8 &&
+                imageBytes[2] == (byte) 0xFF) {
+            return MimeTypeUtils.IMAGE_JPEG.toString();
+        }
+
+        // WebP: RIFF ... WEBP
+        if (imageBytes.length >= 12 &&
+                imageBytes[0] == 0x52 && imageBytes[1] == 0x49 &&
+                imageBytes[2] == 0x46 && imageBytes[3] == 0x46 &&
+                imageBytes[8] == 0x57 && imageBytes[9] == 0x45 &&
+                imageBytes[10] == 0x42 && imageBytes[11] == 0x50) {
+            return "image/webp";
+        }
+
+        // 기본값 PNG
+        return MimeTypeUtils.IMAGE_PNG.toString();
     }
 
 }

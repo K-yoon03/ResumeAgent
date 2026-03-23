@@ -46,13 +46,20 @@ public class ProjectController {
 
         User user = userRepository.findByEmail(userDetails.getUsername()).orElseThrow();
 
-        // 이미 저장된 프로젝트 있으면 그대로 반환
+        // 이미 저장된 프로젝트 있으면 그대로 반환 (크레딧 차감 X)
         if (req.assessmentId() != null) {
             List<Project> existing = projectRepository.findByAssessmentId(req.assessmentId());
             if (!existing.isEmpty()) {
                 return ResponseEntity.ok(existing.stream().map(this::toResponse).toList());
             }
         }
+
+        // 🔥 AI 호출 전 크레딧 체크 및 차감
+        if (!user.hasEnoughCredits(1)) {
+            return ResponseEntity.status(402).build(); // Payment Required
+        }
+        user.useCredits(1);
+        userRepository.save(user);
 
         // AI로 추출
         String result = analyzerService.extractProjects(req.experience());
@@ -126,7 +133,7 @@ public class ProjectController {
 
         return ResponseEntity.ok(toResponse(projectRepository.save(project)));
     }
-    
+
     // 삭제
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(

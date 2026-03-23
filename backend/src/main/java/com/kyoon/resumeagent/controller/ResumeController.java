@@ -254,7 +254,7 @@ public class ResumeController {
             return ResponseEntity.status(403).build();
         }
 
-        // 이미 평가된 경우 재사용 (API 호출 절약)
+        // 이미 평가된 경우 재사용 (크레딧 차감 X)
         if (resume.getEvaluation() != null && !resume.getEvaluation().isBlank()) {
             return ResponseEntity.ok(new ResumeResponse(
                     resume.getId(),
@@ -268,6 +268,13 @@ public class ResumeController {
                     resume.getUpdatedAt()
             ));
         }
+
+        // 🔥 AI 호출 전 크레딧 체크 및 차감
+        if (!user.hasEnoughCredits(1)) {
+            return ResponseEntity.status(402).build(); // Payment Required
+        }
+        user.useCredits(1);
+        userRepository.save(user);
 
         // AgentService를 통한 AI 평가
         String evaluation = agentService.evaluateResume(resume.getContent());

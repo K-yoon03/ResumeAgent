@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Sparkles, GraduationCap, Briefcase, Award, FileText, ArrowRight, X, AlertTriangle, Calendar, Save, RotateCcw, Clock, Target } from "lucide-react";
 import { BASE_URL } from '../config';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/context/AuthContext';
 
 const MAX_HISTORY = 3;
 const HISTORY_KEY = "analysis_history";
@@ -22,6 +22,7 @@ const CACHE_KEY = (text) => {
 
 const Analyzer = ({ setGlobalExperience, setGlobalAnalysis }) => {
   const navigate = useNavigate();
+  const {refreshCredits} = useAuth();
 
   const [targetJob, setTargetJob] = useState("");
   const [structForm, setStructForm] = useState({

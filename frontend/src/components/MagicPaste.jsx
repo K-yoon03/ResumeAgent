@@ -12,14 +12,30 @@ export function MagicPaste({ isOpen, onClose, onParsed }) {
 
   if (!isOpen) return null;
 
+  const extractJson = (text) => {
+    try {
+        // { 로 시작해서 } 로 끝나는 가장 큰 덩어리를 찾습니다.
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) return null;
+        return JSON.parse(jsonMatch[0]);
+    } catch (e) {
+        console.error("JSON 파싱 에러:", e);
+        return null;
+    }
+    };
   // 🔥 텍스트 또는 이미지 붙여넣기
   const handlePaste = async (e) => {
     // 이미지 체크
     const items = e.clipboardData.items;
     for (let item of items) {
       if (item.type.indexOf('image') !== -1) {
+        e.preventDefault(); // 🔥 기본 동작 막기
         const file = item.getAsFile();
-        await handleImageUpload(file);
+        try {
+          await handleImageUpload(file);
+        } catch (err) {
+          console.error('이미지 붙여넣기 실패:', err);
+        }
         return;
       }
     }
@@ -27,39 +43,94 @@ export function MagicPaste({ isOpen, onClose, onParsed }) {
     // 텍스트는 textarea에서 자동 처리됨
   };
 
+  // 🔥 이미지 압축
+  const compressImage = (file) => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          
+          // 최대 1920px로 제한
+          const MAX_WIDTH = 1920;
+          const MAX_HEIGHT = 1920;
+          
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height *= MAX_WIDTH / width;
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width *= MAX_HEIGHT / height;
+              height = MAX_HEIGHT;
+            }
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          canvas.toBlob((blob) => {
+            resolve(new File([blob], file.name, { type: 'image/jpeg', lastModified: Date.now() }));
+          }, 'image/jpeg', 0.8); // 80% 품질
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
   // 🔥 이미지 업로드
   const handleImageUpload = async (file) => {
-    if (!file.type.startsWith('image/')) {
+    if (!file || !file.type.startsWith('image/')) {
       toast.error('이미지 파일만 업로드 가능합니다.');
       return;
     }
 
+    // 🔥 이미지 압축
+    const compressedFile = await compressImage(file);
+
     // 미리보기
     const reader = new FileReader();
     reader.onload = (e) => setPreview(e.target.result);
-    reader.readAsDataURL(file);
+    reader.readAsDataURL(compressedFile);
 
     setLoading(true);
     const formData = new FormData();
-    formData.append('image', file);
+    formData.append('image', compressedFile);
+    const token = localStorage.getItem('token');
 
     try {
       const res = await fetch(`${BASE_URL}/api/v1/agent/parse-job-posting-image`, {
         method: 'POST',
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
         body: formData
       });
 
-      if (!res.ok) throw new Error('파싱 실패');
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(`파싱 실패: ${res.status}`);
+      }
 
       const result = await res.text();
-      const json = JSON.parse(result.replace(/```json|```/g, '').trim());
+      let cleanResult = result.trim();
+      if (cleanResult.startsWith('```json')) {
+        cleanResult = cleanResult.replace(/```json|```/g, '').trim();
+      } else if (cleanResult.startsWith('```')) {
+        cleanResult = cleanResult.replace(/```/g, '').trim();
+      }
       
+      const json = JSON.parse(cleanResult);
       onParsed(json);
       toast.success('채용공고를 불러왔습니다!');
       handleClose();
     } catch (err) {
       toast.error('이미지 분석에 실패했습니다.');
-      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -67,30 +138,44 @@ export function MagicPaste({ isOpen, onClose, onParsed }) {
 
   // 텍스트 파싱
   const parseText = async () => {
-    if (!rawPaste.trim()) return;
+    if (!rawPaste.trim()) {
+        toast.error('내용을 입력해주세요.');
+        return;
+    }
 
     setLoading(true);
+    const token = localStorage.getItem('token');
+    
     try {
-      const res = await fetch(`${BASE_URL}/api/v1/agent/parse-job-posting`, {
+        const res = await fetch(`${BASE_URL}/api/v1/agent/parse-job-posting`, {
         method: 'POST',
-        headers: { 'Content-Type': 'text/plain' },
-        body: rawPaste
-      });
+        headers: { 
+            // 🔥 1. 타입을 JSON으로 변경합니다.
+            'Content-Type': 'application/json', 
+            ...(token && { 'Authorization': `Bearer ${token}` })
+        },
+        // 🔥 2. 백엔드 DTO(ParseJobPostingRequest) 필드명인 rawText에 맞춰서 보냅니다.
+        body: JSON.stringify({ rawText: rawPaste }) 
+        });
 
-      if (!res.ok) throw new Error('파싱 실패');
+        if (!res.ok) throw new Error(`파싱 실패: ${res.status}`);
 
-      const result = await res.text();
-      const json = JSON.parse(result.replace(/```json|```/g, '').trim());
-      
-      onParsed(json);
-      toast.success('채용공고를 불러왔습니다!');
-      handleClose();
+        const result = await res.text();
+        const json = extractJson(result); 
+
+        if (json) {
+        onParsed(json);
+        handleClose();
+        } else {
+        throw new Error("JSON 형식을 찾을 수 없음");
+        }
     } catch (err) {
-      toast.error('파싱에 실패했습니다.');
+        toast.error('파싱에 실패했습니다.');
+        console.error(err);
     } finally {
-      setLoading(false);
+        setLoading(false);
     }
-  };
+    };
 
   // 🔥 드래그 앤 드롭
   const handleDrop = async (e) => {

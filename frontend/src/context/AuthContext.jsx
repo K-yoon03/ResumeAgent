@@ -174,7 +174,8 @@ export function AuthProvider({ children }) {
       loading, 
       refreshUser,
       credits,        // 🔥 추가!
-      refreshCredits  // 🔥 추가!
+      refreshCredits,  // 🔥 추가!
+      isAdmin: user?.role === 'ADMIN'
     }}>
       {children}
     </AuthContext.Provider>

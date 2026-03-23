@@ -6,10 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { MessageSquare, FileText, ChevronRight, Send, RotateCcw, Loader2, Zap } from "lucide-react";
 import { BASE_URL } from '../config';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/context/AuthContext';
 
 function AdvancedInterview() {
-  const { isAdmin, loading: authLoading } = useAuth();
+  const { isAdmin, loading: authLoading, refreshCredits } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const resume = location.state?.resume || "";
@@ -118,6 +118,7 @@ function AdvancedInterview() {
       }
     }
     onDone(result);
+    refreshCredits();
   };
 
   // 세션 시작

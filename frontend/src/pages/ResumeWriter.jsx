@@ -10,6 +10,7 @@ import { FileText, TrendingUp, Target, Lightbulb, Edit, ArrowRight, CheckCircle,
 import { BASE_URL } from '../config';
 import EvaluationResult from '../components/EvaluationResult';
 import { MagicPaste } from '@/components/MagicPaste';
+import { useAuth } from '@/context/AuthContext'; // 🔥 추가!
 
 const MAX_HISTORY = 3;
 const RESUME_HISTORY_KEY = "resume_history";
@@ -271,6 +272,7 @@ function StarModal({ project, onClose, onSave, aiHints, aiHintUsed, onAiHintFetc
 function ResumeWriter() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { refreshCredits } = useAuth(); // 🔥 추가!
 
   const experience = location.state?.experience || "";
   const analysis = location.state?.analysis || "";
@@ -893,12 +895,18 @@ const deleteSavedPosting = async (id) => {
         method: "POST",
         headers: { "Authorization": `Bearer ${token}` }
       });
+      
       if (res.ok) {
         const data = await res.json();
         setEvaluation(data.evaluation);
+        refreshCredits(); // 🔥 크레딧 갱신!
         toast.success("평가가 완료되었습니다!");
+      } else {
+        // 🔥 추가: res.ok가 false면 에러 throw
+        throw new Error(`평가 실패: ${res.status}`);
       }
-    } catch {
+    } catch (err) {
+      console.error(err);
       toast.error("평가에 실패했습니다.");
     } finally {
       setEvaluating(false);
@@ -1412,8 +1420,25 @@ const deleteSavedPosting = async (id) => {
                     isOpen={showMagicPaste}
                     onClose={() => setShowMagicPaste(false)}
                     onParsed={(json) => {
-                      // 파싱된 데이터로 jobPosting 채우기
-                      setJobPosting(JSON.stringify(json, null, 2));
+                      // 1. 개별 입력 칸(jobForm)에 데이터 꽂아넣기
+                      setJobForm({
+                        companyName: json.companyName || "",
+                        position: json.position || "",
+                        mainTasks: json.mainTasks || "",
+                        requirements: json.requirements || "",
+                        preferred: json.preferred || "",
+                        techStack: json.techStack || "",
+                        workPlace: json.workPlace || "",
+                        employmentType: json.employmentType || "",
+                        vision: json.vision || "",
+                      });
+
+                      // 2. 모드를 'form'으로 바꿔서 입력 폼 화면이 보이게 하기
+                      setJobMode("form");
+
+                      // 3. 모달 닫기
+                      setShowMagicPaste(false);
+
                       toast.success('채용공고 정보가 자동 입력되었습니다!');
                     }}
                   />

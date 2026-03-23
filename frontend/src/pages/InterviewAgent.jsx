@@ -6,10 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { MessageSquare, FileText, ChevronRight, Send, RotateCcw, Loader2 } from "lucide-react";
 import { BASE_URL } from '../config';
+import { useAuth } from '@/context/AuthContext';
 
 function InterviewAgent() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { refreshCredits } = useAuth();
   const resume = location.state?.resume || "";
   const jobPosting = location.state?.jobPosting || "";
 
@@ -80,6 +82,7 @@ function InterviewAgent() {
       }
     }
     onDone(result);
+    refreshCredits();
   };
 
   const fetchNextQuestion = async (history, nextCount) => {
