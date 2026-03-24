@@ -43,6 +43,7 @@ dependencies {
 
 	// [수정] h2-console은 별도 라이브러리가 아니라 h2 엔진에 포함되어 있습니다.
 	runtimeOnly 'com.h2database:h2'
+	runtimeOnly 'org.postgresql:postgresql' // 🔥 PostgreSQL 추가!
 
 	compileOnly 'org.projectlombok:lombok'
 	annotationProcessor 'org.projectlombok:lombok'
