@@ -1,11 +1,11 @@
 import { useState, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Sparkles, GraduationCap, Briefcase, Award, FileText, ArrowRight, X, AlertTriangle, Calendar, Save, RotateCcw, Clock, Target } from "lucide-react";
+import { Sparkles, GraduationCap, Briefcase, Award, FileText, ArrowRight, X, AlertTriangle, Calendar, Save, RotateCcw, Clock, Target, Lock } from "lucide-react";
 import { BASE_URL } from '../config';
 import { useAuth } from '@/context/AuthContext';
 
@@ -22,9 +22,10 @@ const CACHE_KEY = (text) => {
 
 const Analyzer = ({ setGlobalExperience, setGlobalAnalysis }) => {
   const navigate = useNavigate();
-  const {refreshCredits} = useAuth();
+  const { user, refreshCredits } = useAuth();  // 🔥 user 추가
 
   const [targetJob, setTargetJob] = useState("");
+  const [selectedJobCode, setSelectedJobCode] = useState("CP001");  // 🔥 추가
   const [structForm, setStructForm] = useState({
     age: "", education: "", career: "", skills: "", story: "",
   });
@@ -39,6 +40,7 @@ const Analyzer = ({ setGlobalExperience, setGlobalAnalysis }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [showWriterButton, setShowWriterButton] = useState(false);
+  const [showSignupPrompt, setShowSignupPrompt] = useState(false);  // 🔥 추가
   const [saved, setSaved] = useState(false);
   const [hasCache, setHasCache] = useState(
     () => {
@@ -46,6 +48,33 @@ const Analyzer = ({ setGlobalExperience, setGlobalAnalysis }) => {
       return h ? JSON.parse(h).length > 0 : false;
     }
   );
+
+  // 🔥 scoreData를 읽기 쉬운 텍스트로 변환
+  const generateAnalysisText = (scoreData) => {
+    let text = `# 역량 평가 결과\n\n`;
+    text += `## 총점: ${scoreData.totalScore}점\n\n`;
+    text += `## 역량별 점수\n\n`;
+    
+    scoreData.competencyScores.forEach(comp => {
+      text += `### ${comp.name}\n`;
+      text += `- 점수: ${comp.score}점 (가중치: ${(comp.weight * 100).toFixed(0)}%)\n`;
+      text += `- 기여도: ${comp.contribution.toFixed(1)}점\n`;
+      text += `- 근거: ${comp.evidence}\n\n`;
+    });
+    
+    if (scoreData.strengths && scoreData.strengths.length > 0) {
+      text += `## 💪 강점\n\n`;
+      scoreData.strengths.forEach(s => text += `- ${s}\n`);
+      text += `\n`;
+    }
+    
+    if (scoreData.improvements && scoreData.improvements.length > 0) {
+      text += `## 📈 개선점\n\n`;
+      scoreData.improvements.forEach(i => text += `- ${i}\n`);
+    }
+    
+    return text;
+  };
 
   const saveToHistory = (cacheKey, fullText, scoreDataVal, form, noneCheckedVal, targetJobVal) => {
     const history = JSON.parse(sessionStorage.getItem(HISTORY_KEY) || "[]");
@@ -123,6 +152,7 @@ const Analyzer = ({ setGlobalExperience, setGlobalAnalysis }) => {
     scoreDataRef.current = null;
     setSaved(false);
     setShowWriterButton(false);
+    setShowSignupPrompt(false);
     toast.success("초기화되었습니다.");
   };
 
@@ -131,6 +161,7 @@ const Analyzer = ({ setGlobalExperience, setGlobalAnalysis }) => {
     history.forEach(entry => sessionStorage.removeItem(entry.key));
     sessionStorage.removeItem(HISTORY_KEY);
     setIsHistoryOpen(false);
+    setHasCache(false);
     toast.success("이전 분석 내용이 모두 삭제되었습니다.");
   };
 
@@ -174,7 +205,8 @@ const Analyzer = ({ setGlobalExperience, setGlobalAnalysis }) => {
     ).length < 2;
   };
 
-const askAi = async () => {
+  // 🔥 핵심 수정: askAi 함수
+  const askAi = async () => {
     const question = buildQuestion();
     if (question.trim().length < 10) {
       toast.error("최소 하나 이상의 항목을 입력해주세요!");
@@ -195,229 +227,216 @@ const askAi = async () => {
         sessionStorage.removeItem(cacheKey);
       }
     }
- 
+
     setLoading(true);
     setAnswer("");
     setScoreData(null);
     scoreDataRef.current = null;
-    setSaved(false);
-    let fullText = "";
- 
+
     const token = localStorage.getItem("token");
- 
+
     try {
-      const [analysisRes] = await Promise.all([
-        fetch(`${BASE_URL}/api/v1/agent/analyze`, {
+      // 🔥 비로그인: AgentController (미리보기)
+      if (!token) {
+        const res = await fetch(`${BASE_URL}/api/v1/agent/analyze`, {
           method: "POST",
-          headers: { 
-            "Content-Type": "text/plain",
-            "Authorization": `Bearer ${token}`
-          },
+          headers: { "Content-Type": "text/plain" },
           body: question,
-        }),
-        fetch(`${BASE_URL}/api/v1/agent/score`, {
-          method: "POST",
-          headers: { 
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}`
-          },
-          body: JSON.stringify({ experience: question }),
-        })
-          .then(r => r.json())
-          .then(data => { setScoreData(data); scoreDataRef.current = data; })
-          .catch(() => {})
-      ]);
+        });
 
-      if (!analysisRes.ok) throw new Error("네트워크 응답에 문제가 있습니다.");
+        if (!res.ok) throw new Error("분석 실패");
 
-      const reader = analysisRes.body.getReader();
-      const decoder = new TextDecoder();
-      let done = false;
-      let buffer = "";
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder("utf-8");
+        let result = "";
 
-      while (!done) {
-        const { value, done: doneReading } = await reader.read();
-        done = doneReading;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
-        for (const line of lines) {
-          if (line.startsWith("data:")) {
-            const text = line.slice(5);
-            if (text.trim() === "[DONE]") { done = true; break; }
-            fullText += text;
-            setAnswer(prev => prev + text);
-          } else if (line === "" || line === "\r") {
-            fullText += "\n";
-            setAnswer(prev => prev.endsWith("\n\n") ? prev : prev + "\n");
-          }
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          const chunk = decoder.decode(value, { stream: true });
+          result += chunk;
+          setAnswer(result);
         }
+
+        // 🔥 일부만 보여주기 (첫 300자 + "...")
+        const preview = result.slice(0, 300) + "\n\n...";
+        setAnswer(preview);
+        setShowSignupPrompt(true);
+        toast.info("전체 결과를 보려면 가입이 필요합니다!");
+        return;
       }
+
+      // 🔥 로그인: AssessmentController (정식 평가)
+      const res = await fetch(`${BASE_URL}/api/assessments/evaluate`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          jobCode: selectedJobCode,
+          experience: question,
+        }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.message || "분석 실패");
+      }
+
+      const data = await res.json();
       
-      if (fullText.includes("[REJECT]")) {
-        setAnswer(fullText.replace("[REJECT]", "⚠️ **내용을 보강해 주세요:**\n\n"));
-      } else {
-        // 🔥 성공! 크레딧 갱신!
-        refreshCredits();
-        
-        sessionStorage.setItem(cacheKey, JSON.stringify({
-          answer: fullText,
-          scoreData: scoreDataRef.current,
-        }));
-        saveToHistory(cacheKey, fullText, scoreDataRef.current, structForm, noneChecked, targetJob);
+      // scoreData 파싱
+      const parsedScoreData = JSON.parse(data.scoreData);
+      const analysisText = generateAnalysisText(parsedScoreData);
+      
+      setAnswer(analysisText);
+      setScoreData(parsedScoreData);
+      scoreDataRef.current = parsedScoreData;
+      setSaved(true);  // 🔥 자동 저장됨
+      setSavedAssessmentId(data.id);
+      
+      // 캐시 저장
+      sessionStorage.setItem(
+        cacheKey,
+        JSON.stringify({ 
+          answer: analysisText, 
+          scoreData: parsedScoreData 
+        })
+      );
+      
+      saveToHistory(cacheKey, analysisText, parsedScoreData, structForm, noneChecked, targetJob);
+      setIsModalOpen(true);
+      await refreshCredits();
 
-        sessionStorage.setItem("pendingAssessment", JSON.stringify({
-          experience: buildQuestion(),
-          analysis: fullText,
-          scoreData: JSON.stringify(scoreDataRef.current),
-        }));
+      toast.success("역량 평가가 완료되었습니다!");
 
-        setIsModalOpen(true);
-      }
-    } catch (error) {
-      toast.error("에러가 발생했습니다: " + error.message);
+    } catch (err) {
+      console.error("Analysis error:", err);
+      toast.error(err.message || "분석 중 오류가 발생했습니다.");
+      setAnswer("");
     } finally {
       setLoading(false);
     }
   };
 
-  const goToWriter = async () => {
-    const question = buildQuestion();
-    if (setGlobalExperience) setGlobalExperience(question);
+  const goToWriter = () => {
+    if (setGlobalExperience) setGlobalExperience(buildQuestion());
     if (setGlobalAnalysis) setGlobalAnalysis(answer);
-
-    let assessmentId = savedAssessmentId;
-
-    if (!saved) {
-      const token = localStorage.getItem("token");
-      if (token) {
-        try {
-          const res = await fetch(`${BASE_URL}/api/assessments`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${token}`
-            },
-            body: JSON.stringify({
-              experience: question,
-              analysis: answer,
-              scoreData: scoreData ? JSON.stringify(scoreData) : null
-            })
-          });
-          if (res.ok) {
-            const data = await res.json();
-            assessmentId = data.id;  // ← 지역 변수 업데이트
-            setSavedAssessmentId(data.id);
-            setSaved(true);
-          }
-        } catch {
-          // 저장 실패해도 자소서 작성은 진행
-        }
-      }
-    }
-
-    // ← 여기가 핵심! assessmentId가 제대로 설정된 후 navigate
-    navigate("/resume-writer", {
-      state: {
-        experience: question,
-        analysis: answer,
-        scoreData,
-        assessmentId  // ← 이제 data.id가 들어감!
-      }
-    });
+    navigate("/resume-writer");
   };
 
-  const saveAssessment = async () => {
-    const token = localStorage.getItem("token");
-    if (!token) { navigate("/login"); return; }
-    try {
-      const res = await fetch(`${BASE_URL}/api/assessments`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          experience: buildQuestion(),
-          analysis: answer,
-          scoreData: scoreData ? JSON.stringify(scoreData) : null
-        })
-      });
-      const data = await res.json();
-      setSavedAssessmentId(data.id);
-      setSaved(true);
-      toast.success("저장되었습니다!");
-    } catch {
-      toast.error("저장에 실패했습니다.");
-    }
-  };
+  // 🔥 saveAssessment 함수 제거 (자동 저장되므로 불필요)
 
   const structFields = [
     { name: "age", label: "나이", icon: Calendar, placeholder: "예: 25", type: "input" },
-    { name: "education", label: "학력", icon: GraduationCap, placeholder: "예: 서울대학교 컴퓨터공학과 졸업", type: "input" },
-    { name: "career", label: "경력 및 경험", icon: Briefcase, placeholder: "예: IT 스타트업에서 인턴 경험 6개월, 팀 프로젝트 3회 등", type: "textarea" },
-    { name: "skills", label: "보유 스킬 및 자격증", icon: Award, placeholder: "예: Python, JavaScript, AWS, 정보처리기사 등", type: "textarea" },
-    { name: "story", label: "자신의 이야기", icon: FileText, placeholder: "성장 배경, 가치관, 목표 등 자유롭게 작성하세요", type: "textarea" },
+    { name: "education", label: "학력", icon: GraduationCap, placeholder: "예: ○○대학교 컴퓨터공학과 졸업", type: "input" },
+    { name: "career", label: "경력 및 경험", icon: Briefcase, placeholder: "관련 경험이나 프로젝트, 인턴십 등을 자유롭게 작성하세요", type: "textarea" },
+    { name: "skills", label: "보유 스킬 및 자격증", icon: Award, placeholder: "예: Python, React, AWS 자격증", type: "textarea" },
+    { name: "story", label: "자기소개", icon: FileText, placeholder: "본인을 소개하는 내용을 자유롭게 작성하세요", type: "textarea" },
   ];
 
   const inputClass = "w-full px-4 py-2.5 rounded-lg border border-input text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[var(--gradient-mid)]/50 focus:border-[var(--gradient-mid)] transition-all";
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-12 space-y-8">
-
+    <div className="max-w-4xl mx-auto space-y-6 p-6">
       {/* 헤더 */}
       <div className="text-center space-y-4">
         <div className="inline-flex items-center justify-center p-3 rounded-full bg-gradient-to-br from-[var(--gradient-start)] via-[var(--gradient-mid)] to-[var(--gradient-end)]">
-          <Sparkles className="h-7 w-7 text-white" />
+          <Sparkles className="h-8 w-8 text-white" />
         </div>
         <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-[var(--gradient-start)] via-[var(--gradient-mid)] to-[var(--gradient-end)] bg-clip-text text-transparent">
-          나의 역량을 분석해보세요
+          AI 역량 분석
         </h1>
-        <p className="text-muted-foreground text-base">
-          당신의 스펙과 경험을 입력하면 AI가 종합적으로 분석하여<br />
-          당신만의 강점을 찾아드립니다
+        <p className="text-lg text-muted-foreground">
+          당신의 경험을 AI가 분석하고 역량을 평가합니다
         </p>
+
+        {/* 상단 버튼들 */}
+        <div className="flex items-center justify-center gap-3">
+          {hasCache && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={openHistory}
+              className="flex items-center gap-1.5"
+            >
+              <Clock className="h-4 w-4" />
+              이전 분석 불러오기
+            </Button>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={resetInput}
+            className="flex items-center gap-1.5"
+          >
+            <RotateCcw className="h-4 w-4" />
+            초기화
+          </Button>
+        </div>
       </div>
 
-      {/* 입력 카드 */}
+      {/* 입력 폼 */}
       <Card className="border border-border/50 shadow-lg">
-        <CardHeader className="pb-2">
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-base">기본 정보 입력</CardTitle>
-              <CardDescription>자세히 작성할수록 더 정확한 분석 결과를 받을 수 있습니다</CardDescription>
-            </div>
-            <div className="flex items-center gap-1">
-              <Button variant="outline" size="sm" onClick={openHistory} className="shrink-0">
-                <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
-                이전 내용 불러오기
-              </Button>
-              <Button variant="outline" size="sm" onClick={resetInput} className="shrink-0 text-muted-foreground">
-                <X className="mr-1.5 h-3.5 w-3.5" />
-                초기화
-              </Button>
-            </div>
-          </div>
+        <CardHeader className="pb-4">
+          <CardTitle className="flex items-center gap-2">
+            ✏️ 경험 입력
+          </CardTitle>
+          <CardDescription>
+            자유롭게 작성하세요. 없는 항목은 체크박스를 선택하면 됩니다.
+          </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-5">
+        <CardContent className="space-y-4">
+          
+          {/* 🔥 직무 선택 (로그인 시에만) */}
+          {user && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium flex items-center gap-2 text-foreground">
+                <Target className="h-4 w-4 text-[var(--gradient-mid)]" />
+                평가 직무 선택
+              </label>
+              <select
+                value={selectedJobCode}
+                onChange={(e) => setSelectedJobCode(e.target.value)}
+                className={inputClass}
+              >
+                <option value="CP001">백엔드 개발</option>
+                <option value="CP002">프론트엔드 개발</option>
+                <option value="CP003">데이터/AI</option>
+                <option value="CP004">보안/네트워크</option>
+                <option value="CP005">클라우드/DevOps</option>
+                <option value="CP006">모바일 앱 개발</option>
+                <option value="CP007">게임 개발</option>
+                <option value="CP008">임베디드 개발</option>
+                <option value="CP009">QA/테스트</option>
+                <option value="CP010">기획/PM</option>
+                <option value="CP011">데이터 분석</option>
+                <option value="CP012">마케팅</option>
+                <option value="CP013">영업/세일즈</option>
+                <option value="CP014">UI/UX 디자인</option>
+                <option value="CP015">그래픽 디자인</option>
+                <option value="CP016">제품 디자인</option>
+              </select>
+              <p className="text-xs text-muted-foreground pl-1">
+                선택한 직무 기준으로 역량을 평가합니다
+              </p>
+            </div>
+          )}
 
           {/* 목표 직무 */}
           <div className="space-y-2">
             <label className="text-sm font-medium flex items-center gap-2 text-foreground">
               <Target className="h-4 w-4 text-[var(--gradient-mid)]" />
-              목표 직무/분야
-              <span className="text-xs text-muted-foreground font-normal">(선택)</span>
+              목표 직무/분야 <span className="text-xs text-muted-foreground font-normal">(선택)</span>
             </label>
             <input
               type="text"
               value={targetJob}
               onChange={(e) => setTargetJob(e.target.value)}
-              placeholder="예: 백엔드 개발자, 데이터 분석가, 마케터 등"
-              className={`${inputClass} bg-background text-foreground`}
+              placeholder="예: 백엔드 개발자, 프론트엔드 개발자"
+              className={inputClass}
             />
-            <p className="text-xs text-muted-foreground pl-1">
-              목표 직무를 입력하면 해당 관점에서 맞춤 분석과 조언을 받을 수 있어요
-            </p>
           </div>
 
           <div className="border-t border-border/40" />
@@ -483,22 +502,35 @@ const askAi = async () => {
 
       {/* 분석 결과 */}
       {(answer || loading) && (
-        <Card className="border border-border/50 shadow-lg">
+        <Card className="border border-border/50 shadow-lg relative">
+          {/* 🔥 회원가입 유도 overlay */}
+          {showSignupPrompt && (
+            <div className="absolute inset-0 backdrop-blur-sm bg-background/80 z-10 flex flex-col items-center justify-center rounded-lg p-8">
+              <Lock className="h-12 w-12 text-[var(--gradient-mid)] mb-4" />
+              <h3 className="text-xl font-bold mb-2">전체 결과를 확인하세요!</h3>
+              <p className="text-sm text-muted-foreground mb-6 text-center">
+                가입하고 역량별 상세 점수와<br />
+                맞춤 자기소개서를 받아보세요
+              </p>
+              <Link to="/register">
+                <Button size="lg" className="bg-gradient-to-r from-[var(--gradient-start)] to-[var(--gradient-end)]">
+                  가입하고 계속하기
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </Link>
+              <p className="text-xs text-muted-foreground mt-3">
+                입력한 내용이 자동 저장돼요
+              </p>
+            </div>
+          )}
+
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
               <CardTitle className="flex items-center gap-2 text-base">
                 🔍 AI 역량 분석 결과
               </CardTitle>
-              {answer && !loading && (
-                <Button
-                  variant="outline" size="sm"
-                  onClick={saveAssessment}
-                  disabled={saved}
-                  className={saved ? "text-green-600 border-green-300" : ""}
-                >
-                  <Save className="mr-1.5 h-3.5 w-3.5" />
-                  {saved ? "저장됨" : "저장하기"}
-                </Button>
+              {saved && (
+                <Badge className="bg-green-600 text-white">저장됨</Badge>
               )}
             </div>
           </CardHeader>
@@ -512,7 +544,7 @@ const askAi = async () => {
                 </div>
               )}
             </div>
-            {showWriterButton && (
+            {showWriterButton && !showSignupPrompt && (
               <Button
                 className="w-full mt-6 bg-gradient-to-r from-[var(--gradient-start)] via-[var(--gradient-mid)] to-[var(--gradient-end)] text-white hover:opacity-90"
                 onClick={goToWriter}
@@ -526,7 +558,7 @@ const askAi = async () => {
       )}
 
       {/* 분석 완료 모달 */}
-      {isModalOpen && (
+      {isModalOpen && !showSignupPrompt && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
           <div className="relative w-full max-w-sm mx-4 bg-card border border-border rounded-2xl shadow-2xl p-8 text-center">
             <button

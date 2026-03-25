@@ -3,13 +3,22 @@ import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Mail, Lock, User, AlertCircle, Calendar } from "lucide-react";
+import { Mail, Lock, User, AlertCircle, Calendar, Briefcase } from "lucide-react";  // 🔥 Briefcase 추가
 import { BASE_URL } from '../config';
 import CareerPilotHelmIcon from '../components/CareerPilotHelmIcon';
 import { toast } from "sonner";
 
 function Register() {
-  const [form, setForm] = useState({ email: "", password: "", nickname: "", name: "", birthYear: "", birthMonth: "", birthDay: "" });
+  const [form, setForm] = useState({ 
+    email: "", 
+    password: "", 
+    nickname: "", 
+    name: "", 
+    birthYear: "", 
+    birthMonth: "", 
+    birthDay: "",
+    desiredJob: ""  // 🔥 추가
+  });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
@@ -51,6 +60,7 @@ function Register() {
         // 에러 시 무시
     }
   };
+  
   const sendCode = async () => {
     if (!form.email) {
       setError("이메일을 입력해주세요.");
@@ -107,10 +117,17 @@ function Register() {
 
   const handleSubmit = async () => {
     setError("");
+    
+    if (!emailVerified) {
+      setError("이메일 인증을 완료해주세요.");
+      return;
+    }
+    
     if (nicknameError) {
       setError("닉네임을 확인해주세요.");
       return;
     }
+    
     // 생년월일 조합
     const { birthYear, birthMonth, birthDay } = form;
     let birthDate = null;
@@ -134,6 +151,7 @@ function Register() {
           nickname: form.nickname || null,
           name: form.name || null,
           birthDate,
+          desiredJob: form.desiredJob || null,  // 🔥 추가
         })
       });
       if (!res.ok) {
@@ -147,10 +165,6 @@ function Register() {
       setError(err.message);
     } finally {
       setLoading(false);
-    }
-    if (!emailVerified) {
-      setError("이메일 인증을 완료해주세요.");
-      return;
     }
   };
 
@@ -298,6 +312,26 @@ function Register() {
                 placeholder="8자 이상 입력하세요"
                 className={inputClass}
               />
+            </div>
+
+            {/* 🔥 희망 직무 (추가) */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium flex items-center gap-2 text-foreground">
+                <Briefcase className="h-4 w-4 text-[var(--gradient-mid)]" />
+                희망 직무 <span className="text-xs text-muted-foreground font-normal">(선택)</span>
+              </label>
+              <input
+                type="text" 
+                name="desiredJob" 
+                value={form.desiredJob}
+                onChange={handleChange}
+                onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+                placeholder="예: 백엔드 개발자, 프론트엔드 개발자"
+                className={inputClass}
+              />
+              <p className="text-xs text-muted-foreground pl-1">
+                나중에 마이페이지에서 변경할 수 있습니다
+              </p>
             </div>
 
             {/* 생년월일 */}

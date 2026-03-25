@@ -45,6 +45,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/interview/**").permitAll()
                         .requestMatchers("/h2-console/**").permitAll()
                         .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
+                        .requestMatchers("/api/assessments/evaluate").authenticated()
 
                         // 인증 필요한 경로
                         .requestMatchers("/api/interview/advanced/**").hasRole("ADMIN")

@@ -9,6 +9,7 @@ import com.kyoon.resumeagent.Entity.User;
 import com.kyoon.resumeagent.repository.AssessmentRepository;
 import com.kyoon.resumeagent.repository.CompanyRepository;
 import com.kyoon.resumeagent.repository.JobRepository;
+import com.kyoon.resumeagent.repository.UserRepository;
 import com.kyoon.resumeagent.service.JobChangeService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -16,6 +17,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.core.userdetails.UserDetails;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -29,6 +31,7 @@ public class DashboardController {
     private final JobRepository jobRepository;
     private final AssessmentRepository assessmentRepository;
     private final CompanyRepository companyRepository;  // 🔥 추가
+    private final UserRepository userRepository;
     private final JobChangeService jobChangeService;
     private final ObjectMapper objectMapper;  // 🔥 추가
 
@@ -38,9 +41,11 @@ public class DashboardController {
      */
     @GetMapping
     public ResponseEntity<DashboardResponse> getDashboard(
-            @AuthenticationPrincipal User user) {
+            @AuthenticationPrincipal UserDetails userDetails) {
 
-        // 1. 사용자 기본 정보
+        User user = userRepository.findByEmail(userDetails.getUsername())
+                .orElseThrow(() -> new RuntimeException("User not found")); // 사용자 정보 추출 (UserDetails)
+
         UserInfo userInfo = new UserInfo(
                 user.getNickname(),
                 user.getEmail()

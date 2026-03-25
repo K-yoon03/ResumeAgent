@@ -5,12 +5,13 @@ import com.kyoon.resumeagent.Entity.User;
 import com.kyoon.resumeagent.repository.AssessmentRepository;
 import com.kyoon.resumeagent.repository.UserRepository;
 import com.kyoon.resumeagent.repository.ResumeRepository;
-import com.kyoon.resumeagent.service.AssessmentService;  // 🔥 추가
+import com.kyoon.resumeagent.service.AssessmentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
+
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -22,49 +23,80 @@ public class AssessmentController {
     private final AssessmentRepository assessmentRepository;
     private final UserRepository userRepository;
     private final ResumeRepository resumeRepository;
-    private final AssessmentService assessmentService;  // 🔥 추가
+    private final AssessmentService assessmentService;
 
-    // 🔥 Request DTO 변경
-    record AssessmentRequest(String jobCode, String experience) {}
-    record SetPrimaryResponse(Long assessmentId, String message) {}
+    // ========================================
+    // Request/Response DTOs
+    // ========================================
+
+    public record EvaluateRequest(
+            String jobCode,
+            String experience
+    ) {}
+
+    public record EvaluateResponse(
+            Long id,
+            String evaluatedJobCode,
+            String scoreData,
+            Boolean isPrimary,
+            LocalDateTime createdAt
+    ) {}
+
+    public record AssessmentResponse(
+            Long id,
+            String evaluatedJobCode,
+            String experience,
+            String analysis,
+            String scoreData,
+            Boolean isPrimary,
+            LocalDateTime createdAt,
+            List<ResumeController.ResumeResponse> resumes
+    ) {}
+
+    public record SetPrimaryResponse(
+            Long assessmentId,
+            String message
+    ) {}
+
+    // ========================================
+    // API Endpoints
+    // ========================================
 
     /**
-     * 🔥 역량 평가 생성 (새 로직)
-     * POST /api/assessments
+     * 역량 평가 생성 (GPT + Gemini 공식)
+     * POST /api/assessments/evaluate
      */
-    @PostMapping
-    public ResponseEntity<AssessmentResponse> createAssessment(
-            @RequestBody AssessmentRequest req,
+    @PostMapping("/evaluate")
+    public ResponseEntity<EvaluateResponse> evaluate(
+            @RequestBody EvaluateRequest request,
             @AuthenticationPrincipal UserDetails userDetails) {
 
-        try {
-            User user = userRepository.findByEmail(userDetails.getUsername())
-                    .orElseThrow(() -> new RuntimeException("User not found"));
+        User user = userRepository.findByEmail(userDetails.getUsername())
+                .orElseThrow(() -> new RuntimeException("User not found"));
 
-            // AssessmentService 호출 (GPT + Gemini 공식)
+        try {
             Assessment assessment = assessmentService.evaluateCompetency(
                     user,
-                    req.jobCode(),
-                    req.experience()
+                    request.jobCode(),
+                    request.experience()
             );
 
-            return ResponseEntity.ok(new AssessmentResponse(
+            return ResponseEntity.ok(new EvaluateResponse(
                     assessment.getId(),
-                    assessment.getEvaluatedJobCode(),  // 🔥 추가
-                    assessment.getExperience(),
-                    assessment.getAnalysis(),
+                    assessment.getEvaluatedJobCode(),
                     assessment.getScoreData(),
-                    assessment.getIsPrimary(),  // 🔥 추가
-                    assessment.getCreatedAt(),
-                    List.of()  // 저장 직후엔 연관 자소서 없음
+                    assessment.getIsPrimary(),
+                    assessment.getCreatedAt()
             ));
-
         } catch (Exception e) {
-            return ResponseEntity.internalServerError()
-                    .body(null);
+            return ResponseEntity.internalServerError().build();
         }
     }
 
+    /**
+     * 내 평가 목록 조회
+     * GET /api/assessments
+     */
     @GetMapping
     public ResponseEntity<List<AssessmentResponse>> getMyAssessments(
             @AuthenticationPrincipal UserDetails userDetails) {
@@ -91,11 +123,11 @@ public class AssessmentController {
 
                     return new AssessmentResponse(
                             a.getId(),
-                            a.getEvaluatedJobCode(),  // 🔥 추가
+                            a.getEvaluatedJobCode(),
                             a.getExperience(),
                             a.getAnalysis(),
                             a.getScoreData(),
-                            a.getIsPrimary(),  // 🔥 추가
+                            a.getIsPrimary(),
                             a.getCreatedAt(),
                             resumes
                     );
@@ -104,36 +136,12 @@ public class AssessmentController {
         return ResponseEntity.ok(response);
     }
 
-    @DeleteMapping("/{id}")
-    public ResponseEntity<?> delete(
-            @PathVariable Long id,
-            @AuthenticationPrincipal UserDetails userDetails) {
-
-        User user = userRepository.findByEmail(userDetails.getUsername()).orElseThrow();
-        Assessment assessment = assessmentRepository.findById(id).orElseThrow();
-
-        if (!assessment.getUser().getId().equals(user.getId())) {
-            return ResponseEntity.status(403).build();
-        }
-
-        assessmentRepository.delete(assessment);
-        return ResponseEntity.ok().build();
-    }
-
-    // 🔥 AssessmentResponse DTO 수정
-    record AssessmentResponse(
-            Long id,
-            String evaluatedJobCode,  // 🔥 추가
-            String experience,
-            String analysis,
-            String scoreData,
-            Boolean isPrimary,  // 🔥 추가
-            LocalDateTime createdAt,
-            List<ResumeController.ResumeResponse> resumes
-    ) {}
-
-    @PutMapping("/{id}/set-primary")
-    public ResponseEntity<?> setPrimaryAssessment(
+    /**
+     * 주 역량 설정
+     * PUT /api/assessments/{id}/primary
+     */
+    @PutMapping("/{id}/primary")
+    public ResponseEntity<SetPrimaryResponse> setPrimaryAssessment(
             @PathVariable Long id,
             @AuthenticationPrincipal UserDetails userDetails) {
 
@@ -144,15 +152,19 @@ public class AssessmentController {
                 .orElseThrow(() -> new RuntimeException("Assessment not found"));
 
         if (!assessment.getUser().getId().equals(user.getId())) {
-            return ResponseEntity.status(403).body("본인의 평가만 선택할 수 있습니다.");
+            return ResponseEntity.status(403).body(
+                    new SetPrimaryResponse(null, "본인의 평가만 선택할 수 있습니다.")
+            );
         }
 
+        // 기존 주 역량 해제
         if (user.getPrimaryAssessment() != null) {
             Assessment oldPrimary = user.getPrimaryAssessment();
             oldPrimary.setIsPrimary(false);
             assessmentRepository.save(oldPrimary);
         }
 
+        // 새 주 역량 설정
         assessment.setIsPrimary(true);
         user.setPrimaryAssessment(assessment);
 
@@ -165,8 +177,12 @@ public class AssessmentController {
         ));
     }
 
+    /**
+     * 주 역량 해제
+     * DELETE /api/assessments/primary
+     */
     @DeleteMapping("/primary")
-    public ResponseEntity<?> removePrimaryAssessment(
+    public ResponseEntity<String> removePrimaryAssessment(
             @AuthenticationPrincipal UserDetails userDetails) {
 
         User user = userRepository.findByEmail(userDetails.getUsername())
@@ -184,5 +200,28 @@ public class AssessmentController {
         userRepository.save(user);
 
         return ResponseEntity.ok("주 역량이 해제되었습니다.");
+    }
+
+    /**
+     * 평가 삭제
+     * DELETE /api/assessments/{id}
+     */
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> deleteAssessment(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserDetails userDetails) {
+
+        User user = userRepository.findByEmail(userDetails.getUsername())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        Assessment assessment = assessmentRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Assessment not found"));
+
+        if (!assessment.getUser().getId().equals(user.getId())) {
+            return ResponseEntity.status(403).body("본인의 평가만 삭제할 수 있습니다.");
+        }
+
+        assessmentRepository.delete(assessment);
+        return ResponseEntity.ok("평가가 삭제되었습니다.");
     }
 }

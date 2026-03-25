@@ -20,6 +20,7 @@ import Footer from './components/Footer';
 import OAuth2Callback from './pages/OAuth2Callback';
 import ResumeViewer from './pages/ResumeViewer';
 import AdvancedInterview from './pages/AdvancedInterview';
+import { DashboardPage } from './pages/dashboard';  // 🔥 추가
 
 import './App.css';
 
@@ -39,6 +40,7 @@ function App() {
         <Toaster position="top-center" richColors />
         <Routes>
           <Route path="/" element={<Landing />} />
+          <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />  {/* 🔥 추가 */}
           <Route path="/analyze" element={<AnalyzeRoute />} />
           <Route path="/analyze/new" element={<Analyzer setGlobalExperience={() => {}} setGlobalAnalysis={() => {}} />} />
           <Route path="/resume-writer" element={<ProtectedRoute><ResumeWriter /></ProtectedRoute>} />

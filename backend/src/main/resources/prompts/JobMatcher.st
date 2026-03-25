@@ -44,5 +44,8 @@ Output (JSON only, no markdown):
 User Input: {userInput}
 
 Think: Is "{userInput}" in IT/Business/Design/Sales/Engineering? If NO → NO_MATCH.
+If input is core keyword (백엔드, 프론트엔드, 데이터, etc) → Find matching job and return EXACT_MATCH.
+
+Think: Is "{userInput}" in IT/Business/Design/Sales/Engineering? If NO → NO_MATCH.
 
 JSON response:

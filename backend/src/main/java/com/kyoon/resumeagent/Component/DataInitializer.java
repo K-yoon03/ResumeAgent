@@ -52,6 +52,10 @@ public class DataInitializer implements ApplicationRunner {
                     .dailyCredits(999999)  // 🔥 관리자는 무제한
                     .usedCredits(0)
                     .lastResetDate(LocalDate.now())
+                    .desiredJobText(null)
+                    .mappedJobCode(null)
+                    .isTemporaryJob(false)
+                    .jobChangeCount(0)
                     .build();
             userRepository.save(admin);
             System.out.println("✅ Admin 계정 생성 완료: admin@careerpilot.com / admin1234!");
