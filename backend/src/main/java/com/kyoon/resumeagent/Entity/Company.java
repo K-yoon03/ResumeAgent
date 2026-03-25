@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
 @EntityListeners(AuditingEntityListener.class)
 @Getter @Setter
 @NoArgsConstructor @AllArgsConstructor @Builder
-public class Assessment {
+public class Company {
 
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -19,25 +19,20 @@ public class Assessment {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    // 🔥 추가: 평가한 직무
-    @Column(name = "evaluated_job_code", length = 50)
-    private String evaluatedJobCode;  // CP001, TEMP_IT 등
+    @Column(nullable = false, length = 200)
+    private String companyName;  // "카카오"
 
-    // 기존 필드
-    @Column(columnDefinition = "TEXT")
-    private String experience;
+    @Column(length = 100)
+    private String industry;  // "IT·인터넷"
 
     @Column(columnDefinition = "TEXT")
-    private String analysis;
+    private String memo;  // "백엔드 개발자 채용 공고 지원 예정"
 
-    @Column(columnDefinition = "TEXT")
-    private String scoreData;
-
-    // 🔥 추가: 주 역량 여부
     @Column(name = "is_primary")
-    private Boolean isPrimary = false;
+    @Builder.Default
+    private Boolean isPrimary = false;  // 주 희망기업 여부
 
     @CreatedDate
     @Column(updatable = false)
-    private LocalDateTime createdAt;
+    private LocalDateTime addedAt;
 }

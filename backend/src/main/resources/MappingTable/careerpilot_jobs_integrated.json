@@ -1,0 +1,1015 @@
+{
+  "version": "1.0",
+  "updated_at": "2026-03-26",
+  "total_jobs": 21,
+  "jobs": [
+    {
+      "jobCode": "TEMP_IT",
+      "ncsLarge": "정보통신",
+      "ncsMedium": "범용",
+      "jobName": "정보통신 계열 범용",
+      "category": "정보통신",
+      "description": "정보통신 분야의 범용 평가 기준. 구체적인 직무 매칭이 불가능한 경우 사용됩니다.",
+      "measurementMethod": "기술 스택 숙련도 자가진단, 프로젝트 기술서 기반 검증, 공인어학성적",
+      "source": "careerpilot",
+      "isTemporary": true,
+      "competencies": [
+        {
+          "compId": 1,
+          "name": "기술 스택 숙련도",
+          "weight": 0.4,
+          "indicator": "주력 언어, 프레임워크, 라이브러리 활용 능력",
+          "measurement": "기술 스택 숙련도 자가진단, 프로젝트 기술서 기반 검증"
+        },
+        {
+          "compId": 2,
+          "name": "문제 해결 경험",
+          "weight": 0.3,
+          "indicator": "기술적 문제 해결 및 트러블슈팅 경험",
+          "measurement": "프로젝트 기술서 기반 검증"
+        },
+        {
+          "compId": 3,
+          "name": "프로젝트 경험",
+          "weight": 0.2,
+          "indicator": "개인 또는 팀 프로젝트 수행 경험",
+          "measurement": "프로젝트 기술서 기반 검증"
+        },
+        {
+          "compId": 4,
+          "name": "자격증 및 교육",
+          "weight": 0.05,
+          "indicator": "정보처리기사, 관련 교육 이수",
+          "measurement": "자격증 보유 여부"
+        },
+        {
+          "compId": 5,
+          "name": "어학 역량",
+          "weight": 0.05,
+          "indicator": "영어 능력 (TOEIC, TOEFL 등)",
+          "measurement": "공인어학성적"
+        }
+      ]
+    },
+    {
+      "jobCode": "CP001",
+      "ncsLarge": "정보통신",
+      "ncsMedium": "응용소프트웨어개발",
+      "jobName": "01. 백엔드 개발",
+      "category": "정보통신",
+      "description": "",
+      "measurementMethod": "기술 스택 숙련도 자가진단, 프로젝트 기술서 기반 검증",
+      "source": "gemini",
+      "isTemporary": false,
+      "competencies": [
+        {
+          "compId": 1,
+          "name": "프레임워크 숙련도 (Spring, Node.js 등)",
+          "weight": 0.35,
+          "indicator": "프레임워크 숙련도 (Spring, Node.js 등)",
+          "measurement": "기술 스택 숙련도 자가진단, 프로젝트 기술서 기반 검증"
+        },
+        {
+          "compId": 2,
+          "name": "DB 설계 및 API 최적화 능력",
+          "weight": 0.3,
+          "indicator": "DB 설계 및 API 최적화 능력",
+          "measurement": "기술 스택 숙련도 자가진단, 프로젝트 기술서 기반 검증"
+        },
+        {
+          "compId": 3,
+          "name": "코드 리뷰 및 트러블슈팅 경험",
+          "weight": 0.25,
+          "indicator": "코드 리뷰 및 트러블슈팅 경험",
+          "measurement": "기술 스택 숙련도 자가진단, 프로젝트 기술서 기반 검증"
+        },
+        {
+          "compId": 4,
+          "name": "관련 자격 및 교육 (SQLD 등)",
+          "weight": 0.05,
+          "indicator": "관련 자격 및 교육 (SQLD 등)",
+          "measurement": "기술 스택 숙련도 자가진단, 프로젝트 기술서 기반 검증"
+        },
+        {
+          "compId": 5,
+          "name": "어학 역량",
+          "weight": 0.05,
+          "indicator": "영어 능력 (TOEIC, TOEFL 등)",
+          "measurement": "공인어학성적"
+        }
+      ]
+    },
+    {
+      "jobCode": "CP002",
+      "ncsLarge": "정보통신",
+      "ncsMedium": "응용소프트웨어개발",
+      "jobName": "02. 프론트엔드 개발",
+      "category": "정보통신",
+      "description": "",
+      "measurementMethod": "포트폴리오 구현 수준, Lighthouse 점수 등 기술 지표",
+      "source": "gemini",
+      "isTemporary": false,
+      "competencies": [
+        {
+          "compId": 1,
+          "name": "UI/UX 구현 및 컴포넌트 설계력",
+          "weight": 0.35,
+          "indicator": "UI/UX 구현 및 컴포넌트 설계력",
+          "measurement": "포트폴리오 구현 수준, Lighthouse 점수 등 기술 지표"
+        },
+        {
+          "compId": 2,
+          "name": "상태 관리 프레임워크 활용 (React 등)",
+          "weight": 0.3,
+          "indicator": "상태 관리 프레임워크 활용 (React 등)",
+          "measurement": "포트폴리오 구현 수준, Lighthouse 점수 등 기술 지표"
+        },
+        {
+          "compId": 3,
+          "name": "웹 성능 최적화 및 크로스브라우징",
+          "weight": 0.25,
+          "indicator": "웹 성능 최적화 및 크로스브라우징",
+          "measurement": "포트폴리오 구현 수준, Lighthouse 점수 등 기술 지표"
+        },
+        {
+          "compId": 4,
+          "name": "관련 자격 및 교육",
+          "weight": 0.05,
+          "indicator": "관련 자격 및 교육",
+          "measurement": "포트폴리오 구현 수준, Lighthouse 점수 등 기술 지표"
+        },
+        {
+          "compId": 5,
+          "name": "어학 역량",
+          "weight": 0.05,
+          "indicator": "영어 능력 (TOEIC, TOEFL 등)",
+          "measurement": "공인어학성적"
+        }
+      ]
+    },
+    {
+      "jobCode": "CP003",
+      "ncsLarge": "정보통신",
+      "ncsMedium": "응용소프트웨어개발",
+      "jobName": "03. 데이터/AI",
+      "category": "정보통신",
+      "description": "",
+      "measurementMethod": "경진대회(Kaggle 등) 성과, 분석 보고서 퀄리티",
+      "source": "gemini",
+      "isTemporary": false,
+      "competencies": [
+        {
+          "compId": 1,
+          "name": "데이터 모델링 및 알고리즘 설계",
+          "weight": 0.3,
+          "indicator": "데이터 모델링 및 알고리즘 설계",
+          "measurement": "경진대회(Kaggle 등) 성과, 분석 보고서 퀄리티"
+        },
+        {
+          "compId": 2,
+          "name": "데이터 전처리 및 SQL 활용 능력",
+          "weight": 0.35,
+          "indicator": "데이터 전처리 및 SQL 활용 능력",
+          "measurement": "경진대회(Kaggle 등) 성과, 분석 보고서 퀄리티"
+        },
+        {
+          "compId": 3,
+          "name": "비즈니스 인사이트 도출 경험",
+          "weight": 0.25,
+          "indicator": "비즈니스 인사이트 도출 경험",
+          "measurement": "경진대회(Kaggle 등) 성과, 분석 보고서 퀄리티"
+        },
+        {
+          "compId": 4,
+          "name": "관련 자격 및 교육 (ADsP 등)",
+          "weight": 0.05,
+          "indicator": "관련 자격 및 교육 (ADsP 등)",
+          "measurement": "경진대회(Kaggle 등) 성과, 분석 보고서 퀄리티"
+        },
+        {
+          "compId": 5,
+          "name": "어학 역량",
+          "weight": 0.05,
+          "indicator": "영어 능력 (TOEIC, TOEFL 등)",
+          "measurement": "공인어학성적"
+        }
+      ]
+    },
+    {
+      "jobCode": "CP004",
+      "ncsLarge": "정보통신",
+      "ncsMedium": "응용소프트웨어개발",
+      "jobName": "04. 보안/네트워크",
+      "category": "정보통신",
+      "description": "",
+      "measurementMethod": "CTF 참여 경험, 보안 컨설팅 이력, 자격증 가중치 적용",
+      "source": "gemini",
+      "isTemporary": false,
+      "competencies": [
+        {
+          "compId": 1,
+          "name": "네트워크 및 보안 인프라 구축",
+          "weight": 0.35,
+          "indicator": "네트워크 및 보안 인프라 구축",
+          "measurement": "CTF 참여 경험, 보안 컨설팅 이력, 자격증 가중치 적용"
+        },
+        {
+          "compId": 2,
+          "name": "보안 위협 분석 및 취약점 진단",
+          "weight": 0.25,
+          "indicator": "보안 위협 분석 및 취약점 진단",
+          "measurement": "CTF 참여 경험, 보안 컨설팅 이력, 자격증 가중치 적용"
+        },
+        {
+          "compId": 3,
+          "name": "보안 정책 수립 및 침해대응 논리",
+          "weight": 0.3,
+          "indicator": "보안 정책 수립 및 침해대응 논리",
+          "measurement": "CTF 참여 경험, 보안 컨설팅 이력, 자격증 가중치 적용"
+        },
+        {
+          "compId": 4,
+          "name": "전문 자격 (정보보안기사 등)",
+          "weight": 0.05,
+          "indicator": "전문 자격 (정보보안기사 등)",
+          "measurement": "CTF 참여 경험, 보안 컨설팅 이력, 자격증 가중치 적용"
+        },
+        {
+          "compId": 5,
+          "name": "어학 역량",
+          "weight": 0.05,
+          "indicator": "영어 능력 (TOEIC, TOEFL 등)",
+          "measurement": "공인어학성적"
+        }
+      ]
+    },
+    {
+      "jobCode": "CP005",
+      "ncsLarge": "정보통신",
+      "ncsMedium": "응용소프트웨어개발",
+      "jobName": "05. 클라우드/DevOps",
+      "category": "정보통신",
+      "description": "",
+      "measurementMethod": "인프라 구축 사례, 시스템 가동률 및 배포 속도 개선 지표",
+      "source": "gemini",
+      "isTemporary": false,
+      "competencies": [
+        {
+          "compId": 1,
+          "name": "클라우드 아키텍처 설계 (AWS 등)",
+          "weight": 0.35,
+          "indicator": "클라우드 아키텍처 설계 (AWS 등)",
+          "measurement": "인프라 구축 사례, 시스템 가동률 및 배포 속도 개선 지표"
+        },
+        {
+          "compId": 2,
+          "name": "CI/CD 자동화 및 배포 파이프라인",
+          "weight": 0.35,
+          "indicator": "CI/CD 자동화 및 배포 파이프라인",
+          "measurement": "인프라 구축 사례, 시스템 가동률 및 배포 속도 개선 지표"
+        },
+        {
+          "compId": 3,
+          "name": "컨테이너 및 오케스트레이션 (Docker/K8s)",
+          "weight": 0.2,
+          "indicator": "컨테이너 및 오케스트레이션 (Docker/K8s)",
+          "measurement": "인프라 구축 사례, 시스템 가동률 및 배포 속도 개선 지표"
+        },
+        {
+          "compId": 4,
+          "name": "클라우드 인증 자격 (SAA 등)",
+          "weight": 0.05,
+          "indicator": "클라우드 인증 자격 (SAA 등)",
+          "measurement": "인프라 구축 사례, 시스템 가동률 및 배포 속도 개선 지표"
+        },
+        {
+          "compId": 5,
+          "name": "어학 역량",
+          "weight": 0.05,
+          "indicator": "영어 능력 (TOEIC, TOEFL 등)",
+          "measurement": "공인어학성적"
+        }
+      ]
+    },
+    {
+      "jobCode": "TEMP_BUSINESS",
+      "ncsLarge": "경영·회계·사무",
+      "ncsMedium": "범용",
+      "jobName": "경영·사무 계열 범용",
+      "category": "경영·회계·사무",
+      "description": "경영 및 사무 분야의 범용 평가 기준. 구체적인 직무 매칭이 불가능한 경우 사용됩니다.",
+      "measurementMethod": "직무 지식 평가, 프로젝트 기술서 기반 검증, 자격증 보유 여부, 공인어학성적",
+      "source": "careerpilot",
+      "isTemporary": true,
+      "competencies": [
+        {
+          "compId": 1,
+          "name": "전문 지식",
+          "weight": 0.3,
+          "indicator": "해당 산업 및 직무 관련 전문 지식",
+          "measurement": "직무 지식 평가, 프로젝트 기술서 기반 검증"
+        },
+        {
+          "compId": 2,
+          "name": "기획 및 관리 역량",
+          "weight": 0.25,
+          "indicator": "업무 기획, 일정 관리, 팀 관리 능력",
+          "measurement": "프로젝트 기술서 기반 검증"
+        },
+        {
+          "compId": 3,
+          "name": "사무 툴 활용",
+          "weight": 0.15,
+          "indicator": "엑셀, 파워포인트, 워드 등 사무 툴 활용 능력",
+          "measurement": "기술 스택 숙련도 자가진단"
+        },
+        {
+          "compId": 4,
+          "name": "자격증",
+          "weight": 0.2,
+          "indicator": "직무 관련 자격증 (회계, 세무, 경영지도사 등)",
+          "measurement": "자격증 보유 여부"
+        },
+        {
+          "compId": 5,
+          "name": "어학 역량",
+          "weight": 0.1,
+          "indicator": "영어 능력 (TOEIC, TOEFL 등)",
+          "measurement": "공인어학성적"
+        }
+      ]
+    },
+    {
+      "jobCode": "CP006",
+      "ncsLarge": "경영·회계·사무",
+      "ncsMedium": "경영기획",
+      "jobName": "06. 인사(HR)/노무",
+      "category": "경영·회계·사무",
+      "description": "",
+      "measurementMethod": "제도 기획 프로젝트 성과, 교육 이수 시간, 자격 유무",
+      "source": "gemini",
+      "isTemporary": false,
+      "competencies": [
+        {
+          "compId": 1,
+          "name": "노동법 지식 및 규정 준수 역량",
+          "weight": 0.3,
+          "indicator": "노동법 지식 및 규정 준수 역량",
+          "measurement": "제도 기획 프로젝트 성과, 교육 이수 시간, 자격 유무"
+        },
+        {
+          "compId": 2,
+          "name": "채용 및 성과관리 제도 기획력",
+          "weight": 0.3,
+          "indicator": "채용 및 성과관리 제도 기획력",
+          "measurement": "제도 기획 프로젝트 성과, 교육 이수 시간, 자격 유무"
+        },
+        {
+          "compId": 3,
+          "name": "조직 문화 및 노사 커뮤니케이션",
+          "weight": 0.2,
+          "indicator": "조직 문화 및 노사 커뮤니케이션",
+          "measurement": "제도 기획 프로젝트 성과, 교육 이수 시간, 자격 유무"
+        },
+        {
+          "compId": 4,
+          "name": "HR 관련 자격 및 전문 교육",
+          "weight": 0.15,
+          "indicator": "HR 관련 자격 및 전문 교육",
+          "measurement": "제도 기획 프로젝트 성과, 교육 이수 시간, 자격 유무"
+        },
+        {
+          "compId": 5,
+          "name": "어학 역량",
+          "weight": 0.05,
+          "indicator": "영어 능력 (TOEIC, TOEFL 등)",
+          "measurement": "공인어학성적"
+        }
+      ]
+    },
+    {
+      "jobCode": "CP007",
+      "ncsLarge": "경영·회계·사무",
+      "ncsMedium": "경영기획",
+      "jobName": "07. 회계/재무/세무",
+      "category": "경영·회계·사무",
+      "description": "",
+      "measurementMethod": "결산 경험 연수, 보유 자격 등급, 툴 숙련도 평가",
+      "source": "gemini",
+      "isTemporary": false,
+      "competencies": [
+        {
+          "compId": 1,
+          "name": "재무제표 작성 및 결산 능력",
+          "weight": 0.3,
+          "indicator": "재무제표 작성 및 결산 능력",
+          "measurement": "결산 경험 연수, 보유 자격 등급, 툴 숙련도 평가"
+        },
+        {
+          "compId": 2,
+          "name": "세무 신고 및 법인세 리스크 관리",
+          "weight": 0.3,
+          "indicator": "세무 신고 및 법인세 리스크 관리",
+          "measurement": "결산 경험 연수, 보유 자격 등급, 툴 숙련도 평가"
+        },
+        {
+          "compId": 3,
+          "name": "ERP 및 Excel 데이터 활용 역량",
+          "weight": 0.1,
+          "indicator": "ERP 및 Excel 데이터 활용 역량",
+          "measurement": "결산 경험 연수, 보유 자격 등급, 툴 숙련도 평가"
+        },
+        {
+          "compId": 4,
+          "name": "전문 자격 (전산세무회계, AICPA 등)",
+          "weight": 0.25,
+          "indicator": "전문 자격 (전산세무회계, AICPA 등)",
+          "measurement": "결산 경험 연수, 보유 자격 등급, 툴 숙련도 평가"
+        },
+        {
+          "compId": 5,
+          "name": "어학 역량",
+          "weight": 0.05,
+          "indicator": "영어 능력 (TOEIC, TOEFL 등)",
+          "measurement": "공인어학성적"
+        }
+      ]
+    },
+    {
+      "jobCode": "CP008",
+      "ncsLarge": "경영·회계·사무",
+      "ncsMedium": "경영기획",
+      "jobName": "08. 기획/전략",
+      "category": "경영·회계·사무",
+      "description": "",
+      "measurementMethod": "기획서 채택률, 성과 지표(KPI) 달성도 분석",
+      "source": "gemini",
+      "isTemporary": false,
+      "competencies": [
+        {
+          "compId": 1,
+          "name": "시장 분석 및 비즈니스 리서치",
+          "weight": 0.3,
+          "indicator": "시장 분석 및 비즈니스 리서치",
+          "measurement": "기획서 채택률, 성과 지표(KPI) 달성도 분석"
+        },
+        {
+          "compId": 2,
+          "name": "사업계획서 수립 및 문서화 능력",
+          "weight": 0.35,
+          "indicator": "사업계획서 수립 및 문서화 능력",
+          "measurement": "기획서 채택률, 성과 지표(KPI) 달성도 분석"
+        },
+        {
+          "compId": 3,
+          "name": "데이터 기반의 논리적 문제 해결력",
+          "weight": 0.25,
+          "indicator": "데이터 기반의 논리적 문제 해결력",
+          "measurement": "기획서 채택률, 성과 지표(KPI) 달성도 분석"
+        },
+        {
+          "compId": 4,
+          "name": "전략 프로젝트 참여 및 자격",
+          "weight": 0.05,
+          "indicator": "전략 프로젝트 참여 및 자격",
+          "measurement": "기획서 채택률, 성과 지표(KPI) 달성도 분석"
+        },
+        {
+          "compId": 5,
+          "name": "어학 역량",
+          "weight": 0.05,
+          "indicator": "영어 능력 (TOEIC, TOEFL 등)",
+          "measurement": "공인어학성적"
+        }
+      ]
+    },
+    {
+      "jobCode": "CP009",
+      "ncsLarge": "경영·회계·사무",
+      "ncsMedium": "경영기획",
+      "jobName": "09. 총무/행정",
+      "category": "경영·회계·사무",
+      "description": "",
+      "measurementMethod": "행정 업무 처리 시간 단축, 비용 절감 성과, OA 자격",
+      "source": "gemini",
+      "isTemporary": false,
+      "competencies": [
+        {
+          "compId": 1,
+          "name": "고정자산 및 비품 관리 시스템 운영",
+          "weight": 0.25,
+          "indicator": "고정자산 및 비품 관리 시스템 운영",
+          "measurement": "행정 업무 처리 시간 단축, 비용 절감 성과, OA 자격"
+        },
+        {
+          "compId": 2,
+          "name": "사내 규정 및 행정 처리 정확도",
+          "weight": 0.25,
+          "indicator": "사내 규정 및 행정 처리 정확도",
+          "measurement": "행정 업무 처리 시간 단축, 비용 절감 성과, OA 자격"
+        },
+        {
+          "compId": 3,
+          "name": "OA 툴 (Word, PPT, Excel) 숙련도",
+          "weight": 0.3,
+          "indicator": "OA 툴 (Word, PPT, Excel) 숙련도",
+          "measurement": "행정 업무 처리 시간 단축, 비용 절감 성과, OA 자격"
+        },
+        {
+          "compId": 4,
+          "name": "컴활 및 사무자동화 관련 자격",
+          "weight": 0.15,
+          "indicator": "컴활 및 사무자동화 관련 자격",
+          "measurement": "행정 업무 처리 시간 단축, 비용 절감 성과, OA 자격"
+        },
+        {
+          "compId": 5,
+          "name": "어학 역량",
+          "weight": 0.05,
+          "indicator": "영어 능력 (TOEIC, TOEFL 등)",
+          "measurement": "공인어학성적"
+        }
+      ]
+    },
+    {
+      "jobCode": "TEMP_DESIGN",
+      "ncsLarge": "문화·예술·디자인·방송",
+      "ncsMedium": "범용",
+      "jobName": "디자인 계열 범용",
+      "category": "디자인",
+      "description": "디자인 분야의 범용 평가 기준. 구체적인 직무 매칭이 불가능한 경우 사용됩니다.",
+      "measurementMethod": "기술 스택 숙련도 자가진단, 포트폴리오 기반 검증, 수상 경력, 공인어학성적",
+      "source": "careerpilot",
+      "isTemporary": true,
+      "competencies": [
+        {
+          "compId": 1,
+          "name": "디자인 툴 숙련도",
+          "weight": 0.4,
+          "indicator": "Figma, Photoshop, Illustrator 등 디자인 툴 활용 능력",
+          "measurement": "기술 스택 숙련도 자가진단"
+        },
+        {
+          "compId": 2,
+          "name": "디자인 기획력",
+          "weight": 0.3,
+          "indicator": "사용자 경험 설계, 정보 구조 기획 능력",
+          "measurement": "포트폴리오 기반 검증"
+        },
+        {
+          "compId": 3,
+          "name": "포트폴리오 품질",
+          "weight": 0.2,
+          "indicator": "디자인 결과물의 완성도 및 다양성",
+          "measurement": "포트폴리오 기반 검증"
+        },
+        {
+          "compId": 4,
+          "name": "수상 및 인정",
+          "weight": 0.05,
+          "indicator": "디자인 공모전 수상, 외부 인정",
+          "measurement": "수상 경력"
+        },
+        {
+          "compId": 5,
+          "name": "어학 역량",
+          "weight": 0.05,
+          "indicator": "영어 능력 (TOEIC, TOEFL 등)",
+          "measurement": "공인어학성적"
+        }
+      ]
+    },
+    {
+      "jobCode": "CP010",
+      "ncsLarge": "문화·예술·디자인·방송",
+      "ncsMedium": "시각디자인",
+      "jobName": "10. UI/UX 디자인",
+      "category": "문화·예술·디자인",
+      "description": "",
+      "measurementMethod": "포트폴리오 정밀 평가, 디자인 시스템 활용 역량",
+      "source": "gemini",
+      "isTemporary": false,
+      "competencies": [
+        {
+          "compId": 1,
+          "name": "디자인 툴 숙련도 (Figma, Adobe 등)",
+          "weight": 0.35,
+          "indicator": "디자인 툴 숙련도 (Figma, Adobe 등)",
+          "measurement": "포트폴리오 정밀 평가, 디자인 시스템 활용 역량"
+        },
+        {
+          "compId": 2,
+          "name": "사용자 여정 설계 및 정보 구조(IA)",
+          "weight": 0.35,
+          "indicator": "사용자 여정 설계 및 정보 구조(IA)",
+          "measurement": "포트폴리오 정밀 평가, 디자인 시스템 활용 역량"
+        },
+        {
+          "compId": 3,
+          "name": "프로토타이핑 및 인터랙션 구현",
+          "weight": 0.2,
+          "indicator": "프로토타이핑 및 인터랙션 구현",
+          "measurement": "포트폴리오 정밀 평가, 디자인 시스템 활용 역량"
+        },
+        {
+          "compId": 4,
+          "name": "디자인 어워드 및 외부 수상 기록",
+          "weight": 0.05,
+          "indicator": "디자인 어워드 및 외부 수상 기록",
+          "measurement": "포트폴리오 정밀 평가, 디자인 시스템 활용 역량"
+        },
+        {
+          "compId": 5,
+          "name": "어학 역량",
+          "weight": 0.05,
+          "indicator": "영어 능력 (TOEIC, TOEFL 등)",
+          "measurement": "공인어학성적"
+        }
+      ]
+    },
+    {
+      "jobCode": "CP011",
+      "ncsLarge": "문화·예술·디자인·방송",
+      "ncsMedium": "시각디자인",
+      "jobName": "11. 영상/멀티미디어",
+      "category": "문화·예술·디자인",
+      "description": "",
+      "measurementMethod": "데모릴 완성도, 툴 활용 능력 자가진단",
+      "source": "gemini",
+      "isTemporary": false,
+      "competencies": [
+        {
+          "compId": 1,
+          "name": "영상 편집 및 후반 작업 숙련도",
+          "weight": 0.4,
+          "indicator": "영상 편집 및 후반 작업 숙련도",
+          "measurement": "데모릴 완성도, 툴 활용 능력 자가진단"
+        },
+        {
+          "compId": 2,
+          "name": "스토리보딩 및 영상 기획력",
+          "weight": 0.3,
+          "indicator": "스토리보딩 및 영상 기획력",
+          "measurement": "데모릴 완성도, 툴 활용 능력 자가진단"
+        },
+        {
+          "compId": 3,
+          "name": "모션 그래픽 및 2D/3D 효과 기술",
+          "weight": 0.2,
+          "indicator": "모션 그래픽 및 2D/3D 효과 기술",
+          "measurement": "데모릴 완성도, 툴 활용 능력 자가진단"
+        },
+        {
+          "compId": 4,
+          "name": "영상 성과 (조회수, 캠페인 실적)",
+          "weight": 0.05,
+          "indicator": "영상 성과 (조회수, 캠페인 실적)",
+          "measurement": "데모릴 완성도, 툴 활용 능력 자가진단"
+        },
+        {
+          "compId": 5,
+          "name": "어학 역량",
+          "weight": 0.05,
+          "indicator": "영어 능력 (TOEIC, TOEFL 등)",
+          "measurement": "공인어학성적"
+        }
+      ]
+    },
+    {
+      "jobCode": "CP012",
+      "ncsLarge": "문화·예술·디자인·방송",
+      "ncsMedium": "시각디자인",
+      "jobName": "12. 콘텐츠 기획",
+      "category": "문화·예술·디자인",
+      "description": "",
+      "measurementMethod": "포트폴리오 캠페인 성과 지표 분석",
+      "source": "gemini",
+      "isTemporary": false,
+      "competencies": [
+        {
+          "compId": 1,
+          "name": "카피라이팅 및 텍스트 메시징 능력",
+          "weight": 0.35,
+          "indicator": "카피라이팅 및 텍스트 메시징 능력",
+          "measurement": "포트폴리오 캠페인 성과 지표 분석"
+        },
+        {
+          "compId": 2,
+          "name": "트렌드 분석 및 소셜 채널 최적화",
+          "weight": 0.35,
+          "indicator": "트렌드 분석 및 소셜 채널 최적화",
+          "measurement": "포트폴리오 캠페인 성과 지표 분석"
+        },
+        {
+          "compId": 3,
+          "name": "멀티미디어 콘텐츠 구성 전략",
+          "weight": 0.2,
+          "indicator": "멀티미디어 콘텐츠 구성 전략",
+          "measurement": "포트폴리오 캠페인 성과 지표 분석"
+        },
+        {
+          "compId": 4,
+          "name": "콘텐츠 성과 데이터 (전환율, 도달)",
+          "weight": 0.05,
+          "indicator": "콘텐츠 성과 데이터 (전환율, 도달)",
+          "measurement": "포트폴리오 캠페인 성과 지표 분석"
+        },
+        {
+          "compId": 5,
+          "name": "어학 역량",
+          "weight": 0.05,
+          "indicator": "영어 능력 (TOEIC, TOEFL 등)",
+          "measurement": "공인어학성적"
+        }
+      ]
+    },
+    {
+      "jobCode": "TEMP_SALES",
+      "ncsLarge": "영업판매",
+      "ncsMedium": "범용",
+      "jobName": "영업·판매 계열 범용",
+      "category": "영업",
+      "description": "영업 및 판매 분야의 범용 평가 기준. 구체적인 직무 매칭이 불가능한 경우 사용됩니다.",
+      "measurementMethod": "직무 지식 평가, 프로젝트 기술서 기반 검증, 영업 실적 증빙, 공인어학성적",
+      "source": "careerpilot",
+      "isTemporary": true,
+      "competencies": [
+        {
+          "compId": 1,
+          "name": "산업 및 제품 지식",
+          "weight": 0.3,
+          "indicator": "담당 산업 및 제품에 대한 전문 지식",
+          "measurement": "직무 지식 평가"
+        },
+        {
+          "compId": 2,
+          "name": "설득 및 협상 능력",
+          "weight": 0.25,
+          "indicator": "고객 설득, 협상, 제안 능력",
+          "measurement": "프로젝트 기술서 기반 검증"
+        },
+        {
+          "compId": 3,
+          "name": "영업 실적",
+          "weight": 0.25,
+          "indicator": "정량적 영업 성과 (매출, 계약 건수 등)",
+          "measurement": "영업 실적 증빙"
+        },
+        {
+          "compId": 4,
+          "name": "관계 관리 능력",
+          "weight": 0.1,
+          "indicator": "고객 관계 유지 및 네트워킹 능력",
+          "measurement": "프로젝트 기술서 기반 검증"
+        },
+        {
+          "compId": 5,
+          "name": "어학 역량",
+          "weight": 0.1,
+          "indicator": "영어 능력 (TOEIC, TOEFL 등)",
+          "measurement": "공인어학성적"
+        }
+      ]
+    },
+    {
+      "jobCode": "CP013",
+      "ncsLarge": "영업판매",
+      "ncsMedium": "영업관리",
+      "jobName": "13. IT/기술 영업",
+      "category": "영업판매",
+      "description": "",
+      "measurementMethod": "기술 상담 가능 여부 테스트, 수주 금액 데이터",
+      "source": "gemini",
+      "isTemporary": false,
+      "competencies": [
+        {
+          "compId": 1,
+          "name": "IT 솔루션 및 제품 기술 이해도",
+          "weight": 0.35,
+          "indicator": "IT 솔루션 및 제품 기술 이해도",
+          "measurement": "기술 상담 가능 여부 테스트, 수주 금액 데이터"
+        },
+        {
+          "compId": 2,
+          "name": "B2B 제안서 작성 및 프레젠테이션",
+          "weight": 0.25,
+          "indicator": "B2B 제안서 작성 및 프레젠테이션",
+          "measurement": "기술 상담 가능 여부 테스트, 수주 금액 데이터"
+        },
+        {
+          "compId": 3,
+          "name": "고객사 협상 및 클로징 기술",
+          "weight": 0.2,
+          "indicator": "고객사 협상 및 클로징 기술",
+          "measurement": "기술 상담 가능 여부 테스트, 수주 금액 데이터"
+        },
+        {
+          "compId": 4,
+          "name": "누적 수주 실적 및 목표 달성률",
+          "weight": 0.15,
+          "indicator": "누적 수주 실적 및 목표 달성률",
+          "measurement": "기술 상담 가능 여부 테스트, 수주 금액 데이터"
+        },
+        {
+          "compId": 5,
+          "name": "어학 역량",
+          "weight": 0.05,
+          "indicator": "영어 능력 (TOEIC, TOEFL 등)",
+          "measurement": "공인어학성적"
+        }
+      ]
+    },
+    {
+      "jobCode": "CP014",
+      "ncsLarge": "영업판매",
+      "ncsMedium": "영업관리",
+      "jobName": "14. 영업 관리/지원",
+      "category": "영업판매",
+      "description": "",
+      "measurementMethod": "CRM 데이터 정합성, 고객 이탈률 지표",
+      "source": "gemini",
+      "isTemporary": false,
+      "competencies": [
+        {
+          "compId": 1,
+          "name": "영업 데이터 분석 및 매출 예측",
+          "weight": 0.3,
+          "indicator": "영업 데이터 분석 및 매출 예측",
+          "measurement": "CRM 데이터 정합성, 고객 이탈률 지표"
+        },
+        {
+          "compId": 2,
+          "name": "CRM 활용 및 고객사 관계 관리",
+          "weight": 0.3,
+          "indicator": "CRM 활용 및 고객사 관계 관리",
+          "measurement": "CRM 데이터 정합성, 고객 이탈률 지표"
+        },
+        {
+          "compId": 3,
+          "name": "영업 행정 및 정산 처리 정확성",
+          "weight": 0.2,
+          "indicator": "영업 행정 및 정산 처리 정확성",
+          "measurement": "CRM 데이터 정합성, 고객 이탈률 지표"
+        },
+        {
+          "compId": 4,
+          "name": "파트너십 유지율 및 목표 달성도",
+          "weight": 0.15,
+          "indicator": "파트너십 유지율 및 목표 달성도",
+          "measurement": "CRM 데이터 정합성, 고객 이탈률 지표"
+        },
+        {
+          "compId": 5,
+          "name": "어학 역량",
+          "weight": 0.05,
+          "indicator": "영어 능력 (TOEIC, TOEFL 등)",
+          "measurement": "공인어학성적"
+        }
+      ]
+    },
+    {
+      "jobCode": "TEMP_ENGINEERING",
+      "ncsLarge": "기계",
+      "ncsMedium": "범용",
+      "jobName": "공학 계열 범용",
+      "category": "공학",
+      "description": "공학 분야의 범용 평가 기준. 구체적인 직무 매칭이 불가능한 경우 사용됩니다.",
+      "measurementMethod": "전공 지식 평가, 프로젝트 기술서 기반 검증, 자격증 보유 여부, 공인어학성적",
+      "source": "careerpilot",
+      "isTemporary": true,
+      "competencies": [
+        {
+          "compId": 1,
+          "name": "전공 지식",
+          "weight": 0.35,
+          "indicator": "역학, 재료, 회로 등 전공 관련 이론 지식",
+          "measurement": "전공 지식 평가"
+        },
+        {
+          "compId": 2,
+          "name": "설계 및 제작 경험",
+          "weight": 0.3,
+          "indicator": "설계, 해석, 제작 실무 경험",
+          "measurement": "프로젝트 기술서 기반 검증"
+        },
+        {
+          "compId": 3,
+          "name": "공학 툴 활용",
+          "weight": 0.2,
+          "indicator": "CAD, 시뮬레이션, 해석 툴 활용 능력",
+          "measurement": "기술 스택 숙련도 자가진단"
+        },
+        {
+          "compId": 4,
+          "name": "자격증",
+          "weight": 0.1,
+          "indicator": "기사, 기능사 등 공학 관련 자격증",
+          "measurement": "자격증 보유 여부"
+        },
+        {
+          "compId": 5,
+          "name": "어학 역량",
+          "weight": 0.05,
+          "indicator": "영어 능력 (TOEIC, TOEFL 등)",
+          "measurement": "공인어학성적"
+        }
+      ]
+    },
+    {
+      "jobCode": "CP015",
+      "ncsLarge": "기계",
+      "ncsMedium": "기계설계",
+      "jobName": "기계 설계 엔지니어",
+      "category": "기계",
+      "description": "CAD, 설계",
+      "measurementMethod": "포트폴리오, 기사 자격증, 해석 보고서, 경험 기술서, 시험 성적",
+      "source": "ncs",
+      "isTemporary": false,
+      "competencies": [
+        {
+          "compId": 1,
+          "name": "3D/2D 설계",
+          "weight": 0.4,
+          "indicator": "도면 설계 및 정밀도",
+          "measurement": "포트폴리오"
+        },
+        {
+          "compId": 2,
+          "name": "전공 지식",
+          "weight": 0.3,
+          "indicator": "역학/기계 요소 지식",
+          "measurement": "기사 자격증"
+        },
+        {
+          "compId": 3,
+          "name": "설계 해석",
+          "weight": 0.15,
+          "indicator": "CAE/구조 해석 능력",
+          "measurement": "해석 보고서"
+        },
+        {
+          "compId": 4,
+          "name": "문제 해결",
+          "weight": 0.1,
+          "indicator": "설계 오류 개선 사례",
+          "measurement": "경험 기술서"
+        },
+        {
+          "compId": 5,
+          "name": "어학 역량",
+          "weight": 0.05,
+          "indicator": "영문 도면/매뉴얼 이해",
+          "measurement": "시험 성적"
+        }
+      ]
+    },
+    {
+      "jobCode": "CP016",
+      "ncsLarge": "전기·전자",
+      "ncsMedium": "반도체",
+      "jobName": "반도체 공정 엔지니어",
+      "category": "전기·전자",
+      "description": "공정/장비 관리",
+      "measurementMethod": "전공/교육, 분석 결과물, 실무 경험, 리포트, 시험 성적",
+      "source": "ncs",
+      "isTemporary": false,
+      "competencies": [
+        {
+          "compId": 1,
+          "name": "단위 공정 지식",
+          "weight": 0.4,
+          "indicator": "8대 공정 기술 이해",
+          "measurement": "전공/교육"
+        },
+        {
+          "compId": 2,
+          "name": "통계적 분석",
+          "weight": 0.25,
+          "indicator": "수율/데이터 분석 능력",
+          "measurement": "분석 결과물"
+        },
+        {
+          "compId": 3,
+          "name": "장비 운용 역량",
+          "weight": 0.15,
+          "indicator": "설비 유지 및 제어",
+          "measurement": "실무 경험"
+        },
+        {
+          "compId": 4,
+          "name": "문제 해결 역량",
+          "weight": 0.1,
+          "indicator": "공정 불량 개선 사례",
+          "measurement": "리포트"
+        },
+        {
+          "compId": 5,
+          "name": "어학 역량",
+          "weight": 0.1,
+          "indicator": "글로벌 장비 매뉴얼",
+          "measurement": "시험 성적"
+        }
+      ]
+    }
+  ]
+}

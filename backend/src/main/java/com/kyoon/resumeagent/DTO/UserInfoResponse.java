@@ -1,5 +1,7 @@
 package com.kyoon.resumeagent.DTO;
 
+import java.time.LocalDateTime;
+
 public record UserInfoResponse(
         String email,
         String nickname,
@@ -8,5 +10,13 @@ public record UserInfoResponse(
         String role,
         Integer remainingCredits,
         Integer dailyCredits,
-        Boolean isAdmin
+        Boolean isAdmin,
+
+        //직무정보
+        String desiredJobText,
+        String mappedJobCode,
+        String jobMatchType,
+        Boolean isTemporaryJob,
+        Double jobMatchConfidence,
+        LocalDateTime jobMappedAt
 ) {}

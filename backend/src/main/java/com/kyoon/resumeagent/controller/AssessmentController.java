@@ -5,6 +5,7 @@ import com.kyoon.resumeagent.Entity.User;
 import com.kyoon.resumeagent.repository.AssessmentRepository;
 import com.kyoon.resumeagent.repository.UserRepository;
 import com.kyoon.resumeagent.repository.ResumeRepository;
+import com.kyoon.resumeagent.service.AssessmentService;  // 🔥 추가
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -12,7 +13,6 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/assessments")
@@ -22,46 +22,49 @@ public class AssessmentController {
     private final AssessmentRepository assessmentRepository;
     private final UserRepository userRepository;
     private final ResumeRepository resumeRepository;
+    private final AssessmentService assessmentService;  // 🔥 추가
 
-    record AssessmentRequest(String experience, String analysis, String scoreData) {}
+    // 🔥 Request DTO 변경
+    record AssessmentRequest(String jobCode, String experience) {}
+    record SetPrimaryResponse(Long assessmentId, String message) {}
 
+    /**
+     * 🔥 역량 평가 생성 (새 로직)
+     * POST /api/assessments
+     */
     @PostMapping
-    public ResponseEntity<AssessmentResponse> save(
+    public ResponseEntity<AssessmentResponse> createAssessment(
             @RequestBody AssessmentRequest req,
             @AuthenticationPrincipal UserDetails userDetails) {
 
-        User user = userRepository.findByEmail(userDetails.getUsername())
-                .orElseThrow();
+        try {
+            User user = userRepository.findByEmail(userDetails.getUsername())
+                    .orElseThrow(() -> new RuntimeException("User not found"));
 
-        Optional<Assessment> existing = assessmentRepository
-                .findByUserEmailAndExperienceAndAnalysis(
-                        userDetails.getUsername(), req.experience(), req.analysis());
-        if (existing.isPresent()) {
-            Assessment a = existing.get();
+            // AssessmentService 호출 (GPT + Gemini 공식)
+            Assessment assessment = assessmentService.evaluateCompetency(
+                    user,
+                    req.jobCode(),
+                    req.experience()
+            );
+
             return ResponseEntity.ok(new AssessmentResponse(
-                    a.getId(), a.getExperience(), a.getAnalysis(),
-                    a.getScoreData(), a.getCreatedAt(), List.of()
+                    assessment.getId(),
+                    assessment.getEvaluatedJobCode(),  // 🔥 추가
+                    assessment.getExperience(),
+                    assessment.getAnalysis(),
+                    assessment.getScoreData(),
+                    assessment.getIsPrimary(),  // 🔥 추가
+                    assessment.getCreatedAt(),
+                    List.of()  // 저장 직후엔 연관 자소서 없음
             ));
+
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                    .body(null);
         }
-
-        Assessment assessment = Assessment.builder()
-                .user(user)
-                .experience(req.experience())
-                .analysis(req.analysis())
-                .scoreData(req.scoreData())
-                .build();
-
-        Assessment saved = assessmentRepository.save(assessment);
-
-        return ResponseEntity.ok(new AssessmentResponse(
-                saved.getId(),
-                saved.getExperience(),
-                saved.getAnalysis(),
-                saved.getScoreData(),
-                saved.getCreatedAt(),
-                List.of()  // 저장 직후엔 연관 자소서 없음
-        ));
     }
+
     @GetMapping
     public ResponseEntity<List<AssessmentResponse>> getMyAssessments(
             @AuthenticationPrincipal UserDetails userDetails) {
@@ -74,22 +77,28 @@ public class AssessmentController {
                     List<ResumeController.ResumeResponse> resumes = resumeRepository
                             .findByAssessmentId(a.getId())
                             .stream()
-                            // 기존 (잘못된 버전)
                             .map(r -> new ResumeController.ResumeResponse(
                                     r.getId(),
                                     r.getContent(),
                                     r.getTitle(),
-                                    r.getStatus(),  // ← 추가!
-                                    r.getEvaluation(),  // ← 추가!
+                                    r.getStatus(),
+                                    r.getEvaluation(),
                                     r.getAssessment() != null ? r.getAssessment().getId() : null,
                                     r.getJobPosting() != null ? r.getJobPosting().getId() : null,
                                     r.getCreatedAt(),
-                                    r.getUpdatedAt()  // ← 추가!
+                                    r.getUpdatedAt()
                             )).toList();
 
                     return new AssessmentResponse(
-                            a.getId(), a.getExperience(), a.getAnalysis(),
-                            a.getScoreData(), a.getCreatedAt(), resumes);
+                            a.getId(),
+                            a.getEvaluatedJobCode(),  // 🔥 추가
+                            a.getExperience(),
+                            a.getAnalysis(),
+                            a.getScoreData(),
+                            a.getIsPrimary(),  // 🔥 추가
+                            a.getCreatedAt(),
+                            resumes
+                    );
                 }).toList();
 
         return ResponseEntity.ok(response);
@@ -111,12 +120,69 @@ public class AssessmentController {
         return ResponseEntity.ok().build();
     }
 
+    // 🔥 AssessmentResponse DTO 수정
     record AssessmentResponse(
             Long id,
+            String evaluatedJobCode,  // 🔥 추가
             String experience,
             String analysis,
             String scoreData,
+            Boolean isPrimary,  // 🔥 추가
             LocalDateTime createdAt,
-            List<ResumeController.ResumeResponse> resumes  // 연관 자소서
+            List<ResumeController.ResumeResponse> resumes
     ) {}
+
+    @PutMapping("/{id}/set-primary")
+    public ResponseEntity<?> setPrimaryAssessment(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserDetails userDetails) {
+
+        User user = userRepository.findByEmail(userDetails.getUsername())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        Assessment assessment = assessmentRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Assessment not found"));
+
+        if (!assessment.getUser().getId().equals(user.getId())) {
+            return ResponseEntity.status(403).body("본인의 평가만 선택할 수 있습니다.");
+        }
+
+        if (user.getPrimaryAssessment() != null) {
+            Assessment oldPrimary = user.getPrimaryAssessment();
+            oldPrimary.setIsPrimary(false);
+            assessmentRepository.save(oldPrimary);
+        }
+
+        assessment.setIsPrimary(true);
+        user.setPrimaryAssessment(assessment);
+
+        assessmentRepository.save(assessment);
+        userRepository.save(user);
+
+        return ResponseEntity.ok(new SetPrimaryResponse(
+                id,
+                "주 역량으로 설정되었습니다."
+        ));
+    }
+
+    @DeleteMapping("/primary")
+    public ResponseEntity<?> removePrimaryAssessment(
+            @AuthenticationPrincipal UserDetails userDetails) {
+
+        User user = userRepository.findByEmail(userDetails.getUsername())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (user.getPrimaryAssessment() == null) {
+            return ResponseEntity.ok("이미 주 역량이 없습니다.");
+        }
+
+        Assessment oldPrimary = user.getPrimaryAssessment();
+        oldPrimary.setIsPrimary(false);
+        assessmentRepository.save(oldPrimary);
+
+        user.setPrimaryAssessment(null);
+        userRepository.save(user);
+
+        return ResponseEntity.ok("주 역량이 해제되었습니다.");
+    }
 }

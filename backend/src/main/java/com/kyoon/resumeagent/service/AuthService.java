@@ -1,5 +1,6 @@
 package com.kyoon.resumeagent.service;
 
+import com.kyoon.resumeagent.DTO.JobMatchResult;
 import com.kyoon.resumeagent.Entity.User;
 import com.kyoon.resumeagent.Component.JwtUtil;
 import com.kyoon.resumeagent.controller.AuthController;
@@ -12,6 +13,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import com.kyoon.resumeagent.DTO.UserInfoResponse;
 import org.springframework.data.redis.core.StringRedisTemplate;
+
+import java.time.LocalDateTime;
 import java.util.concurrent.TimeUnit;
 
 @Service
@@ -21,19 +24,22 @@ public class AuthService implements UserDetailsService {
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
     private final StringRedisTemplate redisTemplate;
+    private final JobMatcherService jobMatcherService;
 
     public AuthService(UserRepository userRepository,
                        @Lazy PasswordEncoder passwordEncoder,
                        JwtUtil jwtUtil,
-                       StringRedisTemplate redisTemplate) {  // 추가
+                       StringRedisTemplate redisTemplate,
+                       JobMatcherService jobMatcherService) {  // 추가
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtUtil = jwtUtil;
         this.redisTemplate = redisTemplate;  // 추가
+        this.jobMatcherService = jobMatcherService;
     }
 
 
-    public AuthController.AuthResponse register(String email, String password, String nickname, String name, String birthDate) {
+    public AuthController.AuthResponse register(String email, String password, String nickname, String name, String birthDate, String desiredJob) {
         if (userRepository.existsByEmail(email)) {
             throw new RuntimeException("이미 사용중인 이메일입니다.");
         }
@@ -54,6 +60,21 @@ public class AuthService implements UserDetailsService {
                 .birthDate(birthDate)
                 .provider("LOCAL")
                 .build();
+
+        if (desiredJob != null && !desiredJob.isBlank()) {
+            try {
+                JobMatchResult matchResult = jobMatcherService.matchJob(desiredJob);
+                user.setDesiredJobText(desiredJob);
+                user.setMappedJobCode(matchResult.jobCode());
+                user.setIsTemporaryJob(matchResult.isTemporary());
+                user.setJobMatchType(matchResult.matchType().name());
+                user.setJobMatchConfidence(matchResult.confidence());
+                user.setJobMappedAt(LocalDateTime.now());
+            } catch (Exception e) {
+                // 매칭 실패해도 회원가입은 진행 (직무는 나중에 설정 가능)
+                System.err.println("Job matching failed during registration: " + e.getMessage());
+            }
+        }
 
         userRepository.save(user);
         String accessToken = jwtUtil.generateAccessToken(email);
@@ -131,9 +152,17 @@ public class AuthService implements UserDetailsService {
                 user.getName(),
                 user.getBirthDate(),
                 user.getRole(),
-                user.getRemainingCredits(),  // 🔥
-                user.getDailyCredits(),      // 🔥
-                user.isAdmin()               // 🔥
+                user.getRemainingCredits(),
+                user.getDailyCredits(),
+                user.isAdmin(),
+
+                // 직무정보
+                user.getDesiredJobText(),
+                user.getMappedJobCode(),
+                user.getJobMatchType(),
+                user.getIsTemporaryJob(),
+                user.getJobMatchConfidence(),
+                user.getJobMappedAt()
         );
     }
 
@@ -142,38 +171,45 @@ public class AuthService implements UserDetailsService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("존재하지 않는 유저입니다."));
 
+        // 닉네임 중복 체크
         if (nickname != null && !nickname.isBlank() && !nickname.equals(user.getNickname())) {
             if (userRepository.existsByNickname(nickname)) {
                 throw new RuntimeException("이미 사용중인 닉네임입니다.");
             }
         }
 
-        User updated = User.builder()
-                .id(user.getId())
-                .email(user.getEmail())
-                .password(user.getPassword())
-                .nickname(nickname != null && !nickname.isBlank() ? nickname : user.getNickname())
-                .name(name != null && !name.isBlank() ? name : user.getName())
-                .birthDate(birthDate != null && !birthDate.isBlank() ? birthDate : user.getBirthDate())
-                .provider(user.getProvider())
-                .providerId(user.getProviderId())
-                .jobCategory(user.getJobCategory())
-                .interestField(user.getInterestField())
-                .role(user.getRole())
-                .isActive(user.isActive())
-                .lastLoginAt(user.getLastLoginAt())
-                .build();
+        // 필드 업데이트 (setter 사용)
+        if (nickname != null && !nickname.isBlank()) {
+            user.setNickname(nickname);
+        }
+        if (name != null && !name.isBlank()) {
+            user.setName(name);
+        }
+        if (birthDate != null && !birthDate.isBlank()) {
+            user.setBirthDate(birthDate);
+        }
 
-        userRepository.save(updated);
+        // 저장 (한 번만!)
+        userRepository.save(user);
+
+        // 응답 반환
         return new UserInfoResponse(
                 user.getEmail(),
                 user.getNickname(),
                 user.getName(),
                 user.getBirthDate(),
                 user.getRole(),
-                user.getRemainingCredits(),  // 🔥
-                user.getDailyCredits(),      // 🔥
-                user.isAdmin()               // 🔥
+                user.getRemainingCredits(),
+                user.getDailyCredits(),
+                user.isAdmin(),
+
+                // 🔥 직무 정보 추가
+                user.getDesiredJobText(),
+                user.getMappedJobCode(),
+                user.getJobMatchType(),
+                user.getIsTemporaryJob(),
+                user.getJobMatchConfidence(),
+                user.getJobMappedAt()
         );
     }
 

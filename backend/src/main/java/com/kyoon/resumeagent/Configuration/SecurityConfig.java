@@ -1,6 +1,7 @@
 package com.kyoon.resumeagent.Configuration;
 
 import com.kyoon.resumeagent.Component.JwtFilter;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -36,17 +37,30 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers("/api/v1/jobs/**").permitAll()
+                        .requestMatchers("/api/test/**").permitAll()
                         .requestMatchers("/api/v1/agent/**").permitAll()
+                        .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/resume/generate").permitAll()
-                        .requestMatchers("/api/interview/advanced/**").hasRole("ADMIN") // 🔥 추가!
                         .requestMatchers("/api/interview/**").permitAll()
                         .requestMatchers("/h2-console/**").permitAll()
                         .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
+
+                        // 인증 필요한 경로
+                        .requestMatchers("/api/interview/advanced/**").hasRole("ADMIN")
                         .requestMatchers("/api/projects/**").authenticated()
+
+                        // 나머지는 인증 필요
                         .anyRequest().authenticated()
                 )
                 .headers(headers -> headers.frameOptions(frame -> frame.disable()))
+                .exceptionHandling(exceptions -> exceptions
+                        .authenticationEntryPoint((request, response, authException) -> {
+                            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                            response.setContentType("application/json");
+                            response.getWriter().write("{\"error\": \"Unauthorized\"}");
+                        })
+                )
                 .oauth2Login(oauth2 -> oauth2
                         .userInfoEndpoint(userInfo -> userInfo
                                 .userService(customOAuth2UserService)
@@ -54,6 +68,7 @@ public class SecurityConfig {
                         .successHandler(oAuth2SuccessHandler)
                 )
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
+
         return http.build();
     }
 

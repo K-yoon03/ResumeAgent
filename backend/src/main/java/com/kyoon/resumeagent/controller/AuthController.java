@@ -20,7 +20,14 @@ public class AuthController {
     private final JwtUtil jwtUtil;
     private final EmailService emailService;
 
-    public record RegisterRequest(String email, String password, String nickname, String name, String birthDate) {}
+    public record RegisterRequest(
+            String email,
+            String password,
+            String nickname,
+            String name,
+            String birthDate,
+            String desiredJob  // 🔥 추가
+    ) {}
     public record LoginRequest(String email, String password) {}
     public record AuthResponse(String token, String refreshToken, String nickname, String email) {}
     public record RefreshRequest(String refreshToken) {}  // ← 여기 같이 있어야 해요
@@ -30,7 +37,7 @@ public class AuthController {
     @PostMapping("/register")
     public ResponseEntity<AuthResponse> register(@RequestBody RegisterRequest req) {
         return ResponseEntity.ok(authService.register(
-                req.email(), req.password(), req.nickname(), req.name(), req.birthDate()
+                req.email(), req.password(), req.nickname(), req.name(), req.birthDate(), req.desiredJob()
         ));
     }
 

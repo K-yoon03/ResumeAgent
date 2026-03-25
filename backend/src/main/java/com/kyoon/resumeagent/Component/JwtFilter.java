@@ -27,6 +27,15 @@ public class JwtFilter extends OncePerRequestFilter {
                                     HttpServletResponse response,
                                     FilterChain chain) throws ServletException, IOException {
 
+        String path = request.getRequestURI();
+
+        // 공개 경로는 JWT 검증 스킵
+        if (isPublicPath(path)) {
+            chain.doFilter(request, response);
+            return;
+        }
+
+        // JWT 검증 로직
         String header = request.getHeader("Authorization");
 
         if (header != null && header.startsWith("Bearer ")) {
@@ -40,6 +49,21 @@ public class JwtFilter extends OncePerRequestFilter {
                 SecurityContextHolder.getContext().setAuthentication(auth);
             }
         }
+
         chain.doFilter(request, response);
+    }
+
+    /**
+     * 공개 경로 체크 (JWT 검증 불필요)
+     */
+    private boolean isPublicPath(String path) {
+        return path.startsWith("/api/auth/") ||
+                path.startsWith("/api/v1/agent/") ||
+                path.startsWith("/api/v1/jobs/") ||
+                path.startsWith("/api/resume/generate") ||
+                path.startsWith("/api/interview/") ||
+                path.startsWith("/h2-console/") ||
+                path.startsWith("/oauth2/") ||
+                path.startsWith("/login/oauth2/");
     }
 }

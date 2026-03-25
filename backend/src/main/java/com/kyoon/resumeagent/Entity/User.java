@@ -62,6 +62,35 @@ public class User {
     @CreatedDate
     @Column(updatable = false)
     private LocalDateTime createdAt;
+    //희망직무
+    @Column(name = "desired_job_text", length = 200)
+    private String desiredJobText;  // 사용자가 입력한 원문 (예: "게임 개발자")
+    @Column(name = "mapped_job_code", length = 50)
+    private String mappedJobCode;  // 매핑된 직무 코드 (예: "CP001", "TEMP_IT")
+    @Column(name = "is_temporary_job")
+    private Boolean isTemporaryJob = false;  // 임시 직무 여부
+    @Column(name = "job_match_type", length = 20)
+    private String jobMatchType;  // EXACT_MATCH, SIMILAR_MATCH, CATEGORY_MATCH
+    @Column(name = "job_match_confidence")
+    private Double jobMatchConfidence;  // 0.0 ~ 1.0
+    @Column(name = "job_mapped_at")
+    private LocalDateTime jobMappedAt;  // 매핑 일시
+
+    // 변경 제한
+    @Column(name = "job_change_count")
+    private Integer jobChangeCount = 0;
+
+    @Column(name = "last_job_change_date")
+    private LocalDate lastJobChangeDate;  // 마지막 변경 날짜
+
+    // 🔥 주 역량 평가 (대시보드용)
+    @ManyToOne
+    @JoinColumn(name = "primary_assessment_id")
+    private Assessment primaryAssessment; // 선택한 대표 평가
+
+    @OneToOne
+    @JoinColumn(name = "primary_company_id")
+    private Company primaryCompany;
 
     // 관리자 여부 확인
     public boolean isAdmin() {
