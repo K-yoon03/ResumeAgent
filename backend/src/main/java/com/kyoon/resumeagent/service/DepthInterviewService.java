@@ -155,12 +155,16 @@ public class DepthInterviewService {
 
     private String buildInitialScores(JsonNode scoreData) {
         StringBuilder sb = new StringBuilder();
-        scoreData.get("competencyScores").forEach(comp -> {
-            sb.append(String.format("- %s: %d점 (근거: %s)\n",
-                    comp.get("name").asText(),
-                    comp.get("score").asInt(),
-                    comp.get("evidence").asText()));
-        });
+        // Analyzer가 분류기로 바뀌면서 competencyResults로 변경됨
+        JsonNode results = scoreData.get("competencyResults");
+        if (results != null) {
+            results.forEach(comp -> {
+                sb.append(String.format("- %s: %s (이유: %s)\n",
+                        comp.get("name").asText(),
+                        comp.get("status").asText(),
+                        comp.has("reason") ? comp.get("reason").asText() : ""));
+            });
+        }
         return sb.toString();
     }
 
