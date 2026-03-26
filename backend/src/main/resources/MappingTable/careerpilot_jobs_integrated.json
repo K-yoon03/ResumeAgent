@@ -46,7 +46,7 @@
           "compId": 5,
           "name": "어학 역량",
           "weight": 0.05,
-          "indicator": "영어 능력 (TOEIC, TOEFL 등)",
+          "indicator": "영어 능력",
           "measurement": "공인어학성적"
         }
       ]
@@ -64,9 +64,9 @@
       "competencies": [
         {
           "compId": 1,
-          "name": "프레임워크 숙련도 (Spring, Node.js 등)",
+          "name": "프레임워크 숙련도",
           "weight": 0.35,
-          "indicator": "프레임워크 숙련도 (Spring, Node.js 등)",
+          "indicator": "프레임워크 숙련도",
           "measurement": "기술 스택 숙련도 자가진단, 프로젝트 기술서 기반 검증"
         },
         {
@@ -85,16 +85,16 @@
         },
         {
           "compId": 4,
-          "name": "관련 자격 및 교육 (SQLD 등)",
+          "name": "관련 자격 및 교육",
           "weight": 0.05,
-          "indicator": "관련 자격 및 교육 (SQLD 등)",
+          "indicator": "관련 자격 및 교육",
           "measurement": "기술 스택 숙련도 자가진단, 프로젝트 기술서 기반 검증"
         },
         {
           "compId": 5,
           "name": "어학 역량",
           "weight": 0.05,
-          "indicator": "영어 능력 (TOEIC, TOEFL 등)",
+          "indicator": "영어 능력",
           "measurement": "공인어학성적"
         }
       ]
@@ -119,9 +119,9 @@
         },
         {
           "compId": 2,
-          "name": "상태 관리 프레임워크 활용 (React 등)",
+          "name": "상태 관리 프레임워크 활용",
           "weight": 0.3,
-          "indicator": "상태 관리 프레임워크 활용 (React 등)",
+          "indicator": "상태 관리 프레임워크 활용",
           "measurement": "포트폴리오 구현 수준, Lighthouse 점수 등 기술 지표"
         },
         {
@@ -142,7 +142,7 @@
           "compId": 5,
           "name": "어학 역량",
           "weight": 0.05,
-          "indicator": "영어 능력 (TOEIC, TOEFL 등)",
+          "indicator": "영어 능력",
           "measurement": "공인어학성적"
         }
       ]
@@ -181,16 +181,16 @@
         },
         {
           "compId": 4,
-          "name": "관련 자격 및 교육 (ADsP 등)",
+          "name": "관련 자격 및 교육",
           "weight": 0.05,
-          "indicator": "관련 자격 및 교육 (ADsP 등)",
+          "indicator": "관련 자격 및 교육",
           "measurement": "경진대회(Kaggle 등) 성과, 분석 보고서 퀄리티"
         },
         {
           "compId": 5,
           "name": "어학 역량",
           "weight": 0.05,
-          "indicator": "영어 능력 (TOEIC, TOEFL 등)",
+          "indicator": "영어 능력",
           "measurement": "공인어학성적"
         }
       ]
@@ -229,16 +229,16 @@
         },
         {
           "compId": 4,
-          "name": "전문 자격 (정보보안기사 등)",
+          "name": "전문 자격",
           "weight": 0.05,
-          "indicator": "전문 자격 (정보보안기사 등)",
+          "indicator": "전문 자격",
           "measurement": "CTF 참여 경험, 보안 컨설팅 이력, 자격증 가중치 적용"
         },
         {
           "compId": 5,
           "name": "어학 역량",
           "weight": 0.05,
-          "indicator": "영어 능력 (TOEIC, TOEFL 등)",
+          "indicator": "영어 능력",
           "measurement": "공인어학성적"
         }
       ]
@@ -256,9 +256,9 @@
       "competencies": [
         {
           "compId": 1,
-          "name": "클라우드 아키텍처 설계 (AWS 등)",
+          "name": "클라우드 아키텍처 설계",
           "weight": 0.35,
-          "indicator": "클라우드 아키텍처 설계 (AWS 등)",
+          "indicator": "클라우드 아키텍처 설계",
           "measurement": "인프라 구축 사례, 시스템 가동률 및 배포 속도 개선 지표"
         },
         {
@@ -270,23 +270,23 @@
         },
         {
           "compId": 3,
-          "name": "컨테이너 및 오케스트레이션 (Docker/K8s)",
+          "name": "컨테이너 및 오케스트레이션",
           "weight": 0.2,
-          "indicator": "컨테이너 및 오케스트레이션 (Docker/K8s)",
+          "indicator": "컨테이너 및 오케스트레이션",
           "measurement": "인프라 구축 사례, 시스템 가동률 및 배포 속도 개선 지표"
         },
         {
           "compId": 4,
-          "name": "클라우드 인증 자격 (SAA 등)",
+          "name": "클라우드 인증 자격",
           "weight": 0.05,
-          "indicator": "클라우드 인증 자격 (SAA 등)",
+          "indicator": "클라우드 인증 자격",
           "measurement": "인프라 구축 사례, 시스템 가동률 및 배포 속도 개선 지표"
         },
         {
           "compId": 5,
           "name": "어학 역량",
           "weight": 0.05,
-          "indicator": "영어 능력 (TOEIC, TOEFL 등)",
+          "indicator": "영어 능력",
           "measurement": "공인어학성적"
         }
       ]
@@ -327,14 +327,14 @@
           "compId": 4,
           "name": "자격증",
           "weight": 0.2,
-          "indicator": "직무 관련 자격증 (회계, 세무, 경영지도사 등)",
+          "indicator": "직무 관련 자격증",
           "measurement": "자격증 보유 여부"
         },
         {
           "compId": 5,
           "name": "어학 역량",
           "weight": 0.1,
-          "indicator": "영어 능력 (TOEIC, TOEFL 등)",
+          "indicator": "영어 능력",
           "measurement": "공인어학성적"
         }
       ]
@@ -382,7 +382,7 @@
           "compId": 5,
           "name": "어학 역량",
           "weight": 0.05,
-          "indicator": "영어 능력 (TOEIC, TOEFL 등)",
+          "indicator": "영어 능력",
           "measurement": "공인어학성적"
         }
       ]
@@ -421,16 +421,16 @@
         },
         {
           "compId": 4,
-          "name": "전문 자격 (전산세무회계, AICPA 등)",
+          "name": "전문 자격",
           "weight": 0.25,
-          "indicator": "전문 자격 (전산세무회계, AICPA 등)",
+          "indicator": "전문 자격",
           "measurement": "결산 경험 연수, 보유 자격 등급, 툴 숙련도 평가"
         },
         {
           "compId": 5,
           "name": "어학 역량",
           "weight": 0.05,
-          "indicator": "영어 능력 (TOEIC, TOEFL 등)",
+          "indicator": "영어 능력",
           "measurement": "공인어학성적"
         }
       ]
@@ -478,7 +478,7 @@
           "compId": 5,
           "name": "어학 역량",
           "weight": 0.05,
-          "indicator": "영어 능력 (TOEIC, TOEFL 등)",
+          "indicator": "영어 능력",
           "measurement": "공인어학성적"
         }
       ]
@@ -510,9 +510,9 @@
         },
         {
           "compId": 3,
-          "name": "OA 툴 (Word, PPT, Excel) 숙련도",
+          "name": "OA 툴 숙련도",
           "weight": 0.3,
-          "indicator": "OA 툴 (Word, PPT, Excel) 숙련도",
+          "indicator": "OA 툴 숙련도",
           "measurement": "행정 업무 처리 시간 단축, 비용 절감 성과, OA 자격"
         },
         {
@@ -526,7 +526,7 @@
           "compId": 5,
           "name": "어학 역량",
           "weight": 0.05,
-          "indicator": "영어 능력 (TOEIC, TOEFL 등)",
+          "indicator": "영어 능력",
           "measurement": "공인어학성적"
         }
       ]
@@ -574,7 +574,7 @@
           "compId": 5,
           "name": "어학 역량",
           "weight": 0.05,
-          "indicator": "영어 능력 (TOEIC, TOEFL 등)",
+          "indicator": "영어 능력",
           "measurement": "공인어학성적"
         }
       ]
@@ -592,16 +592,16 @@
       "competencies": [
         {
           "compId": 1,
-          "name": "디자인 툴 숙련도 (Figma, Adobe 등)",
+          "name": "디자인 툴 숙련도",
           "weight": 0.35,
-          "indicator": "디자인 툴 숙련도 (Figma, Adobe 등)",
+          "indicator": "디자인 툴 숙련도",
           "measurement": "포트폴리오 정밀 평가, 디자인 시스템 활용 역량"
         },
         {
           "compId": 2,
-          "name": "사용자 여정 설계 및 정보 구조(IA)",
+          "name": "사용자 여정 설계 및 정보 구조",
           "weight": 0.35,
-          "indicator": "사용자 여정 설계 및 정보 구조(IA)",
+          "indicator": "사용자 여정 설계 및 정보 구조",
           "measurement": "포트폴리오 정밀 평가, 디자인 시스템 활용 역량"
         },
         {
@@ -622,7 +622,7 @@
           "compId": 5,
           "name": "어학 역량",
           "weight": 0.05,
-          "indicator": "영어 능력 (TOEIC, TOEFL 등)",
+          "indicator": "영어 능력",
           "measurement": "공인어학성적"
         }
       ]
@@ -661,16 +661,16 @@
         },
         {
           "compId": 4,
-          "name": "영상 성과 (조회수, 캠페인 실적)",
+          "name": "영상 성과",
           "weight": 0.05,
-          "indicator": "영상 성과 (조회수, 캠페인 실적)",
+          "indicator": "영상 성과",
           "measurement": "데모릴 완성도, 툴 활용 능력 자가진단"
         },
         {
           "compId": 5,
           "name": "어학 역량",
           "weight": 0.05,
-          "indicator": "영어 능력 (TOEIC, TOEFL 등)",
+          "indicator": "영어 능력",
           "measurement": "공인어학성적"
         }
       ]
@@ -709,16 +709,16 @@
         },
         {
           "compId": 4,
-          "name": "콘텐츠 성과 데이터 (전환율, 도달)",
+          "name": "콘텐츠 성과 데이터",
           "weight": 0.05,
-          "indicator": "콘텐츠 성과 데이터 (전환율, 도달)",
+          "indicator": "콘텐츠 성과 데이터",
           "measurement": "포트폴리오 캠페인 성과 지표 분석"
         },
         {
           "compId": 5,
           "name": "어학 역량",
           "weight": 0.05,
-          "indicator": "영어 능력 (TOEIC, TOEFL 등)",
+          "indicator": "영어 능력",
           "measurement": "공인어학성적"
         }
       ]
@@ -752,7 +752,7 @@
           "compId": 3,
           "name": "영업 실적",
           "weight": 0.25,
-          "indicator": "정량적 영업 성과 (매출, 계약 건수 등)",
+          "indicator": "정량적 영업 성과",
           "measurement": "영업 실적 증빙"
         },
         {
@@ -766,7 +766,7 @@
           "compId": 5,
           "name": "어학 역량",
           "weight": 0.1,
-          "indicator": "영어 능력 (TOEIC, TOEFL 등)",
+          "indicator": "영어 능력",
           "measurement": "공인어학성적"
         }
       ]
@@ -814,7 +814,7 @@
           "compId": 5,
           "name": "어학 역량",
           "weight": 0.05,
-          "indicator": "영어 능력 (TOEIC, TOEFL 등)",
+          "indicator": "영어 능력",
           "measurement": "공인어학성적"
         }
       ]
@@ -862,7 +862,7 @@
           "compId": 5,
           "name": "어학 역량",
           "weight": 0.05,
-          "indicator": "영어 능력 (TOEIC, TOEFL 등)",
+          "indicator": "영어 능력",
           "measurement": "공인어학성적"
         }
       ]
@@ -910,7 +910,7 @@
           "compId": 5,
           "name": "어학 역량",
           "weight": 0.05,
-          "indicator": "영어 능력 (TOEIC, TOEFL 등)",
+          "indicator": "영어 능력",
           "measurement": "공인어학성적"
         }
       ]

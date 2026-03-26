@@ -2,10 +2,12 @@ package com.kyoon.resumeagent.controller;
 
 import com.kyoon.resumeagent.Entity.Company;
 import com.kyoon.resumeagent.Entity.User;
+import com.kyoon.resumeagent.repository.UserRepository;
 import com.kyoon.resumeagent.service.CompanyService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
@@ -17,6 +19,7 @@ import java.util.List;
 public class CompanyController {
 
     private final CompanyService companyService;
+    private final UserRepository userRepository;
 
     /**
      * 기업 추가
@@ -24,9 +27,10 @@ public class CompanyController {
      */
     @PostMapping
     public ResponseEntity<CompanyResponse> addCompany(
-            @AuthenticationPrincipal User user,
+            @AuthenticationPrincipal UserDetails userDetails,
             @RequestBody AddCompanyRequest request) {
-
+        User user = userRepository.findByEmail(userDetails.getUsername())
+                .orElseThrow(() -> new RuntimeException("User not found"));
         Company company = companyService.addCompany(
                 user,
                 request.companyName(),
@@ -50,7 +54,10 @@ public class CompanyController {
      */
     @GetMapping
     public ResponseEntity<List<CompanyResponse>> getMyCompanies(
-            @AuthenticationPrincipal User user) {
+            @AuthenticationPrincipal UserDetails userDetails) {
+
+        User user = userRepository.findByEmail(userDetails.getUsername())
+                .orElseThrow(() -> new RuntimeException("User not found"));
 
         List<Company> companies = companyService.getMyCompanies(user);
 
@@ -74,8 +81,11 @@ public class CompanyController {
      */
     @PutMapping("/{id}/primary")
     public ResponseEntity<MessageResponse> setPrimaryCompany(
-            @AuthenticationPrincipal User user,
+            @AuthenticationPrincipal UserDetails userDetails,
             @PathVariable Long id) {
+
+        User user = userRepository.findByEmail(userDetails.getUsername())
+                .orElseThrow(() -> new RuntimeException("User not found"));
 
         try {
             companyService.setPrimaryCompany(user, id);
@@ -92,7 +102,10 @@ public class CompanyController {
      */
     @DeleteMapping("/primary")
     public ResponseEntity<MessageResponse> removePrimaryCompany(
-            @AuthenticationPrincipal User user) {
+            @AuthenticationPrincipal UserDetails userDetails) {
+
+        User user = userRepository.findByEmail(userDetails.getUsername())
+                .orElseThrow(() -> new RuntimeException("User not found"));
 
         companyService.removePrimaryCompany(user);
         return ResponseEntity.ok(new MessageResponse("주 희망기업이 해제되었습니다."));
@@ -104,8 +117,11 @@ public class CompanyController {
      */
     @DeleteMapping("/{id}")
     public ResponseEntity<MessageResponse> deleteCompany(
-            @AuthenticationPrincipal User user,
+            @AuthenticationPrincipal UserDetails userDetails,
             @PathVariable Long id) {
+
+        User user = userRepository.findByEmail(userDetails.getUsername())
+                .orElseThrow(() -> new RuntimeException("User not found"));
 
         try {
             companyService.deleteCompany(user, id);

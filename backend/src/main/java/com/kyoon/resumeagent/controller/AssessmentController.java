@@ -5,7 +5,9 @@ import com.kyoon.resumeagent.Entity.User;
 import com.kyoon.resumeagent.repository.AssessmentRepository;
 import com.kyoon.resumeagent.repository.UserRepository;
 import com.kyoon.resumeagent.repository.ResumeRepository;
+import com.kyoon.resumeagent.DTO.JobMatchResult;
 import com.kyoon.resumeagent.service.AssessmentService;
+import com.kyoon.resumeagent.service.JobMatcherService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -24,6 +26,7 @@ public class AssessmentController {
     private final UserRepository userRepository;
     private final ResumeRepository resumeRepository;
     private final AssessmentService assessmentService;
+    private final JobMatcherService jobMatcherService;
 
     // ========================================
     // Request/Response DTOs
@@ -31,6 +34,7 @@ public class AssessmentController {
 
     public record EvaluateRequest(
             String jobCode,
+            String overrideJobText,
             String experience
     ) {}
 
@@ -75,9 +79,26 @@ public class AssessmentController {
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         try {
+            // jobCode 결정: 명시된 jobCode > overrideJobText 매핑 > user.mappedJobCode > TEMP_IT
+            String resolvedJobCode = request.jobCode();
+
+            if ((resolvedJobCode == null || resolvedJobCode.isBlank())
+                    && request.overrideJobText() != null && !request.overrideJobText().isBlank()) {
+                try {
+                    JobMatchResult matchResult = jobMatcherService.matchJob(request.overrideJobText());
+                    resolvedJobCode = matchResult.jobCode();
+                } catch (Exception e) {
+                    resolvedJobCode = "TEMP_IT";
+                }
+            }
+
+            if (resolvedJobCode == null || resolvedJobCode.isBlank()) {
+                resolvedJobCode = user.getMappedJobCode() != null ? user.getMappedJobCode() : "TEMP_IT";
+            }
+
             Assessment assessment = assessmentService.evaluateCompetency(
                     user,
-                    request.jobCode(),
+                    resolvedJobCode,
                     request.experience()
             );
 

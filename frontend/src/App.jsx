@@ -21,6 +21,7 @@ import OAuth2Callback from './pages/OAuth2Callback';
 import ResumeViewer from './pages/ResumeViewer';
 import AdvancedInterview from './pages/AdvancedInterview';
 import { DashboardPage } from './pages/dashboard';  // 🔥 추가
+import DepthInterview from './pages/DepthInterview.jsx';
 
 import './App.css';
 
@@ -55,6 +56,7 @@ function App() {
           <Route path="/oauth2/callback" element={<OAuth2Callback />} />
           <Route path="/resume/:id" element={<ProtectedRoute><ResumeViewer /></ProtectedRoute>} />
           <Route path="/interview/advanced" element={<AdvancedInterview />} />
+          <Route path="/depth-interview" element={<ProtectedRoute><DepthInterview /></ProtectedRoute>} />
         </Routes>
         <Footer />
       </BrowserRouter>

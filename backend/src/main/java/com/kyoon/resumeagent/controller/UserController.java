@@ -4,10 +4,12 @@ import com.kyoon.resumeagent.DTO.ChangeJobRequest;
 import com.kyoon.resumeagent.DTO.ChangeJobResponse;
 import com.kyoon.resumeagent.DTO.JobMatchResult;
 import com.kyoon.resumeagent.Entity.User;
+import com.kyoon.resumeagent.repository.UserRepository;
 import com.kyoon.resumeagent.service.JobChangeService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -16,6 +18,7 @@ import org.springframework.web.bind.annotation.*;
 public class UserController {
 
     private final JobChangeService jobChangeService;
+    private final UserRepository userRepository;
 
     /**
      * 직무 변경 (1일 3회 제한)
@@ -23,9 +26,11 @@ public class UserController {
      */
     @PutMapping("/job")
     public ResponseEntity<?> changeJob(
-            @AuthenticationPrincipal User user,
+            @AuthenticationPrincipal UserDetails userDetails,
             @RequestBody ChangeJobRequest request) {
 
+        User user = userRepository.findByEmail(userDetails.getUsername())
+                .orElseThrow(() -> new RuntimeException("User not found"));
         try {
             // 직무 변경 실행
             JobMatchResult matchResult = jobChangeService.changeJob(user, request.desiredJob());
@@ -60,7 +65,10 @@ public class UserController {
      */
     @GetMapping("/job/remaining-changes")
     public ResponseEntity<RemainingChangesResponse> getRemainingChanges(
-            @AuthenticationPrincipal User user) {
+            @AuthenticationPrincipal UserDetails userDetails) {
+
+        User user = userRepository.findByEmail(userDetails.getUsername())
+                .orElseThrow(() -> new RuntimeException("User not found"));
 
         int remaining = jobChangeService.getRemainingChanges(user);
 

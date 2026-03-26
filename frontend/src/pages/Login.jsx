@@ -30,7 +30,7 @@ function Login() {
       }
       const data = await res.json();
       login(data);
-      navigate("/");
+      navigate("/dashboard");
     } catch (err) {
       setError(err.message);
     } finally {

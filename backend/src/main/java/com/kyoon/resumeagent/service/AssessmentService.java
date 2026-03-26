@@ -11,7 +11,6 @@ import com.kyoon.resumeagent.repository.JobRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;
-import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.chat.prompt.PromptTemplate;
 import org.springframework.ai.openai.OpenAiChatOptions;
@@ -20,7 +19,6 @@ import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.util.*;
 
 @Service
@@ -33,26 +31,21 @@ public class AssessmentService {
     private final ResourceLoader resourceLoader;
     private final ObjectMapper objectMapper;
 
-    /**
-     * 역량 평가 실행
-     */
     @Transactional
     public Assessment evaluateCompetency(User user, String jobCode, String experience) throws Exception {
-        // 1. Job 및 Competency 로드
         Job job = jobRepository.findByJobCode(jobCode)
                 .orElseThrow(() -> new RuntimeException("Job not found: " + jobCode));
 
         List<Competency> competencies = job.getCompetencies();
 
-        // 2. 평가 전용 ChatClient 생성 (temperature 0.2)
-        ChatClient assessmentClient = ChatClient.builder(chatModel)
+        ChatClient analyzerClient = ChatClient.builder(chatModel)
                 .defaultOptions(OpenAiChatOptions.builder()
-                        .temperature(0.2)  // 일관성 높게
+                        .temperature(0.0)
+                        .seed(42)
                         .maxTokens(2000)
                         .build())
                 .build();
 
-        // 3. 프롬프트 생성
         Resource promptResource = resourceLoader.getResource("classpath:prompts/Analyzer.st");
         PromptTemplate template = new PromptTemplate(promptResource);
 
@@ -63,77 +56,73 @@ public class AssessmentService {
                 "experience", experience
         ));
 
-        // 4. GPT 호출 (역량별 점수 산출)
-        String response = assessmentClient.prompt(prompt).call().content();
-
-        // JSON 정리
+        String response = analyzerClient.prompt(prompt).call().content();
         String cleanJson = response.trim()
                 .replaceAll("```json", "")
                 .replaceAll("```", "")
                 .trim();
 
-        // 5. 파싱
         JsonNode result = objectMapper.readTree(cleanJson);
-        JsonNode competencyScores = result.get("competencyScores");
 
-        // 6. 🔥 Gemini 공식 적용 (가중 평균 계산)
-        double totalScore = 0.0;
-        Map<String, Object> scoreBreakdown = new HashMap<>();
-        List<Map<String, Object>> detailedScores = new ArrayList<>();
+        // 분류 결과 추출
+        List<String> depthItems = new ArrayList<>();
+        List<String> emptyItems = new ArrayList<>();
+        List<Map<String, String>> complexItems = new ArrayList<>();
+        List<Map<String, Object>> competencyResults = new ArrayList<>();
 
-        for (int i = 0; i < competencies.size(); i++) {
-            Competency comp = competencies.get(i);
-            JsonNode scoreNode = competencyScores.get(i);
+        if (result.get("competencyResults") != null) {
+            result.get("competencyResults").forEach(item -> {
+                String name = item.get("name").asText();
+                String status = item.get("status").asText();
+                String reason = item.has("reason") ? item.get("reason").asText() : "";
+                String rewriteHint = item.has("rewriteHint") ? item.get("rewriteHint").asText() : "";
+                String field = item.has("field") ? item.get("field").asText() : "career";
 
-            int score = scoreNode.get("score").asInt();
-            String evidence = scoreNode.get("evidence").asText();
-            BigDecimal weight = comp.getWeight();
+                Map<String, Object> compResult = new HashMap<>();
+                compResult.put("name", name);
+                compResult.put("status", status);
+                compResult.put("reason", reason);
+                compResult.put("rewriteHint", rewriteHint);
+                compResult.put("field", field);
+                competencyResults.add(compResult);
 
-            double contribution = score * weight.doubleValue();
-            totalScore += contribution;
-
-            Map<String, Object> detail = new HashMap<>();
-            detail.put("name", comp.getName());
-            detail.put("score", score);
-            detail.put("weight", weight.doubleValue());
-            detail.put("contribution", contribution);
-            detail.put("evidence", evidence);
-            detailedScores.add(detail);
+                switch (status) {
+                    case "depth" -> depthItems.add(name);
+                    case "empty" -> emptyItems.add(name);
+                    case "complex" -> {
+                        Map<String, String> complexItem = new HashMap<>();
+                        complexItem.put("name", name);
+                        complexItem.put("certName", item.has("certName") ? item.get("certName").asText() : "");
+                        complexItem.put("reason", reason);
+                        complexItems.add(complexItem);
+                    }
+                }
+            });
         }
 
-        scoreBreakdown.put("totalScore", Math.round(totalScore));
-        scoreBreakdown.put("competencyScores", detailedScores);
-        scoreBreakdown.put("strengths", result.get("strengths"));
-        scoreBreakdown.put("improvements", result.get("improvements"));
+        Map<String, Object> analysisData = new HashMap<>();
+        analysisData.put("experiences", result.get("experiences"));
+        analysisData.put("competencyResults", competencyResults);
+        analysisData.put("depthItems", depthItems);
+        analysisData.put("emptyItems", emptyItems);
+        analysisData.put("complexItems", complexItems);
 
-        // 7. Assessment 저장
         Assessment assessment = Assessment.builder()
                 .user(user)
                 .evaluatedJobCode(jobCode)
                 .experience(experience)
-                .analysis(objectMapper.writeValueAsString(Map.of(
-                        "strengths", result.get("strengths"),
-                        "improvements", result.get("improvements")
-                )))
-                .scoreData(objectMapper.writeValueAsString(scoreBreakdown))
+                .analysis("{}")
+                .scoreData(objectMapper.writeValueAsString(analysisData))
                 .isPrimary(false)
                 .build();
 
         return assessmentRepository.save(assessment);
     }
 
-    /**
-     * 역량 목록을 설명 문자열로 변환
-     */
     private String buildCompetenciesDescription(List<Competency> competencies) {
         StringBuilder sb = new StringBuilder();
         for (Competency comp : competencies) {
-            sb.append(String.format(
-                    "- %s (가중치: %.0f%%): %s\n",
-                    comp.getName(),
-                    comp.getWeight().doubleValue() * 100,
-                    comp.getMeasurement()
-            ));
+            sb.append(String.format("- %s\n", comp.getName()));
         }
         return sb.toString();
     }
