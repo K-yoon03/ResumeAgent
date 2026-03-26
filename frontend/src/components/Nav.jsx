@@ -1,7 +1,7 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { Button } from "./ui/button";
-import { Moon, Sun, User, ChevronDown, Settings, Coins, BarChart2, FileText, MessageSquare, LayoutDashboard } from "lucide-react";
+import { Moon, Sun, User, ChevronDown, Settings, Coins, BarChart2, FileText, MessageSquare, LayoutDashboard, Building2 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import CareerPilotHelmIcon from './CareerPilotHelmIcon';
 import jobCodeMap from '../MappingTable/jobCodeMap.json';
@@ -51,6 +51,14 @@ const megaMenus = [
       { path: "/interview/advanced", label: "자소서 기반 면접" },
       { path: "/interview", label: "일반 모의면접" },
       { path: "/my-interviews", label: "내 면접 기록" },
+    ],
+  },
+  {
+    label: "목표기업",
+    icon: Building2,
+    items: [
+      { path: "/companies/new", label: "새 목표기업 추가" },
+      { path: "/companies", label: "목표기업 보기" },
     ],
   },
 ];
@@ -197,7 +205,7 @@ function Nav() {
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-100 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
               <Coins className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
               <span className="text-xs font-semibold text-amber-700 dark:text-amber-300">
-                {credits >= 999999 ? "∞" : credits}
+                {credits >= 999999 ? "∞" : credits} cr
               </span>
             </div>
           )}
@@ -233,7 +241,7 @@ function Nav() {
                         {grade ?? "미평가"}
                       </span>
                       <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 font-medium">
-                        {credits >= 999999 ? "∞" : credits} credit
+                        {credits >= 999999 ? "∞" : credits} cr
                       </span>
                     </div>
                     {user.mappedJobCode && (

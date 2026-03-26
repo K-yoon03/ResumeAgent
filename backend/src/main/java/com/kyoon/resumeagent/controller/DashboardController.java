@@ -67,13 +67,23 @@ public class DashboardController {
             );
         }
 
-        // 3. 🔥 주 역량 평가 (scoreData 파싱)
+        // 3. 주 역량 평가 - primaryAssessment 없으면 최신 isFinal Assessment 사용
         PrimaryAssessmentInfo primaryAssessmentInfo = null;
-        if (user.getPrimaryAssessment() != null) {
-            Assessment primary = user.getPrimaryAssessment();
-            Job assessedJob = jobRepository.findByJobCode(primary.getEvaluatedJobCode()).orElse(null);
-
-            primaryAssessmentInfo = parseAssessmentInfo(primary, assessedJob);
+        Assessment primaryCandidate = user.getPrimaryAssessment();
+        if (primaryCandidate == null) {
+            List<Assessment> allAssessments = assessmentRepository.findByUserOrderByCreatedAtDesc(user);
+            primaryCandidate = allAssessments.stream()
+                    .filter(a -> {
+                        try {
+                            JsonNode sd = objectMapper.readTree(a.getScoreData());
+                            return sd.has("isFinal") && sd.get("isFinal").asBoolean();
+                        } catch (Exception e) { return false; }
+                    })
+                    .findFirst().orElse(null);
+        }
+        if (primaryCandidate != null) {
+            Job assessedJob = jobRepository.findByJobCode(primaryCandidate.getEvaluatedJobCode()).orElse(null);
+            primaryAssessmentInfo = parseAssessmentInfo(primaryCandidate, assessedJob);
         }
 
         // 4. 역량 평가 이력

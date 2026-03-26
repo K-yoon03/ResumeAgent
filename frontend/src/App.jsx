@@ -20,8 +20,9 @@ import Footer from './components/Footer';
 import OAuth2Callback from './pages/OAuth2Callback';
 import ResumeViewer from './pages/ResumeViewer';
 import AdvancedInterview from './pages/AdvancedInterview';
+import Companies from './pages/Companies';
+import CompanyNew from './pages/CompanyNew';
 import { DashboardPage } from './pages/dashboard';  // 🔥 추가
-import DepthInterview from './pages/DepthInterview.jsx';
 
 import './App.css';
 
@@ -56,7 +57,8 @@ function App() {
           <Route path="/oauth2/callback" element={<OAuth2Callback />} />
           <Route path="/resume/:id" element={<ProtectedRoute><ResumeViewer /></ProtectedRoute>} />
           <Route path="/interview/advanced" element={<AdvancedInterview />} />
-          <Route path="/depth-interview" element={<ProtectedRoute><DepthInterview /></ProtectedRoute>} />
+          <Route path="/companies" element={<ProtectedRoute><Companies /></ProtectedRoute>} />
+          <Route path="/companies/new" element={<ProtectedRoute><CompanyNew /></ProtectedRoute>} />
         </Routes>
         <Footer />
       </BrowserRouter>
