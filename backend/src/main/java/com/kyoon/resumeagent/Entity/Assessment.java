@@ -5,6 +5,9 @@ import lombok.*;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 import java.time.LocalDateTime;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+import java.util.Map;
 
 @Entity
 @EntityListeners(AuditingEntityListener.class)
@@ -36,6 +39,10 @@ public class Assessment {
     // 🔥 추가: 주 역량 여부
     @Column(name = "is_primary")
     private Boolean isPrimary = false;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(columnDefinition = "json")
+    private Map<String, Double> capabilityVector;
 
     @CreatedDate
     @Column(updatable = false)

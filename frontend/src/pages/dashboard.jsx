@@ -334,28 +334,30 @@ export function DashboardPage() {
         <Card className="bg-muted/20">
           <CardHeader>
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <Briefcase className="h-4 w-4" />희망 직무
+              <Briefcase className="h-4 w-4" />내 역량 분포
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {desiredJob ? (
-              <>
-                <div className="text-2xl font-bold mb-1">{desiredJob.jobName}</div>
-                <p className="text-sm text-muted-foreground mb-3">
-                  {desiredJob.jobCode}
-                  {desiredJob.isTemporary && <Badge variant="outline" className="ml-2">범용</Badge>}
-                </p>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">오늘 변경: {3 - desiredJob.remainingChanges}/3회</span>
-                  <Link to="/my-page">
-                    <Button size="sm" variant="outline"><Edit className="h-3 w-3 mr-1" />변경</Button>
-                  </Link>
-                </div>
-              </>
+            {primaryAssessment?.capabilityVector && Object.keys(primaryAssessment.capabilityVector).length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {Object.entries(primaryAssessment.capabilityVector)
+                  .filter(([_, v]) => v > 0)
+                  .sort(([, a], [, b]) => b - a)
+                  .map(([code, score]) => (
+                    <span
+                      key={code}
+                      className="text-xs px-2.5 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-500 font-medium"
+                    >
+                      {code}: {Math.round(score * 100)}
+                    </span>
+                  ))}
+              </div>
             ) : (
               <div className="text-center py-4">
-                <p className="text-muted-foreground mb-3">직무를 설정해주세요</p>
-                <Link to="/my-page"><Button size="sm">직무 설정</Button></Link>
+                <p className="text-muted-foreground text-sm mb-3">역량평가를 완료하면 표시됩니다</p>
+                <Link to="/analyze/new">
+                  <Button size="sm">역량 평가 시작</Button>
+                </Link>
               </div>
             )}
           </CardContent>

@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/assessments")
@@ -54,7 +55,8 @@ public class AssessmentController {
             String scoreData,
             Boolean isPrimary,
             LocalDateTime createdAt,
-            List<ResumeController.ResumeResponse> resumes
+            List<ResumeController.ResumeResponse> resumes,
+            Map<String, Double> capabilityVector  // 🔥 추가
     ) {}
 
     public record SetPrimaryResponse(
@@ -150,7 +152,8 @@ public class AssessmentController {
                             a.getScoreData(),
                             a.getIsPrimary(),
                             a.getCreatedAt(),
-                            resumes
+                            resumes,
+                            a.getCapabilityVector()
                     );
                 }).toList();
 

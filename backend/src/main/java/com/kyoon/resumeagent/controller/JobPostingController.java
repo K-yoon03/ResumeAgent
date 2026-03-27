@@ -9,6 +9,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
+import com.kyoon.resumeagent.service.AgentService;
+import java.util.Map;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -18,6 +20,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class JobPostingController {
 
+    private final AgentService agentService;
     private final JobPostingRepository jobPostingRepository;
     private final UserRepository userRepository;
 
@@ -69,6 +72,9 @@ public class JobPostingController {
                 .workPlace(req.workPlace())
                 .employmentType(req.employmentType())
                 .vision(req.vision())
+                .capabilityVector(agentService.extractCapabilityVector(  // ← 추가
+                        String.join("\n", req.mainTasks(), req.requirements(), req.preferred(), req.techStack())
+                ))
                 .build();
 
         JobPosting saved = jobPostingRepository.save(jobPosting);

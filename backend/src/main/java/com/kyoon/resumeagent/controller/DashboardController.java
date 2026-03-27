@@ -22,6 +22,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/dashboard")
@@ -30,26 +31,19 @@ public class DashboardController {
 
     private final JobRepository jobRepository;
     private final AssessmentRepository assessmentRepository;
-    private final CompanyRepository companyRepository;  // 🔥 추가
+    private final CompanyRepository companyRepository;
     private final UserRepository userRepository;
     private final JobChangeService jobChangeService;
-    private final ObjectMapper objectMapper;  // 🔥 추가
+    private final ObjectMapper objectMapper;
 
-    /**
-     * 대시보드 데이터 조회
-     * GET /api/dashboard
-     */
     @GetMapping
     public ResponseEntity<DashboardResponse> getDashboard(
             @AuthenticationPrincipal UserDetails userDetails) {
 
         User user = userRepository.findByEmail(userDetails.getUsername())
-                .orElseThrow(() -> new RuntimeException("User not found")); // 사용자 정보 추출 (UserDetails)
+                .orElseThrow(() -> new RuntimeException("User not found"));
 
-        UserInfo userInfo = new UserInfo(
-                user.getNickname(),
-                user.getEmail()
-        );
+        UserInfo userInfo = new UserInfo(user.getNickname(), user.getEmail());
 
         // 2. 희망 직무 정보
         DesiredJobInfo desiredJobInfo = null;
@@ -67,7 +61,7 @@ public class DashboardController {
             );
         }
 
-        // 3. 주 역량 평가 - primaryAssessment 없으면 최신 isFinal Assessment 사용
+        // 3. 주 역량 평가
         PrimaryAssessmentInfo primaryAssessmentInfo = null;
         Assessment primaryCandidate = user.getPrimaryAssessment();
         if (primaryCandidate == null) {
@@ -87,9 +81,7 @@ public class DashboardController {
         }
 
         // 4. 역량 평가 이력
-        List<Assessment> assessments = assessmentRepository
-                .findByUserOrderByCreatedAtDesc(user);
-
+        List<Assessment> assessments = assessmentRepository.findByUserOrderByCreatedAtDesc(user);
         List<AssessmentHistoryItem> assessmentHistory = assessments.stream()
                 .map(a -> {
                     Job job = jobRepository.findByJobCode(a.getEvaluatedJobCode()).orElse(null);
@@ -104,7 +96,7 @@ public class DashboardController {
                 })
                 .toList();
 
-        // 5. 🔥 주 희망기업
+        // 5. 주 희망기업
         PrimaryCompanyInfo primaryCompanyInfo = null;
         if (user.getPrimaryCompany() != null) {
             Company primaryCompany = user.getPrimaryCompany();
@@ -117,46 +109,27 @@ public class DashboardController {
             );
         }
 
-        // 6. 🔥 희망기업 목록
+        // 6. 희망기업 목록
         List<Company> companies = companyRepository.findByUserOrderByAddedAtDesc(user);
         List<CompanyListItem> companyList = companies.stream()
-                .map(c -> new CompanyListItem(
-                        c.getId(),
-                        c.getCompanyName(),
-                        c.getIndustry(),
-                        c.getIsPrimary()
-                ))
+                .map(c -> new CompanyListItem(c.getId(), c.getCompanyName(), c.getIndustry(), c.getIsPrimary()))
                 .toList();
 
-        // 7. 크레딧 정보
+        // 7. 크레딧
         CreditInfo creditInfo = new CreditInfo(
-                user.getRemainingCredits(),
-                user.getDailyCredits(),
-                user.getUsedCredits()
+                user.getRemainingCredits(), user.getDailyCredits(), user.getUsedCredits()
         );
 
-        // 8. 통합 응답
-        DashboardResponse response = new DashboardResponse(
-                userInfo,
-                desiredJobInfo,
-                primaryAssessmentInfo,
-                assessmentHistory,
-                primaryCompanyInfo,  // 🔥 추가
-                companyList,         // 🔥 추가
-                creditInfo
-        );
-
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(new DashboardResponse(
+                userInfo, desiredJobInfo, primaryAssessmentInfo,
+                assessmentHistory, primaryCompanyInfo, companyList, creditInfo
+        ));
     }
 
-    /**
-     * 🔥 Assessment scoreData 파싱
-     */
     private PrimaryAssessmentInfo parseAssessmentInfo(Assessment assessment, Job job) {
         try {
             JsonNode scoreData = objectMapper.readTree(assessment.getScoreData());
-
-            int totalScore = scoreData.get("totalScore").asInt();
+            int totalScore = scoreData.has("totalScore") ? scoreData.get("totalScore").asInt() : 0;
 
             List<CompetencyScoreDetail> competencyScores = new ArrayList<>();
             JsonNode scores = scoreData.get("competencyScores");
@@ -174,15 +147,13 @@ public class DashboardController {
 
             List<String> strengths = new ArrayList<>();
             JsonNode strengthsNode = scoreData.get("strengths");
-            if (strengthsNode != null && strengthsNode.isArray()) {
+            if (strengthsNode != null && strengthsNode.isArray())
                 strengthsNode.forEach(s -> strengths.add(s.asText()));
-            }
 
             List<String> improvements = new ArrayList<>();
             JsonNode improvementsNode = scoreData.get("improvements");
-            if (improvementsNode != null && improvementsNode.isArray()) {
+            if (improvementsNode != null && improvementsNode.isArray())
                 improvementsNode.forEach(i -> improvements.add(i.asText()));
-            }
 
             return new PrimaryAssessmentInfo(
                     assessment.getId(),
@@ -192,102 +163,64 @@ public class DashboardController {
                     competencyScores,
                     strengths,
                     improvements,
-                    assessment.getCreatedAt()
+                    assessment.getCreatedAt(),
+                    assessment.getCapabilityVector()  // ✅
             );
 
         } catch (Exception e) {
-            // 파싱 실패 시 기본값
             return new PrimaryAssessmentInfo(
                     assessment.getId(),
                     assessment.getEvaluatedJobCode(),
                     job != null ? job.getJobName() : null,
-                    0,
-                    List.of(),
-                    List.of(),
-                    List.of(),
-                    assessment.getCreatedAt()
+                    0, List.of(), List.of(), List.of(),
+                    assessment.getCreatedAt(),
+                    Map.of()  // ✅
             );
         }
     }
 
-    // ===== Response DTOs =====
+    // ===== DTOs =====
 
     record DashboardResponse(
             UserInfo user,
             DesiredJobInfo desiredJob,
             PrimaryAssessmentInfo primaryAssessment,
             List<AssessmentHistoryItem> assessmentHistory,
-            PrimaryCompanyInfo primaryCompany,  // 🔥 추가
-            List<CompanyListItem> companyList,  // 🔥 추가
+            PrimaryCompanyInfo primaryCompany,
+            List<CompanyListItem> companyList,
             CreditInfo credits
     ) {}
 
-    record UserInfo(
-            String nickname,
-            String email
-    ) {}
+    record UserInfo(String nickname, String email) {}
 
     record DesiredJobInfo(
-            String jobText,
-            String jobCode,
-            String jobName,
-            Boolean isTemporary,
-            String matchType,
-            Double confidence,
-            LocalDateTime mappedAt,
-            int remainingChanges
+            String jobText, String jobCode, String jobName,
+            Boolean isTemporary, String matchType, Double confidence,
+            LocalDateTime mappedAt, int remainingChanges
     ) {}
 
-    // 🔥 수정: scoreData 파싱된 형태
     record PrimaryAssessmentInfo(
-            Long id,
-            String evaluatedJobCode,
-            String jobName,
-            int totalScore,
-            List<CompetencyScoreDetail> competencyScores,
-            List<String> strengths,
-            List<String> improvements,
-            LocalDateTime createdAt
+            Long id, String evaluatedJobCode, String jobName,
+            int totalScore, List<CompetencyScoreDetail> competencyScores,
+            List<String> strengths, List<String> improvements,
+            LocalDateTime createdAt,
+            Map<String, Double> capabilityVector  // ✅ 추가
     ) {}
 
-    // 🔥 추가
     record CompetencyScoreDetail(
-            String name,
-            int score,
-            double weight,
-            double contribution,
-            String evidence
+            String name, int score, double weight, double contribution, String evidence
     ) {}
 
     record AssessmentHistoryItem(
-            Long id,
-            String evaluatedJobCode,
-            String jobName,
-            String scoreData,
-            Boolean isPrimary,
-            LocalDateTime createdAt
+            Long id, String evaluatedJobCode, String jobName,
+            String scoreData, Boolean isPrimary, LocalDateTime createdAt
     ) {}
 
-    // 🔥 추가
     record PrimaryCompanyInfo(
-            Long id,
-            String name,
-            String industry,
-            String memo,
-            LocalDateTime addedAt
+            Long id, String name, String industry, String memo, LocalDateTime addedAt
     ) {}
 
-    // 🔥 추가
-    record CompanyListItem(
-            Long id,
-            String name,
-            String industry,
-            Boolean isPrimary
-    ) {}
+    record CompanyListItem(Long id, String name, String industry, Boolean isPrimary) {}
 
-    record CreditInfo(
-            int remaining,
-            int daily,
-            int used
-    ) {}
+    record CreditInfo(int remaining, int daily, int used) {}
 }

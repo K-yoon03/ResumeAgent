@@ -1,5 +1,6 @@
 package com.kyoon.resumeagent.service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kyoon.resumeagent.Entity.Assessment;
@@ -8,6 +9,7 @@ import com.kyoon.resumeagent.Entity.Job;
 import com.kyoon.resumeagent.Entity.User;
 import com.kyoon.resumeagent.repository.AssessmentRepository;
 import com.kyoon.resumeagent.repository.JobRepository;
+import com.kyoon.resumeagent.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;
@@ -18,6 +20,11 @@ import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.kyoon.resumeagent.Capability.JobCapabilityProfile;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import java.util.*;
 
@@ -30,13 +37,14 @@ public class AssessmentService {
     private final AssessmentRepository assessmentRepository;
     private final ResourceLoader resourceLoader;
     private final ObjectMapper objectMapper;
+    private final UserRepository userRepository;
 
     @Transactional
     public Assessment evaluateCompetency(User user, String jobCode, String experience) throws Exception {
         Job job = jobRepository.findByJobCode(jobCode)
                 .orElseThrow(() -> new RuntimeException("Job not found: " + jobCode));
 
-        List<Competency> competencies = job.getCompetencies();
+        List<Competency> competencies = job.getCompetencies(); // ✅ 여기 선언
 
         ChatClient analyzerClient = ChatClient.builder(chatModel)
                 .defaultOptions(OpenAiChatOptions.builder()
@@ -47,13 +55,14 @@ public class AssessmentService {
                 .build();
 
         Resource promptResource = resourceLoader.getResource("classpath:prompts/Analyzer.st");
-        PromptTemplate template = new PromptTemplate(promptResource);
+        PromptTemplate template = new PromptTemplate(promptResource); // ✅ 여기 선언
 
         Prompt prompt = template.create(Map.of(
                 "jobName", job.getJobName(),
                 "jobCode", job.getJobCode(),
                 "competencies", buildCompetenciesDescription(competencies),
-                "experience", experience
+                "experience", experience,
+                "capabilityCodes", JobCapabilityProfile.getRelevantCodeNames(jobCode) // ✅ 추가
         ));
 
         String response = analyzerClient.prompt(prompt).call().content();
@@ -62,9 +71,13 @@ public class AssessmentService {
                 .replaceAll("```", "")
                 .trim();
 
-        JsonNode result = objectMapper.readTree(cleanJson);
+        // ⚠️ CAPABILITY_VECTOR 블록 제거 후 JSON 파싱
+        String jsonOnly = cleanJson.replaceAll(
+                "\\[CAPABILITY_VECTOR\\].*?\\[/CAPABILITY_VECTOR\\]", ""
+        ).trim();
 
-        // 분류 결과 추출
+        JsonNode result = objectMapper.readTree(jsonOnly);
+
         List<String> depthItems = new ArrayList<>();
         List<String> emptyItems = new ArrayList<>();
         List<Map<String, String>> complexItems = new ArrayList<>();
@@ -107,16 +120,26 @@ public class AssessmentService {
         analysisData.put("emptyItems", emptyItems);
         analysisData.put("complexItems", complexItems);
 
+        Map<String, Double> capabilityVector = parseCapabilityVector(response);
+
         Assessment assessment = Assessment.builder()
                 .user(user)
                 .evaluatedJobCode(jobCode)
                 .experience(experience)
                 .analysis("{}")
                 .scoreData(objectMapper.writeValueAsString(analysisData))
+                .capabilityVector(capabilityVector)
                 .isPrimary(false)
                 .build();
 
-        return assessmentRepository.save(assessment);
+        Assessment saved = assessmentRepository.save(assessment);
+
+        if (user.getPrimaryAssessment() == null) {
+            user.setPrimaryAssessment(saved);
+            userRepository.save(user);
+        }
+
+        return saved;
     }
 
     private String buildCompetenciesDescription(List<Competency> competencies) {
@@ -125,5 +148,29 @@ public class AssessmentService {
             sb.append(String.format("- %s\n", comp.getName()));
         }
         return sb.toString();
+    }
+    private Map<String, Double> parseCapabilityVector(String aiResponse) {
+        Pattern pattern = Pattern.compile(
+                "\\[CAPABILITY_VECTOR\\]\\s*(.*?)\\s*\\[/CAPABILITY_VECTOR\\]",
+                Pattern.DOTALL
+        );
+        Matcher matcher = pattern.matcher(aiResponse);
+
+        if (matcher.find()) {
+            Map<String, Double> vector = new HashMap<>();
+            String[] entries = matcher.group(1).split(",");
+            for (String entry : entries) {
+                String[] parts = entry.trim().split(":");
+                if (parts.length == 2) {
+                    try {
+                        vector.put(parts[0].trim(), Double.parseDouble(parts[1].trim()));
+                    } catch (NumberFormatException e) {
+                        // skip
+                    }
+                }
+            }
+            return vector;
+        }
+        return new HashMap<>();
     }
 }

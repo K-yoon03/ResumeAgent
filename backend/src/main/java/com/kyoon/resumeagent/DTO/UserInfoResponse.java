@@ -1,6 +1,7 @@
 package com.kyoon.resumeagent.DTO;
 
 import java.time.LocalDateTime;
+import java.util.Map;
 
 public record UserInfoResponse(
         String email,
@@ -18,5 +19,8 @@ public record UserInfoResponse(
         String jobMatchType,
         Boolean isTemporaryJob,
         Double jobMatchConfidence,
-        LocalDateTime jobMappedAt
+        LocalDateTime jobMappedAt,
+
+        Map<String, Double> capabilityVector,
+        Long primaryAssessmentId
 ) {}

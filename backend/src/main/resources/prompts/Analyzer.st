@@ -40,7 +40,33 @@ For all other competencies:
 - If experiences array is not empty → depth
 - If experiences array is empty → empty
 
-Output: JSON only, no markdown. All Korean for hints and reasons.
+STEP 3 - Capability Vector 추출:
+
+After completing the competency analysis above, extract the user's capability vector based on their experience.
+
+Capability Code List:
+BE_LANG, BE_FRAMEWORK, API_DESIGN, DB, CS,
+FE_LANG, FE_FRAMEWORK, UI,
+DATA_ANALYSIS, ML, MATH,
+INFRA, CLOUD, DEVOPS, COLLAB
+
+Rules:
+- Only include codes that are clearly evidenced in the user's input
+- Score range: 0.0 ~ 1.0 (based on depth and breadth of experience)
+  - 0.8~1.0: multiple projects or deep experience
+  - 0.5~0.7: mentioned with some context
+  - 0.1~0.4: briefly mentioned or indirect evidence
+- Output strictly in the format below, after the main JSON
+
+After the JSON output, append the capability vector in this exact format:
+
+[CAPABILITY_VECTOR]
+code: score, code: score
+[/CAPABILITY_VECTOR]
+
+Only include codes from: {capabilityCodes}
+
+Output: JSON first, then capability vector block. No markdown.
 
 experiences: extracted from 경력 및 경험 field only
 

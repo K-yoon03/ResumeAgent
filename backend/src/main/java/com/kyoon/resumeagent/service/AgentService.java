@@ -1,6 +1,7 @@
 package com.kyoon.resumeagent.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.kyoon.resumeagent.Capability.CapabilityCode;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
@@ -10,6 +11,9 @@ import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.util.MimeType;
 import org.springframework.util.MimeTypeUtils;
+import com.kyoon.resumeagent.Capability.CapabilityCode;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import java.util.*;
 
@@ -244,6 +248,76 @@ public class AgentService {
                 }
                 """;
         }
+    }
+
+    private Map<String, Double> parseCapabilityVector(String response) {
+        Pattern pattern = Pattern.compile(
+                "\\[CAPABILITY_VECTOR\\]\\s*(.*?)\\s*\\[/CAPABILITY_VECTOR\\]",
+                Pattern.DOTALL
+        );
+        Matcher matcher = pattern.matcher(response);
+        if (matcher.find()) {
+            Map<String, Double> vector = new HashMap<>();
+            for (String entry : matcher.group(1).split(",")) {
+                String[] parts = entry.trim().split(":");
+                if (parts.length == 2) {
+                    try {
+                        vector.put(parts[0].trim(), Double.parseDouble(parts[1].trim()));
+                    } catch (NumberFormatException e) { /* skip */ }
+                }
+            }
+            return vector;
+        }
+        return new HashMap<>();
+    }
+    public Map<String, Double> extractCapabilityVector(String jobPostingText) {
+        String prompt = String.format("""
+        You are a job posting capability extractor.
+        
+        Extract the capability vector from the following job posting.
+        
+        Only include codes from: %s
+        
+        Rules:
+        - Only include codes clearly required in the posting
+        - Score 0.0 ~ 1.0
+          - 0.8~1.0: explicitly required
+          - 0.5~0.7: preferred or secondary
+          - 0.1~0.4: briefly mentioned
+        
+        Output strictly in this format:
+        [CAPABILITY_VECTOR]
+        code: score, code: score
+        [/CAPABILITY_VECTOR]
+        
+        Job Posting:
+        %s
+        """,
+                String.join(", ", Arrays.stream(CapabilityCode.values()).map(Enum::name).toList()),
+                jobPostingText
+        );
+
+        try {
+            Prompt aiPrompt = new Prompt(List.of(new UserMessage(prompt)));
+            String response = chatClient.prompt(aiPrompt).call().content();
+            return parseCapabilityVector(response);
+        } catch (Exception e) {
+            return new HashMap<>();
+        }
+    }
+
+
+    public Map<String, Object> parseJobPostingWithVector(String rawText) {
+        // 기존 파싱 로직 그대로
+        String parsed = parseJobPosting(rawText);
+
+        // Vector 추출 추가
+        Map<String, Double> vector = extractCapabilityVector(rawText);
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("parsed", parsed);
+        result.put("capabilityVector", vector);
+        return result;
     }
 
     /**

@@ -21,7 +21,6 @@ function MyPage() {
 
   // 직무 변경 관련 state
   const [jobInput, setJobInput] = useState("");
-  const [jobRemaining, setJobRemaining] = useState(3);
   const [jobLoading, setJobLoading] = useState(false);
   const [jobModal, setJobModal] = useState(null); // null | { type, data }
   // type: 'suggest' | 'noMatch'
@@ -29,17 +28,6 @@ function MyPage() {
 
   const monthRef = useRef(null);
   const dayRef = useRef(null);
-
-  // 남은 직무 변경 횟수 조회
-  useEffect(() => {
-    if (!user) return;
-    fetch(`${BASE_URL}/api/user/job/remaining-changes`, {
-      headers: { Authorization: `Bearer ${user.token}` }
-    })
-      .then(res => res.json())
-      .then(data => setJobRemaining(data.remaining))
-      .catch(() => {});
-  }, [user]);
 
   // 유저 정보로 폼 초기화
   useEffect(() => {
@@ -363,8 +351,8 @@ function MyPage() {
               희망 직무
             </CardTitle>
             <CardDescription>
-              {user?.mappedJobCode
-                ? `현재: ${jobCodeMap[user.mappedJobCode] ?? user.mappedJobCode}${user?.isTemporaryJob ? " (임시 매핑)" : ""}`
+              {user?.desiredJobText
+                ? `현재: ${user.desiredJobText}`
                 : "아직 희망 직무가 설정되지 않았어요"}
             </CardDescription>
           </CardHeader>
@@ -375,7 +363,7 @@ function MyPage() {
                 value={jobInput}
                 onChange={(e) => setJobInput(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleJobChange()}
-                placeholder="예: 백엔드 개발자, 마케터, 회계사"
+                placeholder="예: 백엔드 개발자, 데이터 분석가"
                 className={inputClass}
               />
               <Button
@@ -386,10 +374,28 @@ function MyPage() {
                 {jobLoading ? <RefreshCw className="h-4 w-4 animate-spin" /> : "확인"}
               </Button>
             </div>
-            <p className="text-xs text-muted-foreground pl-1">{"하루 최대 3회 변경 가능해요 (남은 횟수 "}<span className="font-semibold text-foreground">{jobRemaining}/3</span>{")"}</p>
+
+            {/* 역량 코드 표시 */}
+            {user?.capabilityVector && Object.keys(user.capabilityVector).length > 0 && (
+              <div className="pt-2 space-y-2">
+                <p className="text-xs font-medium text-muted-foreground">내 역량 분포</p>
+                <div className="flex flex-wrap gap-2">
+                  {Object.entries(user.capabilityVector)
+                    .filter(([_, v]) => v > 0)
+                    .sort(([, a], [, b]) => b - a)
+                    .map(([code, score]) => (
+                      <span
+                        key={code}
+                        className="text-xs px-2.5 py-1 rounded-full bg-[var(--gradient-mid)]/10 border border-[var(--gradient-mid)]/20 text-[var(--gradient-mid)] font-medium"
+                      >
+                        {code}: {Math.round(score * 100)}
+                      </span>
+                    ))}
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
-
         {/* 직무 매핑 모달 */}
         {jobModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">

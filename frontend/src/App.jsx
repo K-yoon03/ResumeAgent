@@ -23,6 +23,7 @@ import AdvancedInterview from './pages/AdvancedInterview';
 import Companies from './pages/Companies';
 import CompanyNew from './pages/CompanyNew';
 import { DashboardPage } from './pages/dashboard';  // 🔥 추가
+import DepthInterview from './pages/DepthInterview';
 
 import './App.css';
 
@@ -45,6 +46,7 @@ function App() {
           <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />  {/* 🔥 추가 */}
           <Route path="/analyze" element={<AnalyzeRoute />} />
           <Route path="/analyze/new" element={<Analyzer setGlobalExperience={() => {}} setGlobalAnalysis={() => {}} />} />
+            <Route path="/depth-interview" element={<ProtectedRoute><DepthInterview /></ProtectedRoute>} />
           <Route path="/resume-writer" element={<ProtectedRoute><ResumeWriter /></ProtectedRoute>} />
           <Route path="/interview" element={<ProtectedRoute><InterviewAgent /></ProtectedRoute>} />
           <Route path="/login" element={<Login />} />

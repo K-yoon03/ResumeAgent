@@ -2,11 +2,8 @@ package com.kyoon.resumeagent.Component;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.kyoon.resumeagent.Entity.Competency;
-import com.kyoon.resumeagent.Entity.Job;
-import com.kyoon.resumeagent.Entity.User;
-import com.kyoon.resumeagent.repository.JobRepository;
-import com.kyoon.resumeagent.repository.UserRepository;
+import com.kyoon.resumeagent.Entity.*;
+import com.kyoon.resumeagent.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
@@ -25,6 +22,8 @@ public class DataInitializer implements ApplicationRunner {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JobRepository jobRepository;
+    private final AssessmentRepository assessmentRepository;
+    private final CompanyRepository companyRepository;
     private final ObjectMapper objectMapper;
 
     @Override
@@ -34,6 +33,9 @@ public class DataInitializer implements ApplicationRunner {
 
         // 2. NCS 직무 데이터 로드
         initNcsJobsData();
+
+        // 3. 관리자 예시 데이터
+        initAdminSampleData();
     }
 
     /**
@@ -44,16 +46,16 @@ public class DataInitializer implements ApplicationRunner {
             User admin = User.builder()
                     .email("admin@careerpilot.com")
                     .password(passwordEncoder.encode("admin1234!"))
-                    .nickname("admin")
+                    .nickname("CareerPilot")
                     .name("관리자")
                     .birthDate("2000-01-01")
                     .provider("LOCAL")
                     .role("ADMIN")
-                    .dailyCredits(999999)  // 🔥 관리자는 무제한
+                    .dailyCredits(999999)
                     .usedCredits(0)
                     .lastResetDate(LocalDate.now())
-                    .desiredJobText(null)
-                    .mappedJobCode(null)
+                    .desiredJobText("백엔드 개발자")
+                    .mappedJobCode("CP001")
                     .isTemporaryJob(false)
                     .jobChangeCount(0)
                     .build();
@@ -62,6 +64,75 @@ public class DataInitializer implements ApplicationRunner {
         } else {
             System.out.println("ℹ️ Admin 계정 이미 존재함 - 스킵");
         }
+    }
+
+    private void initAdminSampleData() throws Exception {
+        User admin = userRepository.findByEmail("admin@careerpilot.com").orElse(null);
+        if (admin == null) return;
+
+        // 이미 데이터 있으면 스킵
+        if (assessmentRepository.findByUserOrderByCreatedAtDesc(admin).size() > 0) {
+            System.out.println("ℹ️ Admin 예시 데이터 이미 존재함 - 스킵");
+            return;
+        }
+
+        // 역량 평가 예시 데이터
+        String scoreData = """
+        {
+          "totalScore": 70,
+          "isFinal": true,
+          "competencyScores": [
+            {"name": "프레임워크 숙련도", "score": 90, "weight": 0.35, "contribution": 31.5, "evidence": "Spring Boot 기반의 3티어 아키텍처 설계와 API 연동 경험이 있음.", "improved": true},
+            {"name": "DB 설계 및 API 최적화 능력", "score": 55, "weight": 0.30, "contribution": 16.5, "evidence": "금융감독원 API 및 OpenAI API를 활용한 프로젝트 경험이 있으나 DB 최적화 경험은 부족함.", "improved": false},
+            {"name": "코드 리뷰 및 트러블슈팅 경험", "score": 75, "weight": 0.25, "contribution": 18.75, "evidence": "LLM 일관성 문제를 NCS 기반 MappingTable로 해결한 경험이 있음.", "improved": true},
+            {"name": "관련 자격 및 교육", "score": 55, "weight": 0.05, "contribution": 2.75, "evidence": "SQLD 자격증 보유.", "improved": false},
+            {"name": "어학 역량", "score": 0, "weight": 0.05, "contribution": 0.0, "evidence": "공인어학성적 없음.", "improved": false}
+          ],
+          "strengths": ["Spring Boot와 다양한 API를 활용한 실무 프로젝트 경험이 풍부함.", "LLM 기반 서비스 개발 및 운영 경험 보유.", "SQLD 자격증 보유로 데이터베이스 기초 지식 있음."],
+          "improvements": ["DB 설계 및 API 최적화 경험을 더 쌓을 필요가 있음.", "공인어학성적 취득을 통해 어학 역량을 강화해야 함.", "코드 리뷰 경험을 더 구체적으로 쌓아야 함."],
+          "experiences": ["CareerPilot", "Yolo v5 기반 스마트 방범 CCTV", "finporter", "Hero\'s Harvest"]
+        }
+        """;
+
+        Assessment assessment = Assessment.builder()
+                .user(admin)
+                .evaluatedJobCode("CP001")
+                .experience("경력 및 경험: LLM 기반 역량분석 서비스 CareerPilot, Yolo v5 방범 CCTV, finporter, Hero\'s Harvest\n자격증: SQLD\n보유 직무역량: Spring Boot, React, AWS, OpenStack, Linux\n어학: 없음")
+                .analysis("{}")
+                .scoreData(scoreData)
+                .isPrimary(false)
+                .build();
+        assessmentRepository.save(assessment);
+
+        // 희망기업 예시 데이터
+        Company kakao = Company.builder()
+                .user(admin)
+                .companyName("카카오")
+                .industry("IT·인터넷")
+                .memo("백엔드 개발자 포지션 지원 예정")
+                .isPrimary(true)
+                .build();
+        companyRepository.save(kakao);
+
+        Company naver = Company.builder()
+                .user(admin)
+                .companyName("네이버")
+                .industry("IT·인터넷")
+                .memo("서버 개발 인턴십 지원 예정")
+                .isPrimary(false)
+                .build();
+        companyRepository.save(naver);
+
+        Company toss = Company.builder()
+                .user(admin)
+                .companyName("토스")
+                .industry("금융·은행")
+                .memo("핀테크 백엔드 개발자")
+                .isPrimary(false)
+                .build();
+        companyRepository.save(toss);
+
+        System.out.println("✅ Admin 예시 데이터 생성 완료!");
     }
 
     /**

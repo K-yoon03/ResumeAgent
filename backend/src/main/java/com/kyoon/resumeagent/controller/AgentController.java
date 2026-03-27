@@ -2,7 +2,6 @@ package com.kyoon.resumeagent.controller;
 
 import com.kyoon.resumeagent.service.AgentService;
 import com.kyoon.resumeagent.service.AnalyzerService;
-import com.kyoon.resumeagent.service.JobCrawlerService;
 import com.kyoon.resumeagent.service.JobSummaryService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.MediaType;
@@ -15,23 +14,19 @@ import org.springframework.web.multipart.MultipartFile;
 public class AgentController {
 
     private final AnalyzerService analyzerService;
-    private final JobCrawlerService jobCrawlerService;
     private final JobSummaryService jobSummaryService;
     private final AgentService agentService;
 
     public AgentController(
             AnalyzerService analyzerService,
-            JobCrawlerService jobCrawlerService,
             JobSummaryService jobSummaryService,
             AgentService agentService) {
         this.analyzerService = analyzerService;
-        this.jobCrawlerService = jobCrawlerService;
         this.jobSummaryService = jobSummaryService;
         this.agentService = agentService;
     }
 
     record ScoreRequest(String experience) {}
-    record CrawlRequest(String url) {}
     record SummarizeRequest(String jobPosting) {}
     record FollowUpRequest(String experience, String analysis) {}
     record ParseJobPostingRequest(String rawText) {}
@@ -44,11 +39,6 @@ public class AgentController {
     @PostMapping("/score")
     public ResponseEntity<AnalyzerService.ScoreResponse> score(@RequestBody ScoreRequest req) {
         return ResponseEntity.ok(analyzerService.score(req.experience()));
-    }
-
-    @PostMapping("/crawl")
-    public String crawl(@RequestBody CrawlRequest request) {
-        return jobCrawlerService.crawl(request.url());
     }
 
     @PostMapping("/summarize")

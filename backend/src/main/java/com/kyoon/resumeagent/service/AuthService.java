@@ -155,14 +155,20 @@ public class AuthService implements UserDetailsService {
                 user.getRemainingCredits(),
                 user.getDailyCredits(),
                 user.isAdmin(),
-
-                // 직무정보
                 user.getDesiredJobText(),
                 user.getMappedJobCode(),
                 user.getJobMatchType(),
                 user.getIsTemporaryJob(),
                 user.getJobMatchConfidence(),
-                user.getJobMappedAt()
+                user.getJobMappedAt(),
+
+                // 🔥 추가
+                user.getPrimaryAssessment() != null
+                        ? user.getPrimaryAssessment().getCapabilityVector()
+                        : null,
+                user.getPrimaryAssessment() != null
+                        ? user.getPrimaryAssessment().getId()
+                        : null
         );
     }
 
@@ -202,14 +208,20 @@ public class AuthService implements UserDetailsService {
                 user.getRemainingCredits(),
                 user.getDailyCredits(),
                 user.isAdmin(),
-
-                // 🔥 직무 정보 추가
                 user.getDesiredJobText(),
                 user.getMappedJobCode(),
                 user.getJobMatchType(),
                 user.getIsTemporaryJob(),
                 user.getJobMatchConfidence(),
-                user.getJobMappedAt()
+                user.getJobMappedAt(),
+
+                // 🔥 추가
+                user.getPrimaryAssessment() != null
+                        ? user.getPrimaryAssessment().getCapabilityVector()
+                        : null,
+                user.getPrimaryAssessment() != null
+                        ? user.getPrimaryAssessment().getId()
+                        : null
         );
     }
 
