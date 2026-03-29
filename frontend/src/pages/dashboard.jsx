@@ -65,8 +65,35 @@ const getAverageScore = (competencyScores) => {
   return Math.round(weighted);
 };
 
+const CAP_CODE_MAP = {
+  BE_LANG: "백엔드 언어", BE_FRAMEWORK: "백엔드 프레임워크", FE_LANG: "프론트엔드 언어",
+  FE_FRAMEWORK: "프론트엔드 프레임워크", DB: "데이터베이스", API_DESIGN: "API 설계",
+  CS_FUNDAMENTAL: "CS 기초", PYTHON: "Python", ML_FRAMEWORK: "ML 프레임워크",
+  DATA_PROCESSING: "데이터 처리", ML_MODELING: "ML 모델링", MATH_STATS: "수학/통계",
+  DATA_VIZ: "데이터 시각화", C_CPP: "C/C++", LINUX: "Linux", EMBEDDED: "임베디드",
+  ROS: "ROS", NETWORK_PROTOCOL: "통신 프로토콜", SENSOR_CONTROL: "센서/제어",
+  UNITY: "Unity", UNREAL: "Unreal Engine", CSHARP: "C#", CPP_GAME: "C++ 게임개발",
+  VR_AR: "VR/AR", THREE_D_MODELING: "3D 모델링", GAME_DESIGN: "게임 기획",
+  GIS: "GIS", DIGITAL_TWIN: "디지털트윈", SPATIAL_PYTHON: "공간데이터 Python",
+  NETWORK: "네트워크", WEB_SECURITY: "웹 보안", SYSTEM_SECURITY: "시스템 보안",
+  CLOUD_ARCH: "클라우드 아키텍처", LINUX_SERVER: "Linux 서버", CONTAINER: "컨테이너",
+  CRYPTO: "암호학", PLC_HMI: "PLC/HMI", EMBEDDED_FW: "펌웨어", CIRCUIT_DESIGN: "회로 설계",
+  VERILOG: "Verilog/HDL", SECS_GEM: "반도체 통신", PROCESS_KNOWLEDGE: "공정 지식",
+  DEFECT_ANALYSIS: "불량 분석", CLEANROOM: "클린룸", EQUIPMENT_MAINT: "설비 유지보수",
+  SOP_COMPLIANCE: "SOP 준수", PLC_CONTROL: "PLC 제어", ROBOT_CONTROL: "로봇 제어",
+  HMI_SCADA: "HMI/SCADA", PROCESS_OPT: "공정 최적화", ELECTRICAL_SYSTEM: "전기 설비",
+  RENEWABLE_ENERGY: "신재생 에너지", CAD_3D: "3D CAD", MECHANICAL_DESIGN: "기계 설계",
+  CAE: "CAE 해석", MANUFACTURING: "CNC/MCT 가공", DESIGN_INTENT: "설계 의도",
+  QUALITY_MGMT: "품질 관리", BIO_AI: "바이오 AI", DATA_ANALYSIS_BIO: "바이오 데이터 분석",
+  GMP_COMPLIANCE: "GMP 준수", LAB_SKILLS: "실험 기술", QUALITY_CONTROL: "품질관리/밸리데이션",
+  CAD_ARCH: "건축 CAD", BIM: "BIM", STRUCTURAL_DESIGN: "구조 설계", REGULATION_COMPLY: "법규 준수",
+  MRO_KNOWLEDGE: "항공 정비", NDT: "비파괴검사", CABIN_SERVICE: "객실 서비스", AVIATION_MGMT: "항공 경영",
+  FINTECH: "핀테크", DIGITAL_MARKETING: "디지털 마케팅", DATA_DRIVEN: "데이터 기반 의사결정",
+  ERP_CRM: "ERP/CRM", STRATEGY_PLANNING: "전략 기획", KPI_RESULT: "KPI 성과",
+  DOCUMENTATION: "문서화", TROUBLESHOOTING: "트러블슈팅", TEAM_PROJECT: "팀 프로젝트",
+};
+
 const COLOR_STOPS = [
-  { at: 0,   hex: "#64748b" },
   { at: 15,  hex: "#94a3b8" },
   { at: 35,  hex: "#a78bfa" },
   { at: 50,  hex: "#8b5cf6" },
@@ -371,7 +398,7 @@ export function DashboardPage() {
           </CardHeader>
           <CardContent>
             {primaryAssessment
-              ? <PercentileChart score={getAverageScore(primaryAssessment.competencyScores)} jobName={primaryAssessment.jobName} />
+              ? <PercentileChart score={primaryAssessment.totalScore} jobName={primaryAssessment.groupName} />
               : <PercentileChartLocked />
             }
           </CardContent>
@@ -424,11 +451,11 @@ export function DashboardPage() {
               <div className="space-y-6">
                 <div className="text-center p-4 bg-muted/50 rounded-lg">
                   <p className="text-sm text-muted-foreground mb-2">평균 등급</p>
-                  <Badge className={`text-3xl px-6 py-6 bg-gradient-to-r ${getGradeColor(getAverageGrade(primaryAssessment.competencyScores))} text-white border-0`}>
-                    {getAverageGrade(primaryAssessment.competencyScores)}
+                  <Badge className={`text-3xl px-6 py-6 bg-gradient-to-r ${getGradeColor(getGrade(primaryAssessment.totalScore))} text-white border-0`}>
+                    {getGrade(primaryAssessment.totalScore)}
                   </Badge>
                   <p className="text-sm text-muted-foreground mt-2">
-                    평균 {getAverageScore(primaryAssessment.competencyScores)}점
+                    평균 {primaryAssessment.totalScore}점
                   </p>
                 </div>
                 <div className="space-y-4">
@@ -581,7 +608,7 @@ export function DashboardPage() {
                 <h3 className="text-lg font-semibold mb-1">자기소개서 작성</h3>
                 <p className="text-sm text-muted-foreground">역량 분석 결과로 맞춤 자기소개서 생성</p>
               </div>
-              <Link to="/resume-writer">
+              <Link to="/resume-select">
                 <Button size="lg" className="bg-gradient-to-r from-blue-500 to-purple-500">
                   작성하기<ArrowRight className="ml-2 h-4 w-4" />
                 </Button>

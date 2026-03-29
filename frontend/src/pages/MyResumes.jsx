@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { FileText, Plus, Clock, Trash2, Sparkles, MessageSquare, CheckCircle, Edit, BarChart, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { BASE_URL } from '../config';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/context/AuthContext';
 
 export default function MyResumes() {
   const navigate = useNavigate();
@@ -126,11 +126,9 @@ export default function MyResumes() {
     }
 
     if (resume.status === "CONFIRMED") {
-      // 확정 완료: 보기, 평가받기, 모의면접, 삭제
       return (
         <>
           {viewButton}
-          <BarChart className="mr-1.5 h-3.5 w-3.5" />
           <Button
             size="sm"
             variant="outline"
@@ -138,7 +136,7 @@ export default function MyResumes() {
               state: { resume: resume.content }
             })}
           >
-          <MessageSquare className="mr-1.5 h-3.5 w-3.5" />
+            <MessageSquare className="mr-1.5 h-3.5 w-3.5" />
             모의면접
           </Button>
           <Button

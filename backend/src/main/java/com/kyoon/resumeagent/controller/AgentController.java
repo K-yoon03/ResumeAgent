@@ -77,4 +77,19 @@ public class AgentController {
             return ResponseEntity.badRequest().body("이미지 처리 실패: " + e.getMessage());
         }
     }
+
+    // STAR 필드 개선
+    record ImproveStarRequest(String field, String content, String type, String projectName) {}
+
+    @PostMapping("/improve-star")
+    public ResponseEntity<?> improveStarField(@RequestBody ImproveStarRequest request) {
+        try {
+            String result = agentService.improveStarField(
+                    request.field(), request.content(), request.type(), request.projectName());
+            // JSON 문자열 → Map으로 파싱해서 반환
+            return ResponseEntity.ok(new com.fasterxml.jackson.databind.ObjectMapper().readValue(result, java.util.Map.class));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body("개선 실패: " + e.getMessage());
+        }
+    }
 }

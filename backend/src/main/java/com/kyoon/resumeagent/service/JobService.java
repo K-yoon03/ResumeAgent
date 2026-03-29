@@ -19,78 +19,63 @@ public class JobService {
         this.jobRepository = jobRepository;
     }
 
-    // 전체 직무 목록
-    public List<JobSummaryDTO> getAllJobs() {
+    public List<JobGroupSummaryDTO> getAllJobs() {
         return jobRepository.findAll().stream()
-                .map(job -> new JobSummaryDTO(
+                .map(job -> new JobGroupSummaryDTO(
                         job.getId(),
-                        job.getJobCode(),
-                        job.getJobName(),
+                        job.getGroupCode(),
+                        job.getGroupName(),
                         job.getCategory(),
-                        job.getNcsLarge(),
-                        job.getNcsMedium()
+                        job.getMeasureType()
                 ))
                 .collect(Collectors.toList());
     }
 
-    // 직무 코드로 상세 조회
-    public JobDetailDTO getJobByCode(String jobCode) {
-        Job job = jobRepository.findByJobCode(jobCode)
-                .orElseThrow(() -> new IllegalArgumentException("직무를 찾을 수 없습니다: " + jobCode));
-
+    public JobGroupDetailDTO getJobByCode(String groupCode) {
+        Job job = jobRepository.findByGroupCode(groupCode)
+                .orElseThrow(() -> new IllegalArgumentException("직무 그룹을 찾을 수 없습니다: " + groupCode));
         return toDetailDTO(job);
     }
 
-    // ID로 상세 조회
-    public JobDetailDTO getJobById(Long id) {
+    public JobGroupDetailDTO getJobById(Long id) {
         Job job = jobRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("직무를 찾을 수 없습니다: " + id));
-
+                .orElseThrow(() -> new IllegalArgumentException("직무 그룹을 찾을 수 없습니다: " + id));
         return toDetailDTO(job);
     }
 
-    // 카테고리별 직무 목록
-    public List<JobSummaryDTO> getJobsByCategory(String category) {
+    public List<JobGroupSummaryDTO> getJobsByCategory(String category) {
         return jobRepository.findByCategory(category).stream()
-                .map(job -> new JobSummaryDTO(
+                .map(job -> new JobGroupSummaryDTO(
                         job.getId(),
-                        job.getJobCode(),
-                        job.getJobName(),
+                        job.getGroupCode(),
+                        job.getGroupName(),
                         job.getCategory(),
-                        job.getNcsLarge(),
-                        job.getNcsMedium()
+                        job.getMeasureType()
                 ))
                 .collect(Collectors.toList());
     }
 
-    // 카테고리 목록
     public List<String> getAllCategories() {
         return jobRepository.findAllCategories();
     }
 
-    // Job → JobDetailDTO 변환
-    private JobDetailDTO toDetailDTO(Job job) {
-        List<CompetencyDTO> competencies = job.getCompetencies().stream()
-                .map(c -> new CompetencyDTO(
+    private JobGroupDetailDTO toDetailDTO(Job job) {
+        List<CapabilityCodeDTO> competencies = job.getCompetencies().stream()
+                .map(c -> new CapabilityCodeDTO(
                         c.getId(),
-                        c.getCompId(),
+                        c.getCapCode(),
                         c.getName(),
-                        c.getWeight(),
-                        c.getIndicator(),
-                        c.getMeasurement()
+                        c.getWeight()
                 ))
                 .collect(Collectors.toList());
 
-        return new JobDetailDTO(
+        return new JobGroupDetailDTO(
                 job.getId(),
-                job.getJobCode(),
-                job.getNcsLarge(),
-                job.getNcsMedium(),
-                job.getJobName(),
+                job.getGroupCode(),
+                job.getGroupName(),
                 job.getCategory(),
                 job.getDescription(),
-                job.getMeasurementMethod(),
-                job.getSource(),
+                job.getMeasureType(),
                 competencies
         );
     }

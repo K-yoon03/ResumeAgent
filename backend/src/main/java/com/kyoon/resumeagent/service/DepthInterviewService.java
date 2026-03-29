@@ -2,11 +2,13 @@ package com.kyoon.resumeagent.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.kyoon.resumeagent.Capability.JobCapabilityProfile;
+import com.kyoon.resumeagent.Capability.PromptPathResolver;
 import com.kyoon.resumeagent.Entity.Assessment;
-import com.kyoon.resumeagent.Entity.Competency;
 import com.kyoon.resumeagent.Entity.Job;
 import com.kyoon.resumeagent.repository.AssessmentRepository;
 import com.kyoon.resumeagent.repository.JobRepository;
+import com.kyoon.resumeagent.service.score.AssessmentScoreService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;
@@ -18,7 +20,6 @@ import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.util.*;
 
 @Service
@@ -26,6 +27,7 @@ import java.util.*;
 public class DepthInterviewService {
 
     private final ChatModel chatModel;
+    private final AssessmentScoreService assessmentScoreService;
     private final JobRepository jobRepository;
     private final AssessmentRepository assessmentRepository;
     private final ResourceLoader resourceLoader;
@@ -35,22 +37,26 @@ public class DepthInterviewService {
      * 심층 질문 생성
      */
     public List<String> generateQuestions(String jobCode, String jobName, String itemName, String itemType, String reason) throws Exception {
-        Job job = jobRepository.findByJobCode(jobCode)
+        Job job = jobRepository.findByGroupCode(jobCode)
                 .orElseThrow(() -> new RuntimeException("Job not found: " + jobCode));
 
         ChatClient client = ChatClient.builder(chatModel)
                 .defaultOptions(ChatOptions.builder().temperature(0.7).maxTokens(500).build())
                 .build();
 
-        Resource promptResource = resourceLoader.getResource("classpath:prompts/DepthInterviewer.st");
+        String promptPath = PromptPathResolver.depth(job.getMeasureType().name());
+        if (promptPath == null) {
+            throw new RuntimeException("DepthInterview not supported for measureType: " + job.getMeasureType());
+        }
+        Resource promptResource = resourceLoader.getResource(promptPath);
         PromptTemplate template = new PromptTemplate(promptResource);
 
         Prompt prompt = template.create(Map.of(
-                "jobName", jobName != null ? jobName : job.getJobName(),
+                "jobName", jobName != null ? jobName : job.getGroupName(),
                 "jobCode", jobCode,
                 "itemName", itemName,
-                "itemType", itemType != null ? itemType : "experience",
-                "competencies", buildCompetenciesDescription(job.getCompetencies())
+                "capCodes", JobCapabilityProfile.getRelevantCodeNames(jobCode),
+                "maxQuestions", "3"
         ));
 
         String response = client.prompt(prompt).call().content();
@@ -70,102 +76,33 @@ public class DepthInterviewService {
         Assessment assessment = assessmentRepository.findById(assessmentId)
                 .orElseThrow(() -> new RuntimeException("Assessment not found"));
 
-        Job job = jobRepository.findByJobCode(assessment.getEvaluatedJobCode())
+        Job job = jobRepository.findByGroupCode(assessment.getEvaluatedJobCode())
                 .orElseThrow(() -> new RuntimeException("Job not found"));
 
-        List<Competency> competencies = job.getCompetencies();
-
-        // 기존 점수 추출
-        JsonNode existingScoreData = objectMapper.readTree(assessment.getScoreData());
-        String initialScores = buildInitialScores(existingScoreData);
         String depthAnswersText = buildDepthAnswersText(depthAnswers);
 
+        // evidence 프롬프트로 사실 추출
         ChatClient client = ChatClient.builder(chatModel)
-                .defaultOptions(ChatOptions.builder().temperature(0.2).maxTokens(2000).build())
+                .defaultOptions(ChatOptions.builder().temperature(0.0).maxTokens(1000).build())
                 .build();
 
-        Resource promptResource = resourceLoader.getResource("classpath:prompts/FinalScorer.st");
+        String promptPath = PromptPathResolver.evidence(job.getMeasureType().name());
+        if (promptPath == null) {
+            throw new RuntimeException("Evidence not supported for measureType: " + job.getMeasureType());
+        }
+        Resource promptResource = resourceLoader.getResource(promptPath);
         PromptTemplate template = new PromptTemplate(promptResource);
 
         Prompt prompt = template.create(Map.of(
-                "jobName", job.getJobName(),
-                "jobCode", job.getJobCode(),
-                "competencies", buildCompetenciesDescription(competencies),
-                "initialScores", initialScores,
-                "depthAnswers", depthAnswersText
+                "capCodes", JobCapabilityProfile.getRelevantCodeNames(assessment.getEvaluatedJobCode()),
+                "qna", depthAnswersText
         ));
 
         String response = client.prompt(prompt).call().content();
-        String cleanJson = response.trim().replaceAll("```json", "").replaceAll("```", "").trim();
+        String evidenceJson = response.trim().replaceAll("```json", "").replaceAll("```", "").trim();
 
-        JsonNode result = objectMapper.readTree(cleanJson);
-        JsonNode competencyScores = result.get("competencyScores");
-
-        // 가중치 재계산 (기존 AssessmentService와 동일 로직)
-        double totalScore = 0.0;
-        List<Map<String, Object>> detailedScores = new ArrayList<>();
-
-        for (int i = 0; i < competencies.size(); i++) {
-            Competency comp = competencies.get(i);
-            JsonNode scoreNode = competencyScores.get(i);
-
-            int score = scoreNode.get("score").asInt();
-            String evidence = scoreNode.get("evidence").asText();
-            boolean improved = scoreNode.has("improved") && scoreNode.get("improved").asBoolean();
-            BigDecimal weight = comp.getWeight();
-            double contribution = score * weight.doubleValue();
-            totalScore += contribution;
-
-            Map<String, Object> detail = new HashMap<>();
-            detail.put("name", comp.getName());
-            detail.put("score", score);
-            detail.put("weight", weight.doubleValue());
-            detail.put("contribution", contribution);
-            detail.put("evidence", evidence);
-            detail.put("improved", improved);
-            detailedScores.add(detail);
-        }
-
-        // scoreData 업데이트
-        Map<String, Object> newScoreData = new HashMap<>();
-        newScoreData.put("totalScore", Math.round(totalScore));
-        newScoreData.put("competencyScores", detailedScores);
-        newScoreData.put("strengths", result.get("strengths"));
-        newScoreData.put("improvements", result.get("improvements"));
-        newScoreData.put("experiences", existingScoreData.get("experiences"));
-        newScoreData.put("isFinal", true);
-
-        assessment.setScoreData(objectMapper.writeValueAsString(newScoreData));
-        assessment.setAnalysis(objectMapper.writeValueAsString(Map.of(
-                "strengths", result.get("strengths"),
-                "improvements", result.get("improvements")
-        )));
-
-        return assessmentRepository.save(assessment);
-    }
-
-    private String buildCompetenciesDescription(List<Competency> competencies) {
-        StringBuilder sb = new StringBuilder();
-        for (Competency comp : competencies) {
-            sb.append(String.format("- %s (가중치: %.0f%%): %s\n",
-                    comp.getName(), comp.getWeight().doubleValue() * 100, comp.getMeasurement()));
-        }
-        return sb.toString();
-    }
-
-    private String buildInitialScores(JsonNode scoreData) {
-        StringBuilder sb = new StringBuilder();
-        // Analyzer가 분류기로 바뀌면서 competencyResults로 변경됨
-        JsonNode results = scoreData.get("competencyResults");
-        if (results != null) {
-            results.forEach(comp -> {
-                sb.append(String.format("- %s: %s (이유: %s)\n",
-                        comp.get("name").asText(),
-                        comp.get("status").asText(),
-                        comp.has("reason") ? comp.get("reason").asText() : ""));
-            });
-        }
-        return sb.toString();
+        // 서버 산출식으로 점수 계산
+        return assessmentScoreService.calculateScore(assessment, job, evidenceJson);
     }
 
     private String buildDepthAnswersText(List<Map<String, Object>> depthAnswers) {

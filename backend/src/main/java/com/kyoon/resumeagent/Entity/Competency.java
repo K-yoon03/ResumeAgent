@@ -18,18 +18,12 @@ public class Competency {
     @JoinColumn(name = "job_id", nullable = false)
     private Job job;
 
-    @Column(nullable = false)
-    private Integer compId;  // 역량 순서 (1, 2, 3, ...)
+    @Column(name = "cap_code", nullable = false, length = 50)
+    private String capCode;  // BE_LANG, PYTHON, TROUBLESHOOTING 등
 
     @Column(nullable = false, length = 200)
-    private String name;  // 역량명
+    private String name;  // 역량 한글 설명 (예: 백엔드 언어)
 
     @Column(nullable = false, precision = 4, scale = 3)
     private BigDecimal weight;  // 가중치 (0.000 ~ 0.999)
-
-    @Column(length = 200)
-    private String indicator;  // 지표
-
-    @Column(length = 200)
-    private String measurement;  // 측정 방법
 }

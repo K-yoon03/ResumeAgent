@@ -3,11 +3,14 @@ package com.kyoon.resumeagent.controller;
 import com.kyoon.resumeagent.Entity.Assessment;
 import com.kyoon.resumeagent.Entity.User;
 import com.kyoon.resumeagent.repository.AssessmentRepository;
+import com.kyoon.resumeagent.repository.JobRepository;
 import com.kyoon.resumeagent.repository.UserRepository;
 import com.kyoon.resumeagent.repository.ResumeRepository;
 import com.kyoon.resumeagent.DTO.JobMatchResult;
 import com.kyoon.resumeagent.service.AssessmentService;
+import com.kyoon.resumeagent.service.ExperienceMatcherService;
 import com.kyoon.resumeagent.service.JobMatcherService;
+import com.kyoon.resumeagent.service.StarGeneratorService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -26,8 +29,13 @@ public class AssessmentController {
     private final AssessmentRepository assessmentRepository;
     private final UserRepository userRepository;
     private final ResumeRepository resumeRepository;
+    private final JobRepository jobRepository;
+    private final com.kyoon.resumeagent.repository.DepthAnswerRepository depthAnswerRepository;
+    private final com.kyoon.resumeagent.repository.StarRepository starRepository;
     private final AssessmentService assessmentService;
     private final JobMatcherService jobMatcherService;
+    private final ExperienceMatcherService experienceMatcherService;
+    private final StarGeneratorService starGeneratorService;
 
     // ========================================
     // Request/Response DTOs
@@ -38,6 +46,63 @@ public class AssessmentController {
             String overrideJobText,
             String experience
     ) {}
+
+    public record MatchJobRequest(String experience) {}
+
+    public record MatchJobResponse(
+            String jobCode,
+            String jobName,
+            String matchType,
+            double confidence,
+            boolean isTemporary,
+            boolean noMatch,
+            String reason
+    ) {}
+
+    // ========================================
+    // JobMatcher - 경험 기반 직무 자동 추론
+    // ========================================
+
+    @PostMapping("/match-job")
+    public ResponseEntity<MatchJobResponse> matchJob(
+            @RequestBody MatchJobRequest request,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        try {
+            ExperienceMatcherService.MatchResult result = experienceMatcherService.matchFromExperience(request.experience());
+            String jobName = switch (result.jobCode()) {
+                case "SW_WEB" -> "웹/앱 개발";
+                case "SW_AI" -> "AI/데이터 엔지니어링";
+                case "SW_SYSTEM" -> "시스템/임베디드/IoT";
+                case "SW_GAME" -> "게임/인터랙티브 콘텐츠";
+                case "SW_SPATIAL" -> "공간정보/디지털트윈";
+                case "SECURITY_CLOUD" -> "보안/클라우드/네트워크";
+                case "SEMI_SW" -> "반도체SW/제어";
+                case "SEMI_PROCESS" -> "반도체 공정/장비";
+                case "ELEC_AUTO" -> "전기/자동화";
+                case "MECHANIC" -> "기계/설계";
+                case "BIO_PHARMA" -> "바이오/의약";
+                case "ARCHITECTURE" -> "건축/토목";
+                case "AVIATION" -> "항공/모빌리티";
+                case "BUSINESS" -> "경영/비즈니스";
+                case "DESIGN_MEDIA" -> "디자인/미디어";
+                case "SERVICE_HUMAN" -> "서비스/인문";
+                default -> result.jobCode();
+            };
+            return ResponseEntity.ok(new MatchJobResponse(
+                    result.jobCode(),
+                    jobName,
+                    "AUTO",
+                    result.confidence(),
+                    false,
+                    result.noMatch(),
+                    result.reason()
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.ok(new MatchJobResponse(
+                    "SW_WEB", "SW_WEB", "FALLBACK", 0.5, false, false, ""
+            ));
+        }
+    }
 
     public record EvaluateResponse(
             Long id,
@@ -81,22 +146,9 @@ public class AssessmentController {
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         try {
-            // jobCode 결정: 명시된 jobCode > overrideJobText 매핑 > user.mappedJobCode > TEMP_IT
-            String resolvedJobCode = request.jobCode();
-
-            if ((resolvedJobCode == null || resolvedJobCode.isBlank())
-                    && request.overrideJobText() != null && !request.overrideJobText().isBlank()) {
-                try {
-                    JobMatchResult matchResult = jobMatcherService.matchJob(request.overrideJobText());
-                    resolvedJobCode = matchResult.jobCode();
-                } catch (Exception e) {
-                    resolvedJobCode = "TEMP_IT";
-                }
-            }
-
-            if (resolvedJobCode == null || resolvedJobCode.isBlank()) {
-                resolvedJobCode = user.getMappedJobCode() != null ? user.getMappedJobCode() : "TEMP_IT";
-            }
+            String resolvedJobCode = (request.jobCode() != null && !request.jobCode().isBlank())
+                    ? request.jobCode()
+                    : user.getMappedJobCode() != null ? user.getMappedJobCode() : "SW_WEB";
 
             Assessment assessment = assessmentService.evaluateCompetency(
                     user,
@@ -112,8 +164,160 @@ public class AssessmentController {
                     assessment.getCreatedAt()
             ));
         } catch (Exception e) {
+            System.err.println("❌ evaluate 실패: " + e.getMessage());
+            e.printStackTrace();
             return ResponseEntity.internalServerError().build();
         }
+    }
+
+    /**
+     * DepthAnswer 목록 조회
+     * GET /api/assessments/{id}/depth-answers
+     */
+    @GetMapping("/{id}/depth-answers")
+    public ResponseEntity<?> getDepthAnswers(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        User user = userRepository.findByEmail(userDetails.getUsername())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        com.kyoon.resumeagent.Entity.Assessment assessment = assessmentRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Assessment not found"));
+        if (!assessment.getUser().getId().equals(user.getId())) {
+            return ResponseEntity.status(403).build();
+        }
+        var answers = depthAnswerRepository.findByAssessmentIdOrderByItemNameAscSequenceAsc(id);
+        // itemName별로 그룹핑해서 반환
+        var grouped = answers.stream()
+                .collect(java.util.stream.Collectors.groupingBy(
+                        com.kyoon.resumeagent.Entity.DepthAnswer::getItemName,
+                        java.util.LinkedHashMap::new,
+                        java.util.stream.Collectors.toList()
+                ));
+        var result = grouped.entrySet().stream().map(e -> java.util.Map.of(
+                "itemName", e.getKey(),
+                "questionCount", e.getValue().size(),
+                "firstQuestion", e.getValue().get(0).getQuestion()
+        )).toList();
+        return ResponseEntity.ok(result);
+    }
+
+    /**
+     * STAR 필드 업데이트 (개선하기 저장)
+     * PUT /api/assessments/{id}/star/{itemName}
+     */
+    @PutMapping("/{id}/star/{itemName}")
+    public ResponseEntity<?> updateStarField(
+            @PathVariable Long id,
+            @PathVariable String itemName,
+            @RequestBody java.util.Map<String, String> body,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        try {
+            User user = userRepository.findByEmail(userDetails.getUsername())
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+            com.kyoon.resumeagent.Entity.Assessment assessment = assessmentRepository.findById(id)
+                    .orElseThrow(() -> new RuntimeException("Assessment not found"));
+            if (!assessment.getUser().getId().equals(user.getId())) {
+                return ResponseEntity.status(403).build();
+            }
+            starGeneratorService.updateStarField(id, itemName, body.get("field"), body.get("value"));
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
+    /**
+     * STAR 재생성 (기존 삭제 후 다시 생성)
+     * DELETE /api/assessments/{id}/star/{itemName}
+     */
+    @DeleteMapping("/{id}/star/{itemName}")
+    public ResponseEntity<?> deleteStar(
+            @PathVariable Long id,
+            @PathVariable String itemName,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        try {
+            User user = userRepository.findByEmail(userDetails.getUsername())
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+            com.kyoon.resumeagent.Entity.Assessment assessment = assessmentRepository.findById(id)
+                    .orElseThrow(() -> new RuntimeException("Assessment not found"));
+            if (!assessment.getUser().getId().equals(user.getId())) {
+                return ResponseEntity.status(403).build();
+            }
+            starRepository.findByAssessmentIdAndItemName(id, itemName)
+                    .ifPresent(starRepository::delete);
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
+    /**
+     * STAR 생성 (InterviewData 기반)
+     * POST /api/assessments/{id}/extract-star
+     */
+    @PostMapping("/{id}/extract-star")
+    public ResponseEntity<?> extractStar(
+            @PathVariable Long id,
+            @RequestParam(required = false) String jobContext,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        try {
+            User user = userRepository.findByEmail(userDetails.getUsername())
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+            com.kyoon.resumeagent.Entity.Assessment assessment = assessmentRepository.findById(id)
+                    .orElseThrow(() -> new RuntimeException("Assessment not found"));
+            if (!assessment.getUser().getId().equals(user.getId())) {
+                return ResponseEntity.status(403).build();
+            }
+            java.util.List<StarGeneratorService.StarResult> stars = starGeneratorService.generateStars(
+                    id, assessment.getEvaluatedJobCode(), jobContext);
+            return ResponseEntity.ok(stars);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
+    /**
+     * 평가 단건 조회
+     * GET /api/assessments/{id}
+     */
+    @GetMapping("/{id}")
+    public ResponseEntity<AssessmentResponse> getAssessment(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserDetails userDetails) {
+
+        User user = userRepository.findByEmail(userDetails.getUsername())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        Assessment assessment = assessmentRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Assessment not found"));
+
+        if (!assessment.getUser().getId().equals(user.getId())) {
+            return ResponseEntity.status(403).build();
+        }
+
+        List<ResumeController.ResumeResponse> resumes = resumeRepository
+                .findByAssessmentId(assessment.getId())
+                .stream()
+                .map(r -> new ResumeController.ResumeResponse(
+                        r.getId(), r.getContent(), r.getTitle(), r.getStatus(),
+                        r.getEvaluation(),
+                        r.getAssessment() != null ? r.getAssessment().getId() : null,
+                        r.getJobPosting() != null ? r.getJobPosting().getId() : null,
+                        r.getCreatedAt(), r.getUpdatedAt()
+                )).toList();
+
+        return ResponseEntity.ok(new AssessmentResponse(
+                assessment.getId(),
+                assessment.getEvaluatedJobCode(),
+                assessment.getExperience(),
+                assessment.getAnalysis(),
+                assessment.getScoreData(),
+                assessment.getIsPrimary(),
+                assessment.getCreatedAt(),
+                resumes,
+                assessment.getCapabilityVector()
+        ));
     }
 
     /**

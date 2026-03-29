@@ -40,7 +40,7 @@ const megaMenus = [
     label: "자기소개서",
     icon: FileText,
     items: [
-      { path: "/resume-writer", label: "자소서 작성" },
+      { path: "/resume-select", label: "자소서 작성" },
       { path: "/my-resumes", label: "내 자소서 보기" },
     ],
   },
@@ -156,7 +156,10 @@ function Nav() {
                     {menu.items.map(({ path, label }) => (
                       <button
                         key={path}
-                        onClick={() => { navigate(path); setOpenMenu(null); }}
+                        onClick={() => {
+                          navigate(path);
+                          setOpenMenu(null);
+                        }}
                         className={`w-full text-left px-4 py-2 text-sm transition-colors ${
                           location.pathname === path
                             ? "text-[#6366f1] font-semibold bg-[#6366f1]/5"

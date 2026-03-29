@@ -11,12 +11,12 @@ import java.util.Optional;
 @Repository
 public interface JobRepository extends JpaRepository<Job, Long> {
 
-    Optional<Job> findByJobCode(String jobCode);
+    Optional<Job> findByGroupCode(String groupCode);
 
     List<Job> findByCategory(String category);
 
     @Query("SELECT DISTINCT j.category FROM Job j ORDER BY j.category")
     List<String> findAllCategories();
 
-    boolean existsByJobCode(String jobCode);
+    boolean existsByGroupCode(String groupCode);
 }

@@ -2,7 +2,6 @@ package com.kyoon.resumeagent.service;
 
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import jakarta.annotation.PostConstruct;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.Cacheable;
@@ -29,7 +28,7 @@ public class AnalyzerService {
     private final ChatClient chatClient;
     private final InputCleanerService cleanerService;
 
-    @Value("classpath:/prompts/Analyzer.st")
+    @Value("classpath:/prompts/analyzer/Analyzer.st")
     private Resource analyzerPromptResource;
 
     public AnalyzerService(ChatClient.Builder builder,

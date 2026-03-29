@@ -19,32 +19,21 @@ public class Job {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true, length = 50)
-    private String jobCode;  // CP001, CP002, ...
+    @Column(name = "group_code", nullable = false, unique = true, length = 50)
+    private String groupCode;  // SW_WEB, SW_AI, SECURITY_CLOUD 등
 
-    @Column(name = "is_temporary")
-    private Boolean isTemporary = false;
-
-    @Column(nullable = false, length = 50)
-    private String ncsLarge;  // NCS 대분류
+    @Column(name = "group_name", nullable = false, length = 100)
+    private String groupName;  // 웹/앱 개발, AI/데이터 엔지니어링 등
 
     @Column(nullable = false, length = 50)
-    private String ncsMedium;  // NCS 중분류
-
-    @Column(nullable = false, length = 100)
-    private String jobName;  // 직무명
-
-    @Column(nullable = false, length = 50)
-    private String category;  // 카테고리 (정보통신, 경영·회계·사무 등)
+    private String category;  // IT, 제조, 경영, 바이오 등 대분류
 
     @Column(length = 500)
-    private String description;  // 설명
+    private String description;
 
-    @Column(columnDefinition = "TEXT")
-    private String measurementMethod;  // 측정 방법
-
-    @Column(length = 20)
-    private String source;  // 출처 (gemini, ncs)
+    @Enumerated(EnumType.STRING)
+    @Column(name = "measure_type", nullable = false, length = 30)
+    private MeasureType measureType;
 
     @OneToMany(mappedBy = "job", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
@@ -54,7 +43,15 @@ public class Job {
     @Column(updatable = false)
     private LocalDateTime createdAt;
 
-    // 연관관계 편의 메서드
+    public enum MeasureType {
+        TECH_STACK,      // 기술스택 추출 (SW, 보안, 클라우드)
+        TROUBLESHOOTING, // 트러블슈팅 기반 (반도체공정, 전기/자동화, 바이오)
+        DESIGN_INTENT,   // 설계의도 기반 (기계, 건축, 항공)
+        KPI,             // 정량적 성과 기반 (경영/비즈니스)
+        PORTFOLIO,       // 포트폴리오 링크 (디자인/미디어)
+        CERT_ONLY        // 자격증 매칭만 (서비스/인문)
+    }
+
     public void addCompetency(Competency competency) {
         competencies.add(competency);
         competency.setJob(this);

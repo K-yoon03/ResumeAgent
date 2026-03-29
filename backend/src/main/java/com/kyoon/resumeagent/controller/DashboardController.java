@@ -2,6 +2,7 @@ package com.kyoon.resumeagent.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.kyoon.resumeagent.Capability.CapabilityCode;
 import com.kyoon.resumeagent.Entity.Assessment;
 import com.kyoon.resumeagent.Entity.Company;
 import com.kyoon.resumeagent.Entity.Job;
@@ -48,11 +49,11 @@ public class DashboardController {
         // 2. 희망 직무 정보
         DesiredJobInfo desiredJobInfo = null;
         if (user.getMappedJobCode() != null) {
-            Job job = jobRepository.findByJobCode(user.getMappedJobCode()).orElse(null);
+            Job job = jobRepository.findByGroupCode(user.getMappedJobCode()).orElse(null);
             desiredJobInfo = new DesiredJobInfo(
                     user.getDesiredJobText(),
                     user.getMappedJobCode(),
-                    job != null ? job.getJobName() : null,
+                    job != null ? job.getGroupName() : null,
                     user.getIsTemporaryJob(),
                     user.getJobMatchType(),
                     user.getJobMatchConfidence(),
@@ -76,7 +77,7 @@ public class DashboardController {
                     .findFirst().orElse(null);
         }
         if (primaryCandidate != null) {
-            Job assessedJob = jobRepository.findByJobCode(primaryCandidate.getEvaluatedJobCode()).orElse(null);
+            Job assessedJob = jobRepository.findByGroupCode(primaryCandidate.getEvaluatedJobCode()).orElse(null);
             primaryAssessmentInfo = parseAssessmentInfo(primaryCandidate, assessedJob);
         }
 
@@ -84,11 +85,11 @@ public class DashboardController {
         List<Assessment> assessments = assessmentRepository.findByUserOrderByCreatedAtDesc(user);
         List<AssessmentHistoryItem> assessmentHistory = assessments.stream()
                 .map(a -> {
-                    Job job = jobRepository.findByJobCode(a.getEvaluatedJobCode()).orElse(null);
+                    Job job = jobRepository.findByGroupCode(a.getEvaluatedJobCode()).orElse(null);
                     return new AssessmentHistoryItem(
                             a.getId(),
                             a.getEvaluatedJobCode(),
-                            job != null ? job.getJobName() : null,
+                            job != null ? job.getGroupName() : null,
                             a.getScoreData(),
                             a.getIsPrimary(),
                             a.getCreatedAt()
@@ -135,12 +136,21 @@ public class DashboardController {
             JsonNode scores = scoreData.get("competencyScores");
             if (scores != null && scores.isArray()) {
                 for (JsonNode scoreNode : scores) {
+                    String capCodeStr = scoreNode.has("capCode")
+                            ? scoreNode.get("capCode").asText()
+                            : scoreNode.has("name") ? scoreNode.get("name").asText() : "";
+                    String displayName;
+                    try {
+                        displayName = CapabilityCode.valueOf(capCodeStr).getDescription();
+                    } catch (IllegalArgumentException ex) {
+                        displayName = capCodeStr;
+                    }
                     competencyScores.add(new CompetencyScoreDetail(
-                            scoreNode.get("name").asText(),
+                            displayName,
                             scoreNode.get("score").asInt(),
                             scoreNode.get("weight").asDouble(),
                             scoreNode.get("contribution").asDouble(),
-                            scoreNode.get("evidence").asText()
+                            scoreNode.has("evidence") ? scoreNode.get("evidence").asText() : ""
                     ));
                 }
             }
@@ -158,23 +168,25 @@ public class DashboardController {
             return new PrimaryAssessmentInfo(
                     assessment.getId(),
                     assessment.getEvaluatedJobCode(),
-                    job != null ? job.getJobName() : null,
+                    job != null ? job.getGroupName() : null,
                     totalScore,
                     competencyScores,
                     strengths,
                     improvements,
                     assessment.getCreatedAt(),
-                    assessment.getCapabilityVector()  // ✅
+                    assessment.getCapabilityVector() != null ? assessment.getCapabilityVector() : Map.of()
             );
 
         } catch (Exception e) {
+            System.err.println("❌ parseAssessmentInfo 실패: " + e.getMessage());
+            e.printStackTrace();
             return new PrimaryAssessmentInfo(
                     assessment.getId(),
                     assessment.getEvaluatedJobCode(),
-                    job != null ? job.getJobName() : null,
+                    job != null ? job.getGroupName() : null,
                     0, List.of(), List.of(), List.of(),
                     assessment.getCreatedAt(),
-                    Map.of()  // ✅
+                    Map.of()
             );
         }
     }
@@ -194,17 +206,17 @@ public class DashboardController {
     record UserInfo(String nickname, String email) {}
 
     record DesiredJobInfo(
-            String jobText, String jobCode, String jobName,
+            String jobText, String jobCode, String groupName,
             Boolean isTemporary, String matchType, Double confidence,
             LocalDateTime mappedAt, int remainingChanges
     ) {}
 
     record PrimaryAssessmentInfo(
-            Long id, String evaluatedJobCode, String jobName,
+            Long id, String evaluatedJobCode, String groupName,
             int totalScore, List<CompetencyScoreDetail> competencyScores,
             List<String> strengths, List<String> improvements,
             LocalDateTime createdAt,
-            Map<String, Double> capabilityVector  // ✅ 추가
+            Map<String, Double> capabilityVector
     ) {}
 
     record CompetencyScoreDetail(
@@ -212,7 +224,7 @@ public class DashboardController {
     ) {}
 
     record AssessmentHistoryItem(
-            Long id, String evaluatedJobCode, String jobName,
+            Long id, String evaluatedJobCode, String groupName,
             String scoreData, Boolean isPrimary, LocalDateTime createdAt
     ) {}
 

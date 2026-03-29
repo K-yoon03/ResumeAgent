@@ -37,6 +37,7 @@ public class Assessment {
     private String scoreData;
 
     // 🔥 추가: 주 역량 여부
+    @Builder.Default
     @Column(name = "is_primary")
     private Boolean isPrimary = false;
 

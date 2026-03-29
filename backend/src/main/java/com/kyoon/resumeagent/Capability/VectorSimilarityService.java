@@ -32,7 +32,15 @@ public class VectorSimilarityService {
         return JobCapabilityProfile.JOB_PROFILES.entrySet().stream()
                 .collect(Collectors.toMap(
                         Map.Entry::getKey,
-                        e -> cosineSimilarity(userVector, e.getValue())
+                        // CapabilityWeight 객체에서 weight() 값만 추출하여 Map<Code, Double>로 즉석 변환 후 전달
+                        e -> cosineSimilarity(
+                                userVector,
+                                e.getValue().entrySet().stream()
+                                        .collect(Collectors.toMap(
+                                                Map.Entry::getKey,
+                                                entry -> entry.getValue().weight()
+                                        ))
+                        )
                 ))
                 .entrySet().stream()
                 .sorted(Map.Entry.<String, Double>comparingByValue().reversed())

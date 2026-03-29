@@ -50,6 +50,13 @@ public class JobChangeService {
     }
 
     /**
+     * 직무 매칭만 (저장 안 함)
+     */
+    public JobMatchResult matchJobOnly(String desiredJobText) throws Exception {
+        return jobMatcherService.matchJob(desiredJobText);
+    }
+
+    /**
      * 직무 변경 실행
      */
     @Transactional

@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Sparkles, Plus, Clock, Star } from "lucide-react";
 import { BASE_URL } from '../config';
 import { toast } from "sonner";
+import jobCodeMap from '../MappingTable/JobCodeMap.json';
 
 function MyAssessments() {
   const navigate = useNavigate();
@@ -22,6 +23,19 @@ function MyAssessments() {
       if (res.ok) setAssessments(await res.json());
     } catch {}
     finally { setLoading(false); }
+  };
+
+  const handleDelete = async (id) => {
+    if (!confirm("이 역량평가를 삭제할까요?")) return;
+    const token = localStorage.getItem("token");
+    try {
+      const res = await fetch(`${BASE_URL}/api/assessments/${id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) { toast.success("삭제되었습니다."); fetchAssessments(); }
+      else toast.error("삭제에 실패했습니다.");
+    } catch { toast.error("삭제에 실패했습니다."); }
   };
 
   const handleSetPrimary = async (id) => {
@@ -168,9 +182,11 @@ function MyAssessments() {
                       <p className="text-sm text-muted-foreground">점수 정보 없음</p>
                     )}
 
-                    {/* 직무 코드 */}
+                    {/* 직무명 */}
                     <p className="text-xs text-muted-foreground">
-                      직무: <span className="font-medium text-foreground">{assessment.evaluatedJobCode}</span>
+                      직무: <span className="font-medium text-foreground">
+                        {jobCodeMap[assessment.evaluatedJobCode] || assessment.evaluatedJobCode}
+                      </span>
                     </p>
 
                     {/* 역량 코드 */}
@@ -210,8 +226,19 @@ function MyAssessments() {
                       심층 분석
                     </Button>
                     <Button size="sm" variant="outline"
+                      onClick={() => navigate("/resume-writer", {
+                        state: { assessmentId: assessment.id }
+                      })}>
+                      자소서 작성
+                    </Button>
+                    <Button size="sm" variant="outline"
                       onClick={() => navigate(`/assessments/${assessment.id}`)}>
                       자세히 보기
+                    </Button>
+                    <Button size="sm" variant="outline"
+                      className="text-destructive border-destructive/40 hover:bg-destructive/10"
+                      onClick={() => handleDelete(assessment.id)}>
+                      삭제
                     </Button>
                   </div>
 

@@ -21,6 +21,7 @@ import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.kyoon.resumeagent.Capability.JobCapabilityProfile;
+import com.kyoon.resumeagent.Capability.PromptPathResolver;
 import java.util.Map;
 import java.util.HashMap;
 import java.util.regex.Matcher;
@@ -41,7 +42,7 @@ public class AssessmentService {
 
     @Transactional
     public Assessment evaluateCompetency(User user, String jobCode, String experience) throws Exception {
-        Job job = jobRepository.findByJobCode(jobCode)
+        Job job = jobRepository.findByGroupCode(jobCode)
                 .orElseThrow(() -> new RuntimeException("Job not found: " + jobCode));
 
         List<Competency> competencies = job.getCompetencies(); // ✅ 여기 선언
@@ -54,15 +55,15 @@ public class AssessmentService {
                         .build())
                 .build();
 
-        Resource promptResource = resourceLoader.getResource("classpath:prompts/Analyzer.st");
-        PromptTemplate template = new PromptTemplate(promptResource); // ✅ 여기 선언
+        String promptPath = PromptPathResolver.analyzer(job.getMeasureType().name());
+        Resource promptResource = resourceLoader.getResource(promptPath);
+        PromptTemplate template = new PromptTemplate(promptResource);
 
         Prompt prompt = template.create(Map.of(
-                "jobName", job.getJobName(),
-                "jobCode", job.getJobCode(),
-                "competencies", buildCompetenciesDescription(competencies),
+                "jobName", job.getGroupName(),
+                "jobCode", job.getGroupCode(),
                 "experience", experience,
-                "capabilityCodes", JobCapabilityProfile.getRelevantCodeNames(jobCode) // ✅ 추가
+                "capabilityCodes", JobCapabilityProfile.getRelevantCodeNames(jobCode)
         ));
 
         String response = analyzerClient.prompt(prompt).call().content();
@@ -85,14 +86,22 @@ public class AssessmentService {
 
         if (result.get("competencyResults") != null) {
             result.get("competencyResults").forEach(item -> {
-                String name = item.get("name").asText();
+                String capCode = item.has("capCode") ? item.get("capCode").asText()
+                        : item.get("name").asText();
+                String displayName;
+                try {
+                    displayName = com.kyoon.resumeagent.Capability.CapabilityCode.valueOf(capCode).getDescription();
+                } catch (IllegalArgumentException e) {
+                    displayName = capCode;
+                }
                 String status = item.get("status").asText();
                 String reason = item.has("reason") ? item.get("reason").asText() : "";
                 String rewriteHint = item.has("rewriteHint") ? item.get("rewriteHint").asText() : "";
                 String field = item.has("field") ? item.get("field").asText() : "career";
 
                 Map<String, Object> compResult = new HashMap<>();
-                compResult.put("name", name);
+                compResult.put("capCode", capCode);
+                compResult.put("name", displayName);
                 compResult.put("status", status);
                 compResult.put("reason", reason);
                 compResult.put("rewriteHint", rewriteHint);
@@ -100,11 +109,11 @@ public class AssessmentService {
                 competencyResults.add(compResult);
 
                 switch (status) {
-                    case "depth" -> depthItems.add(name);
-                    case "empty" -> emptyItems.add(name);
+                    case "depth" -> depthItems.add(displayName);
+                    case "empty" -> emptyItems.add(displayName);
                     case "complex" -> {
                         Map<String, String> complexItem = new HashMap<>();
-                        complexItem.put("name", name);
+                        complexItem.put("name", displayName);
                         complexItem.put("certName", item.has("certName") ? item.get("certName").asText() : "");
                         complexItem.put("reason", reason);
                         complexItems.add(complexItem);

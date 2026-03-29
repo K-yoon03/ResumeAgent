@@ -60,8 +60,24 @@ export function AuthProvider({ children }) {
     if (data.refreshToken) {
       localStorage.setItem("refreshToken", data.refreshToken);
     }
-    setUser(data);
-    setCredits(data.remainingCredits); // 🔥 크레딧 설정!
+
+    // 전체 유저 정보 가져오기
+    try {
+      const res = await fetch(`${BASE_URL}/api/auth/me`, {
+        headers: { Authorization: `Bearer ${data.token}` }
+      });
+      if (res.ok) {
+        const fullData = await res.json();
+        setUser({ token: data.token, refreshToken: data.refreshToken, ...fullData });
+        setCredits(fullData.remainingCredits);
+      } else {
+        setUser(data);
+        setCredits(data.remainingCredits);
+      }
+    } catch {
+      setUser(data);
+      setCredits(data.remainingCredits);
+    }
 
     // 비회원 때 했던 역량평가 있으면 자동으로 DB에 저장
     const pending = sessionStorage.getItem("pendingAssessment");

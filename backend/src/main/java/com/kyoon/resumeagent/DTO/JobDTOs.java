@@ -1,45 +1,37 @@
 package com.kyoon.resumeagent.DTO;
 
+import com.kyoon.resumeagent.Entity.Job.MeasureType;
+
 import java.math.BigDecimal;
 import java.util.List;
 
 public class JobDTOs {
 
-    // 역량 DTO
-    public record CompetencyDTO(
+    public record CapabilityCodeDTO(
             Long id,
-            Integer compId,
+            String capCode,
             String name,
-            BigDecimal weight,
-            String indicator,
-            String measurement
+            BigDecimal weight
     ) {}
 
-    // 직무 목록 응답 (간단)
-    public record JobSummaryDTO(
+    public record JobGroupSummaryDTO(
             Long id,
-            String jobCode,
-            String jobName,
+            String groupCode,
+            String groupName,
             String category,
-            String ncsLarge,
-            String ncsMedium
+            MeasureType measureType
     ) {}
 
-    // 직무 상세 응답
-    public record JobDetailDTO(
+    public record JobGroupDetailDTO(
             Long id,
-            String jobCode,
-            String ncsLarge,
-            String ncsMedium,
-            String jobName,
+            String groupCode,
+            String groupName,
             String category,
             String description,
-            String measurementMethod,
-            String source,
-            List<CompetencyDTO> competencies
+            MeasureType measureType,
+            List<CapabilityCodeDTO> competencies
     ) {}
 
-    // 카테고리 목록 응답
     public record CategoryDTO(
             String category,
             Long count

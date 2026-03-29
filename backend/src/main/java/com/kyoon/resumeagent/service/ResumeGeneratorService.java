@@ -11,7 +11,7 @@ public class ResumeGeneratorService {
 
     private final ChatClient chatClient;
 
-    @Value("classpath:/prompts/ResumeGenerator.st")
+    @Value("classpath:/prompts/common/ResumeGenerator.st")
     private Resource prompt;
 
     public ResumeGeneratorService(ChatClient.Builder builder) {

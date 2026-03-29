@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Sparkles, GraduationCap, Briefcase, Award, FileText, ArrowRight, X, AlertTriangle, Calendar, RotateCcw, Clock, Target, Lock, CheckCircle2, AlertCircle, HelpCircle, PenLine, SkipForward, MessageCircle, Languages, BookOpen } from "lucide-react";
 import { BASE_URL } from '../config';
-import jobCodeMap from '../MappingTable/jobCodeMap.json';
+import jobCodeMap from '../MappingTable/JobCodeMap.json';
 import { useAuth } from '@/context/AuthContext';
 
 const CACHE_VERSION = "v5";
@@ -19,7 +19,7 @@ const CACHE_KEY = (text) => {
 
 const Analyzer = ({ setGlobalExperience, setGlobalAnalysis }) => {
   const navigate = useNavigate();
-  const { user, refreshCredits } = useAuth();
+  const { user, refreshCredits, refreshUser } = useAuth();
   const [targetJob, setTargetJob] = useState("");
   const [structForm, setStructForm] = useState({
     age: "", school: "", major: "", career: "", certifications: "", skills: "", language: "", extra: ""
@@ -31,6 +31,7 @@ const Analyzer = ({ setGlobalExperience, setGlobalAnalysis }) => {
   const [scoreData, setScoreData] = useState(null);
   const scoreDataRef = useRef(null);
   const [loading, setLoading] = useState(false);
+  const [loadingStep, setLoadingStep] = useState(""); // "matching" | "analyzing"
   const [showResult, setShowResult] = useState(false);
   const [showSignupPrompt, setShowSignupPrompt] = useState(false);
   const [skippedItems, setSkippedItems] = useState([]);
@@ -38,6 +39,11 @@ const Analyzer = ({ setGlobalExperience, setGlobalAnalysis }) => {
   const [isJobModalOpen, setIsJobModalOpen] = useState(false);
   const [tempJobInput, setTempJobInput] = useState("");
   const [rewriteHint, setRewriteHint] = useState(null);
+  const [jobMatchModal, setJobMatchModal] = useState(null); // { jobCode, jobName, matchType }
+  const [pendingExperience, setPendingExperience] = useState(null);
+  const [saveAsDesired, setSaveAsDesired] = useState(false);
+  const [selectedJobCode, setSelectedJobCode] = useState(null); // 모달에서 선택한 직무
+  const [selectedJobName, setSelectedJobName] = useState(null);
   const [hasCache, setHasCache] = useState(() => {
     const h = sessionStorage.getItem(HISTORY_KEY);
     return h ? JSON.parse(h).length > 0 : false;
@@ -49,12 +55,18 @@ const Analyzer = ({ setGlobalExperience, setGlobalAnalysis }) => {
     if (targetJobVal) previewParts.push(`목표: ${targetJobVal}`);
     if (form.school) previewParts.push(`학교: ${form.school.slice(0, 15)}`);
     if (form.career) previewParts.push(`경력: ${form.career.slice(0, 20)}...`);
-    const newEntry = { key: cacheKey, timestamp: Date.now(), preview: previewParts.join(" · ") || "입력 내용 없음", savedForm: form, savedNoneChecked: noneCheckedVal, savedTargetJob: targetJobVal, savedAssessmentId: assessmentId };
+    const newEntry = { key: cacheKey, timestamp: Date.now(), preview: previewParts.join(" · ") || "입력 내용 없음", savedForm: form, savedNoneChecked: noneCheckedVal, savedTargetJob: targetJobVal, savedAssessmentId: assessmentId, email: user?.email };
     const filtered = history.filter(h => h.key !== cacheKey);
     const updated = [newEntry, ...filtered].slice(0, MAX_HISTORY);
     filtered.slice(MAX_HISTORY - 1).forEach(h => sessionStorage.removeItem(h.key));
     sessionStorage.setItem(HISTORY_KEY, JSON.stringify(updated));
     setHasCache(true);
+  };
+
+  const getHistory = () => {
+    const history = JSON.parse(sessionStorage.getItem(HISTORY_KEY) || "[]");
+    // 현재 유저 이메일과 다른 캐시는 제외
+    return history.filter(h => !h.email || h.email === user?.email);
   };
 
   const restoreFromHistory = (entry) => {
@@ -71,8 +83,6 @@ const Analyzer = ({ setGlobalExperience, setGlobalAnalysis }) => {
       toast.success("분석 내용을 불러왔습니다.");
     } catch { toast.error("불러오는데 실패했습니다."); }
   };
-
-  const getHistory = () => JSON.parse(sessionStorage.getItem(HISTORY_KEY) || "[]");
 
   const resetInput = () => {
     setTargetJob("");
@@ -139,11 +149,104 @@ const Analyzer = ({ setGlobalExperience, setGlobalAnalysis }) => {
     await askAi(tempJobInput.trim());
   };
 
-  const askAi = async (overrideJobText = null) => {
+  const handleStartAnalysis = async () => {
     const question = buildQuestion();
     if (question.trim().length < 10) { toast.error("최소 하나 이상의 항목을 입력해주세요!"); return; }
     const token = localStorage.getItem("token");
-    if (token && !user?.mappedJobCode && !overrideJobText) { setTempJobInput(""); setIsJobModalOpen(true); return; }
+    if (!token) { askAi(); return; }
+
+    // 희망직무 있는 사람 → match-job 백그라운드 호출 후 모달
+    if (user?.mappedJobCode) {
+      setLoading(true);
+      setLoadingStep("matching");
+      try {
+        const res = await fetch(`${BASE_URL}/api/assessments/match-job`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ experience: question }),
+        });
+        const match = res.ok ? await res.json() : null;
+        const hintJobName = match && !match.noMatch && match.jobCode !== user.mappedJobCode
+          ? match.jobName : null;
+        const hintJobCode = match && !match.noMatch && match.jobCode !== user.mappedJobCode
+          ? match.jobCode : null;
+        setJobMatchModal({
+          jobCode: user.mappedJobCode,
+          jobName: jobCodeMap[user.mappedJobCode] || user.mappedJobCode,
+          noMatch: false,
+          reason: null,
+          hintJobName,
+          hintJobCode,
+          fromMapped: true,
+        });
+      } catch {
+        setJobMatchModal({
+          jobCode: user.mappedJobCode,
+          jobName: jobCodeMap[user.mappedJobCode] || user.mappedJobCode,
+          noMatch: false,
+          reason: null,
+          hintJobName: null,
+          hintJobCode: null,
+          fromMapped: true,
+        });
+      } finally {
+        setLoading(false);
+        setLoadingStep("");
+      }
+      return;
+    }
+
+    // 희망직무 없는 사람 → ExperienceMatcher
+    setLoading(true);
+    setLoadingStep("matching");
+    try {
+      const res = await fetch(`${BASE_URL}/api/assessments/match-job`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ experience: question }),
+      });
+      if (!res.ok) throw new Error();
+      const match = await res.json();
+      setJobMatchModal({
+        jobCode: match.jobCode,
+        jobName: match.jobName,
+        noMatch: match.noMatch,
+        reason: match.reason,
+        fromMapped: false,
+      });
+    } catch {
+      askAi();
+    } finally {
+      setLoading(false);
+      setLoadingStep("");
+    }
+  };
+
+  const confirmJobMatch = async (jobCode) => {
+    const jobName = jobCodeMap[jobCode] || jobCode;
+    setJobMatchModal(null);
+    setSelectedJobCode(jobCode);
+    setSelectedJobName(jobName);
+    const token = localStorage.getItem("token");
+    if (token && saveAsDesired) {
+      try {
+        await fetch(`${BASE_URL}/api/user/job/direct`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ jobCode, jobName }),
+        });
+        await refreshUser();
+      } catch {}
+    }
+    setSaveAsDesired(false);
+    await askAi(null, jobCode);
+  };
+
+  const askAi = async (overrideJobText = null, confirmedJobCode = null) => {
+    const question = buildQuestion();
+    if (question.trim().length < 10) { toast.error("최소 하나 이상의 항목을 입력해주세요!"); return; }
+    const token = localStorage.getItem("token");
+    if (token && !user?.mappedJobCode && !overrideJobText) { overrideJobText = user?.desiredJobText ?? ""; }
 
     const cacheKey = CACHE_KEY(question);
     const cached = sessionStorage.getItem(cacheKey);
@@ -154,7 +257,7 @@ const Analyzer = ({ setGlobalExperience, setGlobalAnalysis }) => {
       } catch { sessionStorage.removeItem(cacheKey); }
     }
 
-    setLoading(true); setScoreData(null); scoreDataRef.current = null; setSkippedItems([]); setRewriteHint(null);
+    setLoading(true); setLoadingStep("analyzing"); setScoreData(null); scoreDataRef.current = null; setSkippedItems([]); setRewriteHint(null);
 
     try {
       if (!token) {
@@ -169,9 +272,15 @@ const Analyzer = ({ setGlobalExperience, setGlobalAnalysis }) => {
       const res = await fetch(`${BASE_URL}/api/assessments/evaluate`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ jobCode: user?.mappedJobCode ?? null, overrideJobText: overrideJobText ?? undefined, experience: question }),
+        body: JSON.stringify({ jobCode: confirmedJobCode ?? undefined, experience: question }),
       });
-      if (!res.ok) { const e = await res.json(); throw new Error(e.message || "분석 실패"); }
+      if (!res.ok) {
+        if (res.status === 400) {
+          toast.error("희망 직무를 먼저 설정해주세요!", { description: "마이페이지에서 희망 직무를 설정한 후 다시 시도해주세요." });
+          return;
+        }
+        const e = await res.json(); throw new Error(e.message || "분석 실패");
+      }
       const data = await res.json();
       const parsedScoreData = JSON.parse(data.scoreData);
       setScoreData(parsedScoreData); scoreDataRef.current = parsedScoreData;
@@ -262,20 +371,15 @@ const Analyzer = ({ setGlobalExperience, setGlobalAnalysis }) => {
               <div className="flex-1 min-w-0">
                 <p className="text-xs text-muted-foreground">평가 직무</p>
                 <p className="text-sm font-medium text-foreground truncate">
-                  {user.isTemporaryJob ? `${jobCodeMap[user.mappedJobCode] ?? user.mappedJobCode} (${user.desiredJobText})` : user.desiredJobText}
+                  {selectedJobName || jobCodeMap[user.mappedJobCode] || user.mappedJobCode}
+                  {!selectedJobCode && user.desiredJobText && user.desiredJobText !== jobCodeMap[user.mappedJobCode] && (
+                    <span className="text-xs text-muted-foreground ml-1">({user.desiredJobText})</span>
+                  )}
                 </p>
               </div>
               {user.isTemporaryJob && <span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 shrink-0">임시</span>}
             </div>
           )}
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium flex items-center gap-2 text-foreground">
-              <Target className="h-4 w-4 text-[var(--gradient-mid)]" />
-              목표 직무/분야 <span className="text-xs text-muted-foreground font-normal">(선택)</span>
-            </label>
-            <input type="text" value={targetJob} onChange={(e) => setTargetJob(e.target.value)} placeholder="예: 백엔드 개발자, 마케터, 회계사" className={inputClass} />
-          </div>
 
           <div className="border-t border-border/40" />
 
@@ -312,8 +416,18 @@ const Analyzer = ({ setGlobalExperience, setGlobalAnalysis }) => {
             </div>
           )}
 
-          <Button className="w-full bg-gradient-to-r from-[var(--gradient-start)] via-[var(--gradient-mid)] to-[var(--gradient-end)] text-white hover:opacity-90 transition-opacity" onClick={() => askAi()} disabled={loading}>
-            <Sparkles className="mr-2 h-4 w-4" />{loading ? "AI가 분석 중입니다..." : "분석 시작하기"}
+          <Button className="w-full bg-gradient-to-r from-[var(--gradient-start)] via-[var(--gradient-mid)] to-[var(--gradient-end)] text-white hover:opacity-90 transition-opacity" onClick={handleStartAnalysis} disabled={loading}>
+            {loading ? (
+              <>
+                <svg className="animate-spin mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                </svg>
+                {loadingStep === "matching" ? "직무를 파악하는 중..." : "AI가 분석 중입니다..."}
+              </>
+            ) : (
+              <><Sparkles className="mr-2 h-4 w-4" />분석 시작하기</>
+            )}
           </Button>
         </CardContent>
       </Card>
@@ -402,24 +516,114 @@ const Analyzer = ({ setGlobalExperience, setGlobalAnalysis }) => {
         </Card>
       )}
 
-      {isJobModalOpen && (
+      {jobMatchModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
           <div className="relative w-full max-w-sm mx-4 bg-card border border-border rounded-2xl shadow-2xl p-8">
-            <button className="absolute top-4 right-4 text-muted-foreground hover:text-foreground" onClick={() => setIsJobModalOpen(false)}><X className="h-5 w-5" /></button>
-            <div className="inline-flex items-center justify-center p-3 rounded-full bg-gradient-to-br from-[var(--gradient-start)] to-[var(--gradient-end)] mb-4">
-              <Target className="h-6 w-6 text-white" />
-            </div>
-            <h3 className="text-lg font-bold text-foreground mb-1">희망 직무를 알려주세요!</h3>
-            <p className="text-sm text-muted-foreground mb-5">AI가 희망 직무에 맞게<br />역량 평가를 진행해 드려요! 🎯</p>
-            <input type="text" value={tempJobInput} onChange={(e) => setTempJobInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleJobModalConfirm()}
-              placeholder="예: 백엔드 개발자, 마케터, 회계 등"
-              className={`${inputClass} mb-4`} autoFocus />
-            <p className="text-xs text-muted-foreground mb-4">💡 마이페이지에서 희망 직무를 미리 설정하면 다음부터는 자동으로 적용돼요!</p>
-            <div className="space-y-2">
-              <Button className="w-full bg-gradient-to-r from-[var(--gradient-start)] via-[var(--gradient-mid)] to-[var(--gradient-end)] text-white hover:opacity-90" onClick={handleJobModalConfirm}>평가 시작하기</Button>
-              <Button variant="outline" className="w-full" onClick={() => setIsJobModalOpen(false)}>취소</Button>
-            </div>
+
+            {jobMatchModal.noMatch ? (
+              /* NO_MATCH 케이스 */
+              <>
+                <div className="inline-flex items-center justify-center p-3 rounded-full bg-amber-500/20 mb-4">
+                  <AlertCircle className="h-6 w-6 text-amber-500" />
+                </div>
+                <h3 className="text-lg font-bold text-foreground mb-1">직무를 찾지 못했어요</h3>
+                <p className="text-sm text-muted-foreground mb-5">{jobMatchModal.reason || "입력하신 경험과 맞는 직무 그룹이 없어요. 아래에서 직접 선택해주세요."}</p>
+                <select
+                  className="w-full px-4 py-2.5 rounded-lg border border-input bg-background text-foreground text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-[var(--gradient-mid)]/50"
+                  defaultValue=""
+                  onChange={(e) => e.target.value && confirmJobMatch(e.target.value)}
+                >
+                  <option value="" disabled>직무 그룹 선택...</option>
+                  {Object.entries(jobCodeMap).map(([code, name]) => (
+                    <option key={code} value={code}>{name}</option>
+                  ))}
+                </select>
+                <label className="flex items-center gap-2 text-sm text-muted-foreground mb-4 cursor-pointer">
+                  <input type="checkbox" checked={saveAsDesired} onChange={(e) => setSaveAsDesired(e.target.checked)} className="rounded" />
+                  희망직무로 저장
+                </label>
+                <Button variant="outline" className="w-full" onClick={() => setJobMatchModal(null)}>취소</Button>
+              </>
+            ) : jobMatchModal.fromMapped ? (
+              /* 희망직무 설정된 케이스 */
+              <>
+                <div className="inline-flex items-center justify-center p-3 rounded-full bg-gradient-to-br from-[var(--gradient-start)] to-[var(--gradient-end)] mb-4">
+                  <Briefcase className="h-6 w-6 text-white" />
+                </div>
+                <h3 className="text-lg font-bold text-foreground mb-1">이 직무로 평가할게요!</h3>
+                <p className="text-2xl font-bold bg-gradient-to-r from-[var(--gradient-start)] to-[var(--gradient-end)] bg-clip-text text-transparent my-4">
+                  {jobMatchModal.jobName}
+                </p>
+                {jobMatchModal.hintJobName && (
+                  <button
+                    onClick={() => confirmJobMatch(jobMatchModal.hintJobCode)}
+                    className="w-full text-left text-xs bg-[var(--gradient-mid)]/10 border border-[var(--gradient-mid)]/20 hover:bg-[var(--gradient-mid)]/20 rounded-lg px-3 py-2 mb-4 text-muted-foreground transition-colors cursor-pointer"
+                  >
+                    💡 입력하신 경험 기준으로는{" "}
+                    <span className="font-bold text-sm bg-gradient-to-r from-[var(--gradient-start)] via-[var(--gradient-mid)] to-[var(--gradient-end)] bg-clip-text text-transparent">
+                      {jobMatchModal.hintJobName}
+                    </span>
+                    {" "}이 잘 어울려요! →
+                  </button>
+                )}
+                <div className="space-y-2">
+                  <Button
+                    className="w-full bg-gradient-to-r from-[var(--gradient-start)] via-[var(--gradient-mid)] to-[var(--gradient-end)] text-white hover:opacity-90"
+                    onClick={() => confirmJobMatch(jobMatchModal.jobCode)}
+                  >
+                    시작하기
+                  </Button>
+                  <select
+                    className="w-full px-4 py-2.5 rounded-lg border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-[var(--gradient-mid)]/50"
+                    defaultValue=""
+                    onChange={(e) => e.target.value && confirmJobMatch(e.target.value)}
+                  >
+                    <option value="" disabled>다른 직무로 변경...</option>
+                    {Object.entries(jobCodeMap).map(([code, name]) => (
+                      <option key={code} value={code}>{name}</option>
+                    ))}
+                  </select>
+                  <Button variant="outline" className="w-full" onClick={() => setJobMatchModal(null)}>취소</Button>
+                </div>
+              </>
+            ) : (
+              /* 자동 추론 케이스 */
+              <>
+                <div className="inline-flex items-center justify-center p-3 rounded-full bg-gradient-to-br from-[var(--gradient-start)] to-[var(--gradient-end)] mb-4">
+                  <Briefcase className="h-6 w-6 text-white" />
+                </div>
+                <h3 className="text-lg font-bold text-foreground mb-1">이 직무로 평가할게요!</h3>
+                <p className="text-2xl font-bold bg-gradient-to-r from-[var(--gradient-start)] to-[var(--gradient-end)] bg-clip-text text-transparent my-4">
+                  {jobMatchModal.jobName}
+                </p>
+                {jobMatchModal.reason && (
+                  <p className="text-sm text-muted-foreground mb-3">{jobMatchModal.reason}</p>
+                )}
+                <label className="flex items-center gap-2 text-sm text-muted-foreground mb-4 cursor-pointer">
+                  <input type="checkbox" checked={saveAsDesired} onChange={(e) => setSaveAsDesired(e.target.checked)} className="rounded" />
+                  희망직무로 저장
+                </label>
+                <div className="space-y-2">
+                  <Button
+                    className="w-full bg-gradient-to-r from-[var(--gradient-start)] via-[var(--gradient-mid)] to-[var(--gradient-end)] text-white hover:opacity-90"
+                    onClick={() => confirmJobMatch(jobMatchModal.jobCode)}
+                  >
+                    시작하기
+                  </Button>
+                  <select
+                    className="w-full px-4 py-2.5 rounded-lg border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-[var(--gradient-mid)]/50"
+                    defaultValue=""
+                    onChange={(e) => e.target.value && confirmJobMatch(e.target.value)}
+                  >
+                    <option value="" disabled>다른 직무로 변경...</option>
+                    {Object.entries(jobCodeMap).map(([code, name]) => (
+                      <option key={code} value={code}>{name}</option>
+                    ))}
+                  </select>
+                  <Button variant="outline" className="w-full" onClick={() => setJobMatchModal(null)}>취소</Button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

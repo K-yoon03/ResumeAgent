@@ -12,6 +12,8 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import JobPostings from './pages/JobPostings';
 import MyAssessments from './pages/MyAssessments';
+import AssessmentDetail from './pages/AssessmentDetail';
+import ResumeSelector from './pages/ResumeSelector';
 import MyResumes from './pages/MyResumes';
 import ProtectedRoute from './components/ProtectedRoute';
 import MyPage from './pages/MyPage';
@@ -53,6 +55,8 @@ function App() {
           <Route path="/register" element={<Register />} />
           <Route path="/job-postings" element={<JobPostings />} />
           <Route path="/my-assessments" element={<ProtectedRoute><MyAssessments /></ProtectedRoute>} />
+          <Route path="/assessments/:id" element={<ProtectedRoute><AssessmentDetail /></ProtectedRoute>} />
+          <Route path="/resume-select" element={<ProtectedRoute><ResumeSelector /></ProtectedRoute>} />
           <Route path="/my-resumes" element={<ProtectedRoute><MyResumes /></ProtectedRoute>} />
           <Route path="/my-page" element={<ProtectedRoute><MyPage /></ProtectedRoute>} />
           <Route path="/my-interviews" element={<ProtectedRoute><MyInterviews /></ProtectedRoute>} />

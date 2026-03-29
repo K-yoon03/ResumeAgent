@@ -143,6 +143,49 @@ public class AgentService {
     }
 
     /**
+     * STAR 필드 개선
+     */
+    public String improveStarField(String field, String content, String type, String projectName) {
+        String instruction = switch (type) {
+            case "specific" -> "더 구체적이고 상세하게 다시 작성해줘. 행동, 방법, 과정을 명확히 서술해.";
+            case "metric"   -> "수치나 정량적 성과를 강조해서 다시 작성해줘. 없으면 자연스럽게 추론해서 넣어도 돼.";
+            case "concise"  -> "핵심만 남기고 간결하게 다시 작성해줘. 2-3문장 이내로.";
+            default         -> "더 좋게 개선해줘.";
+        };
+
+        String systemPrompt = String.format("""
+            당신은 한국어 자기소개서 전문가입니다.
+            STAR 기법의 %s 파트를 개선합니다.
+            프로젝트: %s
+            
+            지시사항: %s
+            
+            규칙:
+            - 반드시 한국어로 작성
+            - 원본 내용의 사실을 유지하되 표현만 개선
+            - JSON 형식으로만 반환: {"improved": "개선된 내용"}
+            - 마크다운, 코드블록 금지
+            """, field, projectName, instruction);
+
+        try {
+            Prompt prompt = new Prompt(List.of(
+                    new SystemMessage(systemPrompt),
+                    new UserMessage("원본: " + content)
+            ));
+            String response = chatClient.prompt(prompt).call().content();
+            String clean = response.trim().replaceAll("```json", "").replaceAll("```", "").trim();
+            objectMapper.readTree(clean);
+            return clean;
+        } catch (Exception e) {
+            try {
+                return objectMapper.writeValueAsString(Map.of("improved", content));
+            } catch (Exception ex) {
+                return "{\"improved\": \"\"}";
+            }
+        }
+    }
+
+    /**
      * 공고 매직 페이스트 파싱
      */
     public String parseJobPosting(String rawText) {

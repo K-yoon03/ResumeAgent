@@ -27,24 +27,23 @@ const RESUME_CACHE_KEY = (jobPosting, experience) => {
 
 // ── STAR 단계 정의 ──
 const STAR_STEPS = [
-  
   {
     key: "situation",
-    label: "문제 / 상황",
+    label: "상황",
     question: "어떤 문제나 상황이 있었나요?",
     example: "로그인 유지가 되지 않아 사용자가 반복 로그인해야 했습니다.",
     hints: ["사용자 경험 문제", "성능 이슈", "기술적 한계"],
   },
   {
-    key: "reason",
-    label: "해결 이유",
-    question: "왜 이 문제를 해결하려고 했나요?",
-    example: "사용자 이탈률이 높아졌고, 서비스 신뢰도에 영향을 주었습니다.",
-    hints: ["사용자 경험", "성능 향상", "비용 절감"],
+    key: "task",
+    label: "역할",
+    question: "본인의 역할이나 담당은 무엇이었나요?",
+    example: "세션 관리 구조를 개선하는 백엔드 개발을 담당했습니다.",
+    hints: ["담당 역할", "책임 범위", "목표"],
   },
   {
     key: "action",
-    label: "해결 방법",
+    label: "행동",
     question: "어떤 방법을 선택했나요?",
     example: "Redis를 도입해 세션을 서버 외부에서 관리하도록 구조를 변경했습니다.",
     hints: ["기술 선택 이유", "구조 변경", "팀원과 협의"],
@@ -64,205 +63,233 @@ const calcProgress = (star) => {
 };
 
 // ── STAR 모달 컴포넌트 ──
-function StarModal({ project, onClose, onSave, aiHints, aiHintUsed, onAiHintFetch, onAiHintUsed }) {
-  const [step, setStep] = useState(0);
+// ── 원형 진행률 컴포넌트 ──
+function CircularProgress({ progress, size = 44 }) {
+  const r = (size - 6) / 2;
+  const circ = 2 * Math.PI * r;
+  const offset = circ - (progress / 100) * circ;
+  const color = progress === 100 ? "#22c55e" : "url(#cpGrad)";
+
+  return (
+    <svg width={size} height={size} className="shrink-0" style={{ transform: "rotate(-90deg)" }}>
+      <defs>
+        <linearGradient id="cpGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="var(--gradient-start)" />
+          <stop offset="100%" stopColor="var(--gradient-end)" />
+        </linearGradient>
+      </defs>
+      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="currentColor"
+        strokeWidth="3" className="text-muted/30" />
+      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color}
+        strokeWidth="3" strokeLinecap="round"
+        strokeDasharray={circ} strokeDashoffset={offset}
+        style={{ transition: "stroke-dashoffset 0.5s ease" }} />
+      <text
+        x="50%" y="50%"
+        dominantBaseline="middle"
+        textAnchor="middle"
+        fill="currentColor"
+        fontSize={size * 0.22}
+        fontWeight="bold"
+        style={{ transform: "rotate(90deg)", transformOrigin: `${size/2}px ${size/2}px` }}
+      >
+        {progress}
+      </text>
+    </svg>
+  );
+}
+
+
+const getQualityBadge = (quality) => {
+  switch (quality) {
+    case "good":             return { icon: "✅", label: "충분",    cardClass: "border-green-200 bg-green-50 dark:border-green-800/40 dark:bg-green-950/20",  badgeClass: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" };
+    case "needs_improvement": return { icon: "⚠️", label: "보완 필요", cardClass: "border-amber-200 bg-amber-50 dark:border-amber-800/40 dark:bg-amber-950/20",  badgeClass: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400" };
+    case "insufficient":     return { icon: "❗", label: "부족",    cardClass: "border-red-200 bg-red-50 dark:border-red-800/40 dark:bg-red-950/20",         badgeClass: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400" };
+    default:                 return { icon: "⚠️", label: "보완 필요", cardClass: "border-amber-200 bg-amber-50 dark:border-amber-800/40 dark:bg-amber-950/20",  badgeClass: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400" };
+  }
+};
+
+const STAR_BLOCKS = [
+  { key: "situation", label: "S", title: "Situation", desc: "상황" },
+  { key: "task",      label: "T", title: "Task",      desc: "역할" },
+  { key: "action",    label: "A", title: "Action",    desc: "행동" },
+  { key: "result",    label: "R", title: "Result",    desc: "결과" },
+];
+
+function StarReviewModal({ project, onClose, onSave }) {
   const [star, setStar] = useState(project.star || {});
-  const [showExample, setShowExample] = useState(false);
-  const [aiLoading, setAiLoading] = useState(false);
-  const current = STAR_STEPS[step];
-  const progress = calcProgress(star);
-  const hintKey = `${project.name}_${step}`;
-  const currentHints = aiHints[hintKey];
-  const isUsed = aiHintUsed[hintKey];
+  const [quality, setQuality] = useState(project.quality || {});
+  const [editingKey, setEditingKey] = useState(null);
+  const [editValue, setEditValue] = useState("");
+  const [improving, setImproving] = useState(null);
+  const [improveLoading, setImproveLoading] = useState(false);
 
+  const IMPROVE_OPTIONS = [
+    { type: "specific", label: "✨ 더 구체적으로 작성", group: "ai" },
+    { type: "metric",   label: "🎯 성과 위주로 강조",  group: "ai" },
+    { type: "concise",  label: "✂️ 핵심만 간결하게",   group: "ai" },
+    { type: "manual",   label: "✍️ 내가 직접 수정",    group: "manual" },
+  ];
 
-  const fetchAiHints = async () => {
-    if (isUsed) return;
-    setAiLoading(true);
+  const handleImprove = async (key, type) => {
+    if (type === "manual") {
+      setEditingKey(key);
+      setEditValue(star[key] || "");
+      setImproving(null);
+      return;
+    }
+    setImproveLoading(true);
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch(`${BASE_URL}/api/v1/agent/follow-up-questions`, {
+      const res = await fetch(`${BASE_URL}/api/v1/agent/improve-star`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token && { "Authorization": `Bearer ${token}` }),
-        },
-        body: JSON.stringify({
-          experience: `프로젝트: ${project.name} / ${project.techStack}\n현재 답변: ${JSON.stringify(star)}`,
-          analysis: `"${current.question}"에 대해 더 구체적으로 답변할 수 있도록 추가 질문 3개를 JSON으로 생성해주세요.`,
-        }),
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ field: key, content: star[key], type, projectName: project.name }),
       });
       if (res.ok) {
-        const text = await res.text();
-        const clean = text.trim().replaceAll("```json", "").replaceAll("```", "").trim();
-        const data = JSON.parse(clean);
-        const hints = data.questions?.map(q => q.question) || [];
-        onAiHintFetch(hintKey, hints);  // 부모에 저장
+        const data = await res.json();
+        const improved = data.improved;
+        setStar(prev => ({ ...prev, [key]: improved }));
+        setQuality(prev => ({ ...prev, [key]: "good" }));
+        if (project.assessmentId) {
+          await fetch(`${BASE_URL}/api/assessments/${project.assessmentId}/star/${encodeURIComponent(project.name)}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ field: key, value: improved }),
+          });
+        }
       }
     } catch {
-      onAiHintFetch(hintKey, ["문제가 얼마나 자주 발생했나요?", "사용자에게 어떤 영향을 줬나요?", "이전 방식과 뭐가 달라졌나요?"]);
+      toast.error("개선에 실패했어요");
     } finally {
-      setAiLoading(false);
-      onAiHintUsed(hintKey);  // 사용 표시 부모에 저장
+      setImproveLoading(false);
+      setImproving(null);
+    }
+  };
+
+  const handleEditSave = async (key) => {
+    setStar(prev => ({ ...prev, [key]: editValue }));
+    setQuality(prev => ({ ...prev, [key]: editValue.trim().length > 30 ? "good" : "needs_improvement" }));
+    setEditingKey(null);
+    const token = localStorage.getItem("token");
+    if (project.assessmentId) {
+      await fetch(`${BASE_URL}/api/assessments/${project.assessmentId}/star/${encodeURIComponent(project.name)}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ field: key, value: editValue }),
+      }).catch(() => {});
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="relative w-full max-w-lg bg-card border border-border rounded-2xl shadow-2xl p-6 space-y-5 max-h-[90vh] overflow-y-auto">
-        <button className="absolute top-4 right-4 text-muted-foreground hover:text-foreground" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div className="relative w-full max-w-2xl bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700/50 p-6 space-y-5 max-h-[90vh] overflow-y-auto">
+        <button className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors" onClick={onClose}>
           <X className="h-5 w-5" />
         </button>
 
-        {/* 프로젝트명 */}
         <div>
-          <h3 className="text-lg font-bold text-foreground pr-8">{project.name}</h3>
-          <p className="text-xs text-muted-foreground mt-0.5">{project.techStack}</p>
+          <h3 className="text-lg font-bold text-gray-900 dark:text-white pr-8">{project.name}</h3>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 leading-relaxed">STAR 내용을 확인하고 더 완벽하게 다듬어 보세요</p>
         </div>
 
-        {/* 완성도 게이지 */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-muted-foreground">경험 완성도</span>
-            <span className={`font-semibold ${progress === 100 ? "text-green-500" : "text-[var(--gradient-mid)]"}`}>
-              {progress}%
-            </span>
-          </div>
-          <div className="w-full h-2 rounded-full bg-muted overflow-hidden">
-            <div
-              className={`h-full rounded-full transition-all duration-500 ${
-                progress === 100
-                  ? "bg-green-500"
-                  : "bg-gradient-to-r from-[var(--gradient-start)] via-[var(--gradient-mid)] to-[var(--gradient-end)]"
-              }`}
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-          {/* 스텝 탭 */}
-          <div className="grid grid-cols-4 gap-1">
-            {STAR_STEPS.map((s, i) => (
-              <button
-                key={s.key}
-                onClick={() => { setStep(i); setShowExample(false);}}
-                className={`text-xs py-1.5 rounded-md transition-colors ${
-                  step === i
-                    ? "bg-[var(--gradient-mid)]/20 text-[var(--gradient-mid)] font-semibold"
-                    : star[s.key]?.trim()
-                    ? "bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-400"
-                    : "bg-muted text-muted-foreground"
-                }`}
-              >
-                {star[s.key]?.trim() ? "✓" : `${i + 1}.`} {s.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* 현재 스텝 입력 */}
         <div className="space-y-3">
-          <label className="text-sm font-semibold text-foreground block">
-            Q. {current.question}
-          </label>
+          {STAR_BLOCKS.map(({ key, label, title, desc }) => {
+            const q = quality[key] || (star[key] ? "needs_improvement" : "insufficient");
+            const badge = getQualityBadge(q);
+            const isEditing = editingKey === key;
+            const isImproving = improving?.key === key;
 
-          <textarea
-            value={star[current.key] || ""}
-            onChange={(e) => setStar(prev => ({ ...prev, [current.key]: e.target.value }))}
-            placeholder="구체적으로 작성할수록 좋아요 (최대 150자)"
-            maxLength={150}
-            rows={4}
-            className="w-full px-4 py-2.5 rounded-lg border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[var(--gradient-mid)]/50 focus:border-[var(--gradient-mid)] transition-all resize-none"
-          />
+            return (
+              <div key={key} className={`rounded-xl border p-5 space-y-3 ${badge.cardClass}`}>
+                {/* 헤더 */}
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <span className="w-7 h-7 rounded-full bg-gradient-to-br from-[var(--gradient-start)] to-[var(--gradient-end)] text-white text-xs font-bold flex items-center justify-center shrink-0">
+                      {label}
+                    </span>
+                    <span className="text-sm font-semibold text-gray-900 dark:text-white">{title}</span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">({desc})</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${badge.badgeClass}`}>
+                      {badge.icon} {badge.label}
+                    </span>
+                    {!isEditing && (
+                      <button
+                        onClick={() => setImproving(isImproving ? null : { key })}
+                        className="text-xs px-2.5 py-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors font-medium"
+                      >
+                        🪄 문장 다듬기
+                      </button>
+                    )}
+                  </div>
+                </div>
 
-          <div className="flex items-center justify-between">
-            <div className="flex gap-1.5 flex-wrap">
-              {current.hints.map((h, i) => (
-                <button
-                  key={i}
-                  onClick={() => setStar(prev => ({
-                    ...prev,
-                    [current.key]: (prev[current.key] || "") + (prev[current.key] ? " " : "") + h + "?"
-                  }))}
-                  className="text-xs px-2.5 py-1 rounded-full bg-[var(--gradient-mid)]/10 text-[var(--gradient-mid)] hover:bg-[var(--gradient-mid)]/20 transition-colors"
-                >
-                  {h}
-                </button>
-              ))}
-            </div>
-            <span className="text-xs text-muted-foreground shrink-0 ml-2">
-              {(star[current.key] || "").length}/150
-            </span>
-          </div>
+                {/* 내용 */}
+                {isEditing ? (
+                  <div className="space-y-2">
+                    <textarea
+                      value={editValue}
+                      onChange={(e) => setEditValue(e.target.value)}
+                      rows={4}
+                      className="w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-purple-500/50 resize-none"
+                      autoFocus
+                    />
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" className="flex-1 border-gray-300 dark:border-gray-600" onClick={() => setEditingKey(null)}>취소</Button>
+                      <Button size="sm" className="flex-1 bg-gradient-to-r from-[var(--gradient-start)] to-[var(--gradient-end)] text-white" onClick={() => handleEditSave(key)}>저장</Button>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+                    {star[key] || <span className="text-gray-400 dark:text-gray-500 italic">내용이 없어요</span>}
+                  </p>
+                )}
 
-          {/* 예시 보기 */}
-          <button
-            className="text-xs text-muted-foreground hover:text-[var(--gradient-mid)] flex items-center gap-1.5 transition-colors"
-            onClick={() => setShowExample(prev => !prev)}
-          >
-            <Lightbulb className="h-3 w-3" />
-            예시 보기
-          </button>
-          {showExample && (
-            <div className="p-3 rounded-lg bg-muted/50 border border-dashed border-border text-xs text-muted-foreground italic leading-relaxed">
-              {current.example}
-            </div>
-          )}
-          {/* ========= 여기부터 추가! ========= */}
-          {/* AI 힌트 표시 */}
-          {currentHints && currentHints.length > 0 && (
-            <div className="space-y-2 p-3 rounded-lg bg-[var(--gradient-mid)]/5 border border-[var(--gradient-mid)]/20">
-              <p className="text-xs font-semibold text-[var(--gradient-mid)] flex items-center gap-1.5">
-                <Sparkles className="h-3 w-3" />
-                AI 추천 질문
-              </p>
-              {currentHints.map((hint, i) => (
-                <p key={i} className="text-xs text-muted-foreground">• {hint}</p>
-              ))}
-            </div>
-          )}
-          {/* ========= 여기까지 추가! ========= */}
-
-          {/* AI 도움 버튼 */}
-          {!isUsed ? (
-            <button
-              className="w-full text-xs py-2 rounded-lg border border-dashed border-[var(--gradient-mid)]/30 text-[var(--gradient-mid)] hover:bg-[var(--gradient-mid)]/5 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-              onClick={fetchAiHints}
-              disabled={aiLoading}
-            >
-              {aiLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
-              잘 모르겠어요 (AI 도움받기)
-            </button>
-          ) : (
-            <div className="w-full text-xs py-2 rounded-lg border border-dashed border-border text-muted-foreground flex items-center justify-center gap-2 cursor-not-allowed">
-              <CheckCircle className="h-3 w-3" />
-              AI 도움 사용 완료
-            </div>
-          )}
+                {/* 개선 옵션 */}
+                {isImproving && !isEditing && (
+                  <div className="space-y-2 pt-1 border-t border-gray-200 dark:border-gray-700/50">
+                    <div className="space-y-1.5 pt-2">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">🪄 AI 리라이팅</p>
+                      <div className="flex flex-wrap gap-2">
+                        {IMPROVE_OPTIONS.filter(o => o.group === "ai").map(opt => (
+                          <button
+                            key={opt.type}
+                            onClick={() => handleImprove(key, opt.type)}
+                            disabled={improveLoading}
+                            className="text-xs px-3 py-1.5 rounded-full bg-gradient-to-r from-[var(--gradient-start)] to-[var(--gradient-end)] text-white hover:opacity-80 transition-all disabled:opacity-50 font-medium shadow-sm"
+                          >
+                            {improveLoading && improving?.key === key ? "작성 중..." : opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {IMPROVE_OPTIONS.filter(o => o.group === "manual").map(opt => (
+                        <button
+                          key={opt.type}
+                          onClick={() => handleImprove(key, opt.type)}
+                          disabled={improveLoading}
+                          className="text-xs px-3 py-1.5 rounded-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
 
-        {/* 네비게이션 */}
-        <div className="flex gap-3 pt-1">
-          {step > 0 && (
-            <Button variant="outline" className="flex-1"
-              onClick={() => { setStep(p => p - 1); setShowExample(false);}}>
-              ← 이전
-            </Button>
-          )}
-          {step < STAR_STEPS.length - 1 ? (
-            <Button
-              className="flex-1 bg-gradient-to-r from-[var(--gradient-start)] to-[var(--gradient-end)] text-white hover:opacity-90"
-              onClick={() => { setStep(p => p + 1); setShowExample(false);}}
-            >
-              다음 →
-            </Button>
-          ) : (
-            <Button
-              className="flex-1 bg-gradient-to-r from-[var(--gradient-start)] to-[var(--gradient-end)] text-white hover:opacity-90"
-              onClick={() => onSave({ ...project, star })}
-            >
-              <CheckCircle className="mr-2 h-4 w-4" />저장하기
-            </Button>
-          )}
-        </div>
+        <Button
+          className="w-full bg-gradient-to-r from-[var(--gradient-start)] to-[var(--gradient-end)] text-white hover:opacity-90 shadow-sm"
+          onClick={() => onSave({ ...project, star, quality })}
+        >
+          <CheckCircle className="mr-2 h-4 w-4" />이대로 적용하기
+        </Button>
       </div>
     </div>
   );
@@ -277,11 +304,31 @@ function ResumeWriter() {
   const experience = location.state?.experience || "";
   const analysis = location.state?.analysis || "";
   const rawScoreData = location.state?.scoreData || null;
-  const scoreData = typeof rawScoreData === "string"
-    ? (() => { try { return JSON.parse(rawScoreData); } catch { return null; } })()
-    : rawScoreData;
-  
   const assessmentId = location.state?.assessmentId || null;
+
+  const [scoreData, setScoreData] = useState(() => {
+    if (rawScoreData) {
+      return typeof rawScoreData === "string"
+        ? (() => { try { return JSON.parse(rawScoreData); } catch { return null; } })()
+        : rawScoreData;
+    }
+    return null;
+  });
+
+  // assessmentId 있으면 API로 scoreData 로드
+  useEffect(() => {
+    if (assessmentId && !rawScoreData) {
+      const token = localStorage.getItem("token");
+      fetch(`${BASE_URL}/api/assessments/${assessmentId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      }).then(r => r.ok ? r.json() : null)
+        .then(data => {
+          if (data?.scoreData) {
+            try { setScoreData(JSON.parse(data.scoreData)); } catch {}
+          }
+        }).catch(() => {});
+    }
+  }, [assessmentId]);
 
   // ── 프로젝트 STAR 관련 state ──
   const [projects, setProjects] = useState([]);
@@ -296,8 +343,8 @@ function ResumeWriter() {
   const [projectAiHints, setProjectAiHints] = useState({}); // {projectName_step: [hints]}
   const [projectAiHintUsed, setProjectAiHintUsed] = useState({}); // {projectName_step: true}
   const extractedRef = useRef(false);
-  const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [useCircular, setUseCircular] = useState(false); // 뱃지 vs 원형 토글
 
   const [showMagicPaste, setShowMagicPaste] = useState(false);
   const [showSavedPostings, setShowSavedPostings] = useState(false);
@@ -343,10 +390,14 @@ function ResumeWriter() {
 
   // 진입 시 프로젝트 자동 추출
   useEffect(() => {
-    if (experience && !projectsExtracted && !projectsDone && !projectsSkipped) {
+    if (!projectsExtracted && !projectsDone && !projectsSkipped) {
       if (extractedRef.current) return;
       extractedRef.current = true;
-      extractProjects();
+      if (assessmentId) {
+        extractStarFromAssessment();
+      } else if (experience) {
+        extractProjects();
+      }
     }
   }, []);
   useEffect(() => {
@@ -358,6 +409,43 @@ function ResumeWriter() {
       });
     }
   }, [editedResume]);
+
+const extractStarFromAssessment = async () => {
+  if (extractLoading) return;
+  setExtractLoading(true);
+  try {
+    const token = localStorage.getItem("token");
+    const res = await fetch(`${BASE_URL}/api/assessments/${assessmentId}/extract-star`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.length > 0) {
+        setProjects(data.map(p => ({
+          name: p.itemName,
+          assessmentId: assessmentId,
+          star: {
+            situation: p.situation || "",
+            task: p.task || "",
+            action: p.action || "",
+            result: p.result || "",
+          },
+          quality: p.quality || {},
+          isCreative: p.isCreative,
+        })));
+      }
+      setProjectsExtracted(true);
+    } else {
+      // extract-star 실패 시 기존 방식으로 fallback
+      await extractProjects();
+    }
+  } catch {
+    setProjectsExtracted(true);
+  } finally {
+    setExtractLoading(false);
+  }
+};
 
 const extractProjects = async () => {
   if (extractLoading) return;
@@ -518,10 +606,10 @@ const extractProjects = async () => {
     if (withStar.length === 0) return "";
     return withStar.map(p => {
       const s = p.star;
-      return `[프로젝트: ${p.name} / ${p.techStack}]\n` +
-        (s.situation ? `- 문제/상황: ${s.situation}\n` : "") +
-        (s.reason ? `- 해결 이유: ${s.reason}\n` : "") +
-        (s.action ? `- 해결 방법: ${s.action}\n` : "") +
+      return `[프로젝트: ${p.name}]\n` +
+        (s.situation ? `- 상황: ${s.situation}\n` : "") +
+        (s.task ? `- 역할: ${s.task}\n` : "") +
+        (s.action ? `- 행동: ${s.action}\n` : "") +
         (s.result ? `- 결과: ${s.result}` : "");
     }).join("\n\n");
   };
@@ -535,7 +623,7 @@ const extractProjects = async () => {
 
 
 
-  if (!experience && !analysis) {
+  if (!experience && !analysis && !assessmentId) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-12 text-center space-y-4">
         <h2 className="text-xl font-semibold text-foreground">데이터가 없습니다.</h2>
@@ -547,13 +635,9 @@ const extractProjects = async () => {
     );
   }
 
-  const scoreCategories = scoreData ? [
-    { name: "직무 적합도", score: scoreData.jobFit },
-    { name: "성장 가능성", score: scoreData.growth },
-    { name: "협업/소통 능력", score: scoreData.communication },
-    { name: "실행력/추진력", score: scoreData.execution },
-    { name: "경험 다양성", score: scoreData.diversity },
-  ] : [];
+  const scoreCategories = scoreData?.competencyScores
+    ? scoreData.competencyScores.map(c => ({ name: c.name || c.capCode, score: c.score }))
+    : [];
 
   const getHistory = () => JSON.parse(sessionStorage.getItem(RESUME_HISTORY_KEY) || "[]");
 
@@ -658,18 +742,73 @@ const extractProjects = async () => {
     e.target.style.height = "auto";
     e.target.style.height = e.target.scrollHeight + "px";
   };
-  // 저장된 공고 목록 불러오기
+  // 저장된 공고 목록 불러오기 (JobPostings + Companies 공고 통합)
 const fetchSavedPostings = async () => {
   setLoadingPostings(true);
   const token = localStorage.getItem("token");
   try {
-    const res = await fetch(`${BASE_URL}/api/job-postings`, {
+    // 기존 JobPostings
+    const jobRes = await fetch(`${BASE_URL}/api/job-postings`, {
       headers: { "Authorization": `Bearer ${token}` }
     });
-    if (res.ok) {
-      const data = await res.json();
-      setSavedPostings(data);
-    }
+    const jobData = jobRes.ok ? await jobRes.json() : [];
+
+    // Companies + 각 기업의 공고 병렬 로드
+    const companyRes = await fetch(`${BASE_URL}/api/companies`, {
+      headers: { "Authorization": `Bearer ${token}` }
+    });
+    const companies = companyRes.ok ? await companyRes.json() : [];
+
+    const companyItems = (await Promise.all(
+      companies.map(async (c) => {
+        // 공고 조회
+        const postings = await fetch(`${BASE_URL}/api/companies/${c.id}/postings`, {
+          headers: { "Authorization": `Bearer ${token}` }
+        }).then(r => r.ok ? r.json() : []).catch(() => []);
+
+        if (postings.length === 0) {
+          // 공고 없는 기업 → 회사명만 채워주는 항목
+          return [{
+            id: `company_${c.id}`,
+            companyName: c.companyName,
+            position: "",
+            mainTasks: "", requirements: "", preferred: "",
+            techStack: "", workPlace: "", employmentType: "", vision: "",
+            _source: "company",
+            _companyId: c.id,
+            _isPrimary: c.isPrimary || false,
+            _noPosting: true,
+          }];
+        }
+
+        // 공고 있는 기업 → 공고별 항목
+        return postings.map(p => {
+          let parsed = null;
+          try { parsed = JSON.parse(p.parsedData); } catch {}
+          return {
+            id: `company_${p.id}`,
+            companyName: c.companyName,
+            position: p.position || parsed?.position || "",
+            mainTasks: parsed?.mainTasks || "",
+            requirements: parsed?.requirements || "",
+            preferred: parsed?.preferred || "",
+            techStack: parsed?.techStack || "",
+            workPlace: parsed?.workPlace || "",
+            employmentType: parsed?.employmentType || "",
+            vision: parsed?.vision || "",
+            _source: "company",
+            _companyId: c.id,
+            _postingId: p.id,
+            _isPrimary: c.isPrimary || false,
+          };
+        });
+      })
+    )).flat();
+
+    setSavedPostings([
+      ...jobData,
+      ...companyItems.sort((a, b) => (b._isPrimary ? 1 : 0) - (a._isPrimary ? 1 : 0)),
+    ]);
   } catch {
     toast.error("공고를 불러오는데 실패했습니다.");
   } finally {
@@ -795,9 +934,14 @@ const deleteSavedPosting = async (id) => {
       method: "POST",
       headers: { 
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}` // 🔥 추가!
+        "Authorization": `Bearer ${token}`
       },
-      body: JSON.stringify({ experience, analysis, jobPosting, additionalInfo })
+      body: JSON.stringify({
+        experience: experience || additionalInfo,
+        analysis: analysis || "",
+        jobPosting,
+        additionalInfo: experience ? additionalInfo : ""
+      })
     });
 
     const reader = response.body.getReader();
@@ -924,14 +1068,10 @@ const deleteSavedPosting = async (id) => {
 
       {/* STAR 모달 */}
       {selectedProject && (
-        <StarModal
+        <StarReviewModal
           project={selectedProject}
           onClose={() => setSelectedProject(null)}
           onSave={saveProjectStar}
-          aiHints={projectAiHints}
-          aiHintUsed={projectAiHintUsed}
-          onAiHintFetch={(key, hints) => setProjectAiHints(prev => ({ ...prev, [key]: hints }))}
-          onAiHintUsed={(key) => setProjectAiHintUsed(prev => ({ ...prev, [key]: true }))}
         />
       )}
       {/* 삭제 확인 모달 */}
@@ -1013,7 +1153,7 @@ const deleteSavedPosting = async (id) => {
                       <circle cx="56" cy="56" r="48" stroke="currentColor" strokeWidth="8" fill="transparent" className="text-muted" />
                       <circle cx="56" cy="56" r="48" stroke="url(#scoreGradient)" strokeWidth="8" fill="transparent"
                         strokeDasharray={`${2 * Math.PI * 48}`}
-                        strokeDashoffset={`${2 * Math.PI * 48 * (1 - scoreData.overall / 100)}`}
+                        strokeDashoffset={`${2 * Math.PI * 48 * (1 - scoreData.totalScore / 100)}`}
                         className="transition-all duration-1000" />
                       <defs>
                         <linearGradient id="scoreGradient" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -1024,12 +1164,12 @@ const deleteSavedPosting = async (id) => {
                       </defs>
                     </svg>
                     <div className="absolute inset-0 flex items-center justify-center">
-                      <span className="text-2xl font-bold">{scoreData.overall}</span>
+                      <span className="text-2xl font-bold">{scoreData.totalScore}</span>
                     </div>
                   </div>
                   <p className="text-muted-foreground text-sm leading-relaxed">
-                    종합 역량 점수 <strong className="text-foreground">{scoreData.overall}점</strong>으로,{" "}
-                    {scoreData.overall >= 80 ? "매우 우수한" : scoreData.overall >= 60 ? "양호한" : "보완이 필요한"} 수준입니다.
+                    종합 역량 점수 <strong className="text-foreground">{scoreData.totalScore}점</strong>으로,{" "}
+                    {scoreData.totalScore >= 80 ? "매우 우수한" : scoreData.totalScore >= 60 ? "양호한" : "보완이 필요한"} 수준입니다.
                   </p>
                 </div>
               </CardContent>
@@ -1134,15 +1274,14 @@ const deleteSavedPosting = async (id) => {
                   <Badge className="bg-[var(--gradient-mid)]/10 text-[var(--gradient-mid)]">자소서 퀄리티 향상</Badge>
                 </CardTitle>
                 <CardDescription>
-                  프로젝트 경험을 STAR 기법으로 정리하면 자소서 완성도가 올라가요.
-                  건너뛰면 AI 보완 내용이 많아지고 자소서 내용이 부족할 수 있어요.
+                  작성하신 경험을 AI가 STAR 기법으로 분석했습니다. 내용을 확인하고 더 완벽하게 다듬어 보세요.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 {extractLoading ? (
                   <div className="flex items-center gap-2 text-muted-foreground text-sm py-4">
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    경험에서 프로젝트를 추출하고 있어요...
+                    심층 인터뷰 기반으로 경험을 추출하고 있어요...
                   </div>
                 ) : (
                   <>
@@ -1164,103 +1303,74 @@ const deleteSavedPosting = async (id) => {
                       </div>
                     )}
 
-                    {/* 프로젝트 카드 목록 - Tooltip 추가 */}
+                    {/* 뷰 토글 */}
+                    <div className="flex justify-end mb-2">
+                      <button
+                        onClick={() => setUseCircular(v => !v)}
+                        className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+                      >
+                        {useCircular ? "뱃지 뷰" : "원형 뷰"} 전환
+                      </button>
+                    </div>
+
+                    {/* 프로젝트 카드 목록 */}
                     {projects.map((project, idx) => {
                       const progress = calcProgress(project.star || {});
                       const star = project.star || {};
-                      const hasContent = progress > 0;
-                      
-                      // Tooltip 내용 생성 (각 항목 첫 50자)
-                      const tooltipContent = hasContent ? (
-                        <>
-                          {star.situation && (
-                            <div className="mb-2">
-                              <span className="font-semibold text-[var(--gradient-mid)]">상황: </span>
-                              <span className="text-xs">{star.situation.slice(0, 50)}{star.situation.length > 50 ? "..." : ""}</span>
-                            </div>
-                          )}
-                          {star.reason && (
-                            <div className="mb-2">
-                              <span className="font-semibold text-blue-500">이유: </span>
-                              <span className="text-xs">{star.reason.slice(0, 50)}{star.reason.length > 50 ? "..." : ""}</span>
-                            </div>
-                          )}
-                          {star.action && (
-                            <div className="mb-2">
-                              <span className="font-semibold text-purple-500">해결: </span>
-                              <span className="text-xs">{star.action.slice(0, 50)}{star.action.length > 50 ? "..." : ""}</span>
-                            </div>
-                          )}
-                          {star.result && (
-                            <div>
-                              <span className="font-semibold text-green-500">결과: </span>
-                              <span className="text-xs">{star.result.slice(0, 50)}{star.result.length > 50 ? "..." : ""}</span>
-                            </div>
-                          )}
-                        </>
-                      ) : null;
+                      const summary = star.situation
+                        ? star.situation.slice(0, 60) + (star.situation.length > 60 ? "..." : "")
+                        : null;
 
                       return (
-                        <div key={idx} className="group">
-                          <div
-                            onMouseMove={(e) => setTooltipPos({ x: e.clientX, y: e.clientY })}
-                            className="flex items-center justify-between p-4 rounded-xl border border-border/50 hover:border-[var(--gradient-mid)]/40 transition-colors">
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-0.5">
-                                <p className="text-sm font-semibold text-foreground truncate">{project.name}</p>
-                                {progress === 100 && <CheckCircle className="h-3.5 w-3.5 text-green-500 shrink-0" />}
+                        <div key={idx} className="group relative rounded-xl border border-gray-200 dark:border-gray-700/50 bg-white dark:bg-gray-800/60 hover:border-purple-300 dark:hover:border-purple-700/50 hover:shadow-sm transition-all duration-200 p-5">
+
+                          {/* 삭제 버튼 */}
+                          <button
+                            onClick={() => {
+                              if (progress > 0) setDeleteConfirm({ idx, project });
+                              else handleDeleteProject(idx, project);
+                            }}
+                            className="absolute top-3 right-3 text-muted-foreground/40 hover:text-destructive opacity-0 group-hover:opacity-100 transition-all duration-200"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+
+                          <div className="flex items-center gap-3 pr-5">
+                            {/* 원형 그래프 버전 */}
+                            {useCircular && (
+                              <CircularProgress progress={progress} size={44} />
+                            )}
+
+                            <div className="flex-1 min-w-0 space-y-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <p className="text-sm font-semibold text-gray-900 dark:text-white">{project.name}</p>
+                                {!useCircular && (
+                                  progress === 100 ? (
+                                    <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 font-medium">✅ 완성</span>
+                                  ) : progress > 0 ? (
+                                    <span className="text-xs px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 font-medium">{progress}%</span>
+                                  ) : (
+                                    <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400 font-medium">미작성</span>
+                                  )
+                                )}
                               </div>
-                              <p className="text-xs text-muted-foreground truncate">{project.techStack}</p>
-                              <div className="mt-2 flex items-center gap-2">
-                                <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
-                                  <div
-                                    className={`h-full rounded-full transition-all ${progress === 100 ? "bg-green-500" : "bg-gradient-to-r from-[var(--gradient-start)] to-[var(--gradient-end)]"}`}
-                                    style={{ width: `${progress}%` }}
-                                  />
-                                </div>
-                                <span className="text-xs text-muted-foreground shrink-0">{progress}%</span>
-                              </div>
+                              {summary ? (
+                                <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed line-clamp-1">{summary}</p>
+                              ) : (
+                                <p className="text-xs text-gray-400 dark:text-gray-500 italic">STAR 내용을 작성하면 요약이 표시돼요</p>
+                              )}
                             </div>
-                            <div className="flex items-center gap-2 ml-3">
-                              <Button size="sm" variant="outline"
-                                onClick={() => setSelectedProject(project)}
-                                className="shrink-0">
-                                {progress > 0 ? "수정" : "작성"}
-                                <ChevronRight className="ml-1 h-3.5 w-3.5" />
-                              </Button>
-                              <button onClick={() => {
-                                const project = projects[idx];
-                                const progress = calcProgress(project.star || {});
-                                if (progress > 0) {
-                                  // 확인 모달 띄우기
-                                  setDeleteConfirm({ idx, project });
-                                } else {
-                                  // 바로 삭제
-                                  handleDeleteProject(idx, project);
-                                }
-                              }}
-                                className="text-muted-foreground hover:text-destructive transition-colors">
-                                <X className="h-4 w-4" />
-                              </button>
-                            </div>
+
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setSelectedProject(project)}
+                              className="shrink-0 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-purple-400 dark:hover:border-purple-500 transition-colors"
+                            >
+                              {progress > 0 ? "AI 분석 결과 보기" : "STAR 작성하기"}
+                              <ChevronRight className="ml-1 h-3.5 w-3.5" />
+                            </Button>
                           </div>
-                          
-                          {/* Tooltip */}
-                          {hasContent && (
-                        <div 
-                          className="fixed w-80 p-3 rounded-lg bg-card border border-border shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-opacity duration-200 z-50 pointer-events-none"
-                          style={{ 
-                            left: `${tooltipPos.x + 15}px`, 
-                            top: `${tooltipPos.y + 15}px` 
-                          }}
-                        >
-                          <div className="text-xs font-semibold text-foreground mb-2 flex items-center gap-1.5">
-                            <Sparkles className="h-3 w-3 text-[var(--gradient-mid)]" />
-                            STAR 미리보기
-                          </div>
-                          {tooltipContent}
-                        </div>
-                      )}
                         </div>
                       );
                     })}
@@ -1294,7 +1404,7 @@ const deleteSavedPosting = async (id) => {
                       </div>
                     )}
 
-                    {projects.length === 0 && projectsExtracted && (
+                    {projects.length === 0 && projectsExtracted && !extractLoading && (
                       <p className="text-sm text-muted-foreground text-center py-2">
                         추출된 프로젝트가 없어요. 직접 추가해보세요!
                       </p>
@@ -1472,22 +1582,33 @@ const deleteSavedPosting = async (id) => {
                             className="group relative p-4 rounded-xl border border-border hover:border-[var(--gradient-mid)]/40 hover:bg-[var(--gradient-mid)]/5 transition-all cursor-pointer"
                             onClick={() => selectSavedPosting(posting)}
                           >
-                            {/* 삭제 버튼 */}
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setDeletingPosting(posting.id);
-                              }}
-                              className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
-                            >
-                              <X className="h-4 w-4" />
-                            </button>
+                            {/* 삭제 버튼 (JobPostings만) */}
+                            {!posting._source && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setDeletingPosting(posting.id);
+                                }}
+                                className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                              >
+                                <X className="h-4 w-4" />
+                              </button>
+                            )}
               
                             <div className="space-y-2 pr-8">
                               <div className="flex items-center gap-2">
                                 <h4 className="font-semibold text-foreground">{posting.companyName}</h4>
                                 {posting.position && (
                                   <Badge variant="secondary" className="text-xs">{posting.position}</Badge>
+                                )}
+                                {posting._source === "company" && (
+                                  <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${
+                                    posting._isPrimary
+                                      ? "bg-pink-500/20 text-pink-500"
+                                      : "bg-pink-500/10 text-pink-400"
+                                  }`}>
+                                    {posting._isPrimary ? "⭐ 주 목표기업" : posting._noPosting ? "목표기업" : "목표기업 공고"}
+                                  </span>
                                 )}
                               </div>
                               
@@ -1502,9 +1623,11 @@ const deleteSavedPosting = async (id) => {
                                 <p className="text-xs text-muted-foreground">{posting.employmentType}</p>
                               )}
                               
-                              <p className="text-xs text-muted-foreground">
-                                {new Date(posting.createdAt).toLocaleDateString("ko-KR")}
-                              </p>
+                              {posting.createdAt && !isNaN(new Date(posting.createdAt)) && (
+                                <p className="text-xs text-muted-foreground">
+                                  {new Date(posting.createdAt).toLocaleDateString("ko-KR")}
+                                </p>
+                              )}
                             </div>
                           </div>
                         ))}

@@ -68,6 +68,7 @@ public class User {
     @Column(name = "mapped_job_code", length = 50)
     private String mappedJobCode;  // 매핑된 직무 코드 (예: "CP001", "TEMP_IT")
     @Column(name = "is_temporary_job")
+    @Builder.Default
     private Boolean isTemporaryJob = false;  // 임시 직무 여부
     @Column(name = "job_match_type", length = 20)
     private String jobMatchType;  // EXACT_MATCH, SIMILAR_MATCH, CATEGORY_MATCH
@@ -78,6 +79,7 @@ public class User {
 
     // 변경 제한
     @Column(name = "job_change_count")
+    @Builder.Default
     private Integer jobChangeCount = 0;
 
     @Column(name = "last_job_change_date")
