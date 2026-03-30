@@ -457,10 +457,21 @@ export function DashboardPage() {
                   <p className="text-sm text-muted-foreground mt-2">
                     평균 {primaryAssessment.totalScore}점
                   </p>
+                  {primaryAssessment.grade && (
+                    <div className="mt-2">
+                      <span className={`text-xs px-2.5 py-1 rounded-full font-semibold ${
+                        primaryAssessment.grade === "PROFESSIONER"
+                          ? "bg-yellow-500/15 text-yellow-500"
+                          : "bg-blue-500/15 text-blue-500"
+                      }`}>
+                        {primaryAssessment.evaluatedJobCode} [{primaryAssessment.grade}]
+                      </span>
+                    </div>
+                  )}
                 </div>
                 <div className="space-y-4">
                   <h4 className="font-semibold text-sm">역량별 점수</h4>
-                  {primaryAssessment.competencyScores.map((comp, idx) => (
+                  {(primaryAssessment.coreScores || []).map((comp, idx) => (
                     <div key={idx} className="space-y-2">
                       <div className="flex items-center justify-between text-sm">
                         <span className="font-medium">{comp.name}</span>
@@ -476,6 +487,79 @@ export function DashboardPage() {
                       <p className="text-xs text-muted-foreground">{comp.evidence}</p>
                     </div>
                   ))}
+                  {((primaryAssessment.nonCoreScores || []).length > 0 || 
+                    (primaryAssessment.commonScores || []).length >= 0) && (
+                    <details className="space-y-2" open>
+                      <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors py-1">
+                        보조 역량
+                      </summary>
+                      <div className="space-y-4 pt-2 border-t border-border/50">
+
+                        {/* 보조 역량 */}
+                        {(primaryAssessment.nonCoreScores || []).length > 0 && (
+                          <div className="space-y-3">
+                            <h5 className="text-xs font-semibold text-muted-foreground">보조 역량</h5>
+                            {primaryAssessment.nonCoreScores.map((comp, idx) => (
+                              <div key={idx} className="space-y-1">
+                                <div className="flex items-center justify-between text-sm">
+                                  <span className="text-muted-foreground">{comp.name}</span>
+                                  <div className="flex items-center gap-2">
+                                    <Badge variant="outline" className="text-xs">{(comp.weight * 100).toFixed(0)}%</Badge>
+                                    <Badge className={`bg-gradient-to-r ${getGradeColor(getGrade(comp.score))} text-white border-0 text-xs`}>
+                                      {getGrade(comp.score)}
+                                    </Badge>
+                                    <span className="text-xs font-bold">{comp.score}점</span>
+                                  </div>
+                                </div>
+                                <Progress value={comp.score} className="h-1" />
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </details>
+                  )}
+                  {(primaryAssessment.coreUnknownScores || []).length > 0 && (
+                    <div className="space-y-2 pt-2 border-t border-border/50">
+                      <h4 className="font-semibold text-xs text-muted-foreground flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3 text-muted-foreground" />
+                        심층분석에서 확인되지 않은 항목
+                      </h4>
+                      {primaryAssessment.coreUnknownScores.map((comp, idx) => (
+                        <div key={idx} className="flex items-center justify-between text-sm text-muted-foreground">
+                          <span>{comp.name}</span>
+                          <Badge variant="outline" className="text-xs">미확인</Badge>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {(primaryAssessment.commonScores || []).length > 0 && (
+                    <div className="pt-2 border-t border-border/50">
+                      <h5 className="text-xs font-semibold text-muted-foreground mb-2">자격증 · 어학</h5>
+                      {primaryAssessment.measureType === "TECH_STACK" ? (
+                        // IT 개발 직군 → 뱃지만
+                        <div className="flex flex-wrap gap-2">
+                          {primaryAssessment.commonScores.map((comp, idx) => (
+                            <span key={idx} className="text-xs px-2.5 py-1 rounded-full bg-green-500/10 border border-green-500/20 text-green-500 font-medium">
+                              {comp.name} ✓
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        // 자격증이 중요한 직군 → 기여 점수 표시
+                        <div className="space-y-2">
+                          {primaryAssessment.commonScores.map((comp, idx) => (
+                            <div key={idx} className="flex items-center justify-between text-sm">
+                              <span className="text-muted-foreground">{comp.name}</span>
+                              <Badge className="bg-green-500/15 text-green-500 border-0 text-xs">
+                                +{primaryAssessment.certEffect || 0}점 기여
+                              </Badge>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
                 {primaryAssessment.strengths?.length > 0 && (
                   <div className="space-y-2">
@@ -484,7 +568,7 @@ export function DashboardPage() {
                     </h4>
                     <ul className="space-y-1">
                       {primaryAssessment.strengths.map((s, idx) => (
-                        <li key={idx} className="text-sm text-muted-foreground pl-4 border-l-2 border-green-500">{s}</li>
+                        <li key={idx} className="text-sm text-muted-foreground pl-4 border-l-2 border-green-500">{s.replace(" 설계 역량 보유", " ✦ L2")}</li>
                       ))}
                     </ul>
                   </div>
@@ -501,6 +585,26 @@ export function DashboardPage() {
                     </ul>
                   </div>
                 )}
+                {primaryAssessment.jobRanking && (
+                  <div className="space-y-2">
+                    <h4 className="font-semibold text-sm flex items-center gap-2">
+                      <Award className="h-4 w-4 text-yellow-500" />직군 매칭
+                    </h4>
+                    {Object.entries(primaryAssessment.jobRanking)
+                      .filter(([_, v]) => v > 0)
+                      .sort(([, a], [, b]) => b - a)
+                      .slice(0, 3)
+                      .map(([code, score]) => (
+                        <div key={code} className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">{code}</span>
+                          <Badge variant="outline" className="text-xs">
+                            {score.toFixed(2)}점
+                          </Badge>
+                        </div>
+                      ))}
+                  </div>
+                )}
+                
                 <Link to="/my-assessments">
                   <Button variant="outline" className="w-full">다른 평가 보기</Button>
                 </Link>

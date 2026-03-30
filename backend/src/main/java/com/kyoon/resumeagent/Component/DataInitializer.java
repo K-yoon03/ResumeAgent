@@ -90,29 +90,29 @@ public class DataInitializer implements ApplicationRunner {
         }
 
         String scoreData = """
-                {
-                  "totalScore": 70,
-                  "isFinal": true,
-                  "competencyScores": [
-                    {"capCode": "BE_FRAMEWORK", "name": "백엔드 프레임워크", "score": 90, "weight": 0.20, "contribution": 18.0, "status": "depth"},
-                    {"capCode": "DB", "name": "데이터베이스", "score": 55, "weight": 0.15, "contribution": 8.25, "status": "depth"},
-                    {"capCode": "API_DESIGN", "name": "API 설계", "score": 75, "weight": 0.15, "contribution": 11.25, "status": "depth"},
-                    {"capCode": "BE_LANG", "name": "백엔드 언어", "score": 80, "weight": 0.20, "contribution": 16.0, "status": "depth"},
-                    {"capCode": "TEAM_PROJECT", "name": "팀 프로젝트", "score": 85, "weight": 0.05, "contribution": 4.25, "status": "depth"}
-                  ],
-                  "strengths": ["Spring Boot 기반 실무 프로젝트 경험이 풍부함", "LLM API 연동 및 AI 서비스 개발 경험 보유"],
-                  "improvements": ["DB 최적화 경험을 더 쌓을 필요가 있음", "공인어학성적 취득 필요"],
-                  "experiences": ["CareerPilot", "Yolo v5 기반 스마트 방범 CCTV", "finporter"]
-                }
-                """;
+            {
+              "totalScore": 70,
+              "isFinal": true,
+              "competencyResults": [
+                {"capCode": "BE_FRAMEWORK", "name": "백엔드 프레임워크", "score": 90, "weight": 0.20, "contribution": 18.0, "status": "depth"},
+                {"capCode": "DB_USAGE", "name": "데이터베이스 기본 활용", "score": 55, "weight": 0.10, "contribution": 5.5, "status": "depth"},
+                {"capCode": "API_USAGE", "name": "REST API 연동", "score": 75, "weight": 0.10, "contribution": 7.5, "status": "depth"},
+                {"capCode": "BE_LANG", "name": "백엔드 프로그래밍 언어", "score": 80, "weight": 0.20, "contribution": 16.0, "status": "depth"},
+                {"capCode": "SOFT_COLLABORATION", "name": "팀 협업", "score": 85, "weight": 0.05, "contribution": 4.25, "status": "depth"}
+              ],
+              "strengths": ["Spring Boot 기반 실무 프로젝트 경험이 풍부함", "LLM API 연동 및 AI 서비스 개발 경험 보유"],
+              "improvements": ["DB 최적화 경험을 더 쌓을 필요가 있음", "공인어학성적 취득 필요"],
+              "experiences": ["CareerPilot", "Yolo v5 기반 스마트 방범 CCTV", "finporter"]
+            }
+            """;
 
         Assessment assessment = Assessment.builder()
                 .user(admin).evaluatedJobCode("SW_WEB")
                 .experience("경력 및 경험: LLM 기반 역량분석 서비스 CareerPilot, Yolo v5 방범 CCTV, finporter\n자격증: SQLD\n보유 직무역량: Spring Boot, React, AWS, OpenStack, Linux\n어학: 없음")
                 .analysis("{}").scoreData(scoreData).isPrimary(true)
                 .capabilityVector(Map.of(
-                        "BE_LANG", 0.80, "BE_FRAMEWORK", 0.90, "DB", 0.55,
-                        "API_DESIGN", 0.75, "FE_FRAMEWORK", 0.60, "TEAM_PROJECT", 0.85
+                        "BE_LANG", 0.80, "BE_FRAMEWORK", 0.90, "DB_USAGE", 0.55,
+                        "API_USAGE", 0.75, "FE_FRAMEWORK", 0.60, "SOFT_COLLABORATION", 0.85
                 )).build();
         Assessment savedAssessment = assessmentRepository.save(assessment);
 

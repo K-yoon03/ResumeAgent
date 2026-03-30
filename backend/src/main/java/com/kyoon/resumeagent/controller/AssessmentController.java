@@ -109,7 +109,8 @@ public class AssessmentController {
             String evaluatedJobCode,
             String scoreData,
             Boolean isPrimary,
-            LocalDateTime createdAt
+            LocalDateTime createdAt,
+            Map<String, Double> capabilityVector
     ) {}
 
     public record AssessmentResponse(
@@ -161,7 +162,8 @@ public class AssessmentController {
                     assessment.getEvaluatedJobCode(),
                     assessment.getScoreData(),
                     assessment.getIsPrimary(),
-                    assessment.getCreatedAt()
+                    assessment.getCreatedAt(),
+                    assessment.getCapabilityVector()
             ));
         } catch (Exception e) {
             System.err.println("❌ evaluate 실패: " + e.getMessage());

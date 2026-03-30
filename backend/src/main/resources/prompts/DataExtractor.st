@@ -21,11 +21,11 @@ Rules:
 - result should be as specific as possible — preserve any numbers mentioned
 - Keep Korean text natural and concise
 
-Output JSON only, no markdown:
-{
-  "role": null,
-  "action": null,
-  "tech": [],
-  "result": null,
-  "completenessScore": 0.0
-}
+Output strictly in valid JSON format. Do NOT use markdown code blocks.
+The JSON must contain the following keys exactly:
+
+Key "role": string or null
+Key "action": string or null
+Key "tech": array of strings
+Key "result": string or null
+Key "completenessScore": number

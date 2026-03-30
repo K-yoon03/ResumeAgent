@@ -33,6 +33,9 @@ public class AssessmentScoreService {
         // 2. Analyzer 결과에서 competencyResults 추출
         JsonNode scoreData = objectMapper.readTree(assessment.getScoreData());
         JsonNode competencyResults = scoreData.get("competencyResults");
+        if (competencyResults == null || !competencyResults.isArray()) {
+            throw new RuntimeException("scoreData에 competencyResults가 없습니다. Analyzer를 먼저 실행하세요.");
+        }
 
         // 3. skills 목록 추출 (Analyzer가 뽑은 것)
         List<String> skills = new ArrayList<>();
@@ -67,24 +70,25 @@ public class AssessmentScoreService {
 
             double score = calculator.calculate(capCode, status, skills, evidence);
             double weight = weights.getOrDefault(capCode, 0.0);
-            double contribution = score * weight;
-            totalScore += contribution;
+            double scoreScaled = Math.round(score * 100.0) / 1.0;  // 70.0
+            double contribution = Math.round(scoreScaled * weight * 10.0) / 10.0;  // 14.0
+            totalScore += score * weight;
 
             capVector.put(capCode, score);
 
             Map<String, Object> detail = new HashMap<>();
             detail.put("capCode", capCodeStr);
             detail.put("name", name);
-            detail.put("score", Math.round(score * 100));
+            detail.put("score", (int) scoreScaled);
             detail.put("weight", weight);
-            detail.put("contribution", contribution);
+            detail.put("contribution", contribution);  // 0.7 * 0.2 = 0.14 ← 0~1 스케일
             detail.put("status", status);
             detailedScores.add(detail);
         }
 
         // 6. 결과 저장
         Map<String, Object> newScoreData = new HashMap<>();
-        newScoreData.put("totalScore", Math.round(totalScore * 100));
+        newScoreData.put("totalScore", (int) Math.round(totalScore * 100));
         newScoreData.put("competencyScores", detailedScores);
         newScoreData.put("isFinal", true);
         newScoreData.put("experiences", scoreData.get("experiences"));

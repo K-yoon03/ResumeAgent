@@ -67,17 +67,17 @@ public class AssessmentService {
         ));
 
         String response = analyzerClient.prompt(prompt).call().content();
+
+        System.out.println("=== ANALYZER RAW RESPONSE ===");
+        System.out.println(response);
+
         String cleanJson = response.trim()
                 .replaceAll("```json", "")
                 .replaceAll("```", "")
                 .trim();
 
         // ⚠️ CAPABILITY_VECTOR 블록 제거 후 JSON 파싱
-        String jsonOnly = cleanJson.replaceAll(
-                "\\[CAPABILITY_VECTOR\\].*?\\[/CAPABILITY_VECTOR\\]", ""
-        ).trim();
-
-        JsonNode result = objectMapper.readTree(jsonOnly);
+        JsonNode result = objectMapper.readTree(cleanJson);
 
         List<String> depthItems = new ArrayList<>();
         List<String> emptyItems = new ArrayList<>();
@@ -128,8 +128,17 @@ public class AssessmentService {
         analysisData.put("depthItems", depthItems);
         analysisData.put("emptyItems", emptyItems);
         analysisData.put("complexItems", complexItems);
+        List<String> missingSignals = new ArrayList<>();
+        if (result.has("missing_signals") && result.get("missing_signals").isArray()) {
+            result.get("missing_signals").forEach(s -> missingSignals.add(s.asText()));
+        }
+        analysisData.put("missing_signals", missingSignals);
 
-        Map<String, Double> capabilityVector = parseCapabilityVector(response);
+        Map<String, Double> capabilityVector = new LinkedHashMap<>();
+        JsonNode vectorNode = result.get("capabilityVector");
+        if (vectorNode != null) {
+            vectorNode.fields().forEachRemaining(e -> capabilityVector.put(e.getKey(), e.getValue().asDouble()));
+        }
 
         Assessment assessment = Assessment.builder()
                 .user(user)

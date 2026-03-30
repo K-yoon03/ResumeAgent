@@ -18,7 +18,6 @@ Rules:
 - Do NOT ask "무엇을 배웠나요?" type reflective questions
 - Keep each question to 1-2 sentences
 
-Output JSON only, no markdown:
-{
-  "questions": ["질문1", "질문2", "질문3"]
-}
+Output JSON only, no markdown.
+The output must be a single JSON object with one field:
+- questions: array of 3 Korean strings

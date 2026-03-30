@@ -3,5 +3,6 @@ package com.kyoon.resumeagent.Capability;
 
 public enum CapabilityLevel {
     L1_USAGE,
-    L2_ARCH
+    L2_ARCH,
+    UNKNOWN,
 }

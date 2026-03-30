@@ -23,27 +23,27 @@ For language and credentials:
 - Unrecognized mentioned -> complex
 - Nothing mentioned -> empty
 
-For technical/domain skills (Analyze in two levels):
-- L1_USAGE (Implementation/Tool Usage): Basic API connection, simple queries, tool usage.
-- L2_ARCH (Design/Optimization): ERD design, architecture planning, performance tuning, metric-driven decisions.
-- If L2 evidence is found -> depth (Assign higher confidence)
-- If only L1 evidence is found -> depth (Assign standard confidence)
+For technical/domain skills:
+- If mentioned with concrete project context -> depth
 - If only mentioned without context -> complex
 - Nothing mentioned -> empty
 
 STEP 3 - Capability Vector Extraction:
-Extract the user's capability vector based on experience.
+Extract the user's capability vector based on experience evidence only.
+Do NOT judge L1/L2 depth here. That is determined in the interview phase.
 
 Capability Code List:
 {capabilityCodes}
 
-Rules:
+Scoring rules:
 - Score range: 0.0 ~ 1.0
-- Determine score based on Level and Evidence:
-  - 0.8~1.0: Clear evidence of L2_ARCH (Architecture/Optimization) or multiple complex L1 projects.
-  - 0.5~0.7: Clear evidence of L1_USAGE (Implementation).
-  - 0.1~0.4: Mere mention of skills or certifications without project application.
-- Assign a Confidence Score (0.0~1.0) for each vector, representing how concrete the evidence is.
+- Base the score solely on how concretely the skill appears in experience:
+  - 0.7~1.0: Skill is central to a described project with clear context.
+  - 0.4~0.6: Skill is mentioned with some context but not elaborated.
+  - 0.1~0.3: Skill is merely listed or implied without project application.
+  - 0.0: No evidence found.
+- Assign a Confidence Score (0.0~1.0) representing how concrete the evidence is.
+- CERT_MATCH and LANGUAGE_SCORE: score based on presence and recognized level only. Do not apply project-based scoring.
 
 Output format:
 Output strictly in valid JSON format. Do NOT use markdown code blocks.

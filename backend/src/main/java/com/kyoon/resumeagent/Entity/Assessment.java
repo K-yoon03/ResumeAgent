@@ -22,11 +22,9 @@ public class Assessment {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    // 🔥 추가: 평가한 직무
     @Column(name = "evaluated_job_code", length = 50)
-    private String evaluatedJobCode;  // CP001, TEMP_IT 등
+    private String evaluatedJobCode;
 
-    // 기존 필드
     @Column(columnDefinition = "TEXT")
     private String experience;
 
@@ -36,14 +34,23 @@ public class Assessment {
     @Column(columnDefinition = "TEXT")
     private String scoreData;
 
-    // 🔥 추가: 주 역량 여부
     @Builder.Default
     @Column(name = "is_primary")
     private Boolean isPrimary = false;
 
+    // Analyzer 결과: 코드별 기본 점수
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "json")
     private Map<String, Double> capabilityVector;
+
+    // DepthInterview 결과: 코드별 레벨(L1/L2) + 검증 점수
+    // 구조: { "DB_USAGE": { "level": "L2_ARCH", "score": 0.85 }, ... }
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(columnDefinition = "json", nullable = true)
+    private Map<String, Map<String, Object>> capabilityLevels;
+
+    @Column(length = 20, nullable = true)
+    private String grade; // "PROFESSIONER" or "TECHNICIAN"
 
     @CreatedDate
     @Column(updatable = false)

@@ -8,6 +8,7 @@ import com.kyoon.resumeagent.repository.AssessmentRepository;
 import com.kyoon.resumeagent.repository.InterviewDataRepository;
 import com.kyoon.resumeagent.service.DepthInterviewService;
 import com.kyoon.resumeagent.service.InterviewOrchestratorService;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -87,6 +88,7 @@ public class DepthInterviewController {
     public record FinalRequest(List<Map<String, Object>> items) {}
     public record FinalResponse(Long id, String evaluatedJobCode, String scoreData, Boolean isPrimary) {}
 
+    @Transactional
     @PostMapping("/{id}/interview/final")
     public ResponseEntity<?> submitFinal(
             @PathVariable Long id,

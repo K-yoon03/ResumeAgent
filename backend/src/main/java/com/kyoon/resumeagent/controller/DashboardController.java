@@ -24,6 +24,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/api/dashboard")
@@ -128,9 +129,12 @@ public class DashboardController {
     }
 
     private PrimaryAssessmentInfo parseAssessmentInfo(Assessment assessment, Job job) {
+        int certEffect = 0;
         try {
             JsonNode scoreData = objectMapper.readTree(assessment.getScoreData());
             int totalScore = scoreData.has("totalScore") ? scoreData.get("totalScore").asInt() : 0;
+
+            certEffect = scoreData.has("certEffect") ? scoreData.get("certEffect").asInt() : 0;
 
             List<CompetencyScoreDetail> competencyScores = new ArrayList<>();
             JsonNode scores = scoreData.get("competencyScores");
@@ -146,11 +150,14 @@ public class DashboardController {
                         displayName = capCodeStr;
                     }
                     competencyScores.add(new CompetencyScoreDetail(
+                            capCodeStr,   // capCode 추가
                             displayName,
                             scoreNode.get("score").asInt(),
                             scoreNode.get("weight").asDouble(),
                             scoreNode.get("contribution").asDouble(),
-                            scoreNode.has("evidence") ? scoreNode.get("evidence").asText() : ""
+                            scoreNode.has("evidence") ? scoreNode.get("evidence").asText() : "",
+                            scoreNode.has("isCore") && scoreNode.get("isCore").asBoolean(),
+                            scoreNode.has("level") ? scoreNode.get("level").asText() : "UNKNOWN"
                     ));
                 }
             }
@@ -165,16 +172,69 @@ public class DashboardController {
             if (improvementsNode != null && improvementsNode.isArray())
                 improvementsNode.forEach(i -> improvements.add(i.asText()));
 
+            Map<String, Double> jobRanking = new java.util.LinkedHashMap<>();
+            JsonNode jobRankingNode = scoreData.get("jobRanking");
+            if (jobRankingNode != null) {
+                jobRankingNode.fields().forEachRemaining(e -> jobRanking.put(e.getKey(), e.getValue().asDouble()));
+            }
+
+
+            Set<String> commonCapCodes = Set.of(
+                    "CERT_MATCH", "LANGUAGE_SCORE", "SOFT_COLLABORATION",
+                    "SOFT_PROBLEM_SOLVING", "WORK_EXPERIENCE", "DOCUMENTATION"
+            );
+
+            List<CompetencyScoreDetail> coreScores = competencyScores.stream()
+                    .filter(c -> c.isCore() && !c.level().equals("UNKNOWN") && c.score() > 0)
+                    .toList();
+
+            List<CompetencyScoreDetail> commonScores = new ArrayList<>();
+            JsonNode compResults = scoreData.get("competencyResults");
+            if (compResults != null && compResults.isArray()) {
+                for (JsonNode cr : compResults) {
+                    String capCode = cr.has("capCode") ? cr.get("capCode").asText() : "";
+                    if (commonCapCodes.contains(capCode) && "depth".equals(cr.get("status").asText())) {
+                        String displayName;
+                        try {
+                            displayName = CapabilityCode.valueOf(capCode).getDescription();
+                        } catch (IllegalArgumentException e) {
+                            displayName = capCode;
+                        }
+                        commonScores.add(new CompetencyScoreDetail(
+                                capCode, displayName, 100, 0.0, 0.0, "", false, "L1_USAGE"
+                        ));
+                    }
+                }
+            }
+
+            List<CompetencyScoreDetail> coreUnknownScores = competencyScores.stream()
+                    .filter(c -> c.isCore() && (c.level().equals("UNKNOWN") || c.score() == 0))
+                    .filter(c -> !commonCapCodes.contains(c.capCode()))
+                    .toList();
+
+            List<CompetencyScoreDetail> nonCoreScores = competencyScores.stream()
+                    .filter(c -> !c.isCore() && !c.level().equals("UNKNOWN") && c.score() > 0)
+                    .filter(c -> !commonCapCodes.contains(c.capCode()))
+                    .toList();
+
             return new PrimaryAssessmentInfo(
                     assessment.getId(),
                     assessment.getEvaluatedJobCode(),
                     job != null ? job.getGroupName() : null,
                     totalScore,
-                    competencyScores,
+                    coreScores,
+                    commonScores,
+                    coreUnknownScores,
+                    nonCoreScores,
                     strengths,
                     improvements,
                     assessment.getCreatedAt(),
-                    assessment.getCapabilityVector() != null ? assessment.getCapabilityVector() : Map.of()
+                    assessment.getCapabilityVector() != null ? assessment.getCapabilityVector() : Map.of(),
+                    assessment.getGrade(),
+                    jobRanking,
+                    job != null ? job.getMeasureType().name() : "TECH_STACK",
+                    certEffect
+
             );
 
         } catch (Exception e) {
@@ -184,9 +244,12 @@ public class DashboardController {
                     assessment.getId(),
                     assessment.getEvaluatedJobCode(),
                     job != null ? job.getGroupName() : null,
-                    0, List.of(), List.of(), List.of(),
+                    0, List.of(), List.of(), List.of(), List.of(),
+                    List.of(), List.of(),
                     assessment.getCreatedAt(),
-                    Map.of()
+                    Map.of(), null, Map.of(),
+                    job != null ? job.getMeasureType().name() : "TECH_STACK",
+                    certEffect
             );
         }
     }
@@ -213,14 +276,23 @@ public class DashboardController {
 
     record PrimaryAssessmentInfo(
             Long id, String evaluatedJobCode, String groupName,
-            int totalScore, List<CompetencyScoreDetail> competencyScores,
+            int totalScore,
+            List<CompetencyScoreDetail> coreScores,
+            List<CompetencyScoreDetail> commonScores,
+            List<CompetencyScoreDetail> coreUnknownScores,
+            List<CompetencyScoreDetail> nonCoreScores,
             List<String> strengths, List<String> improvements,
             LocalDateTime createdAt,
-            Map<String, Double> capabilityVector
+            Map<String, Double> capabilityVector,
+            String grade,
+            Map<String, Double> jobRanking,
+            String measureType,
+            int certEffect
     ) {}
 
     record CompetencyScoreDetail(
-            String name, int score, double weight, double contribution, String evidence
+            String capCode, String name, int score, double weight,
+            double contribution, String evidence, boolean isCore, String level
     ) {}
 
     record AssessmentHistoryItem(
