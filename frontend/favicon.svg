@@ -1,34 +1,33 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<svg width="500" height="500" viewBox="0 0 500 500" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="gradient_pilot" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#6366f1"/>
-      <stop offset="0.5" stop-color="#8b5cf6"/>
-      <stop offset="1" stop-color="#a78bfa"/>
+    <linearGradient id="pilot_grad" x1="0" y1="0" x2="500" y2="500" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#6366f1"/>
+      <stop offset="50%" stop-color="#8b5cf6"/>
+      <stop offset="100%" stop-color="#a78bfa"/>
     </linearGradient>
   </defs>
+  <circle cx="250" cy="250" r="240" fill="url(#pilot_grad)"/>
   
-  <circle cx="12" cy="12" r="12" fill="url(#gradient_pilot)"/>
+  <g stroke="white" stroke-width="15" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="250" cy="250" r="100" />
+    <line x1="250" y1="50" x2="250" y2="150" />
+    <line x1="250" y1="350" x2="250" y2="450" />
+    <line x1="50" y1="250" x2="150" y2="250" />
+    <line x1="350" y1="250" x2="450" y2="250" />
+    <line x1="108.6" y1="108.6" x2="179.3" y2="179.3" />
+    <line x1="320.7" y1="320.7" x2="391.4" y2="391.4" />
+    <line x1="108.6" y1="391.4" x2="179.3" y2="320.7" />
+    <line x1="320.7" y1="108.6" x2="391.4" y2="179.3" />
+  </g>
   
-  <circle cx="12" cy="12" r="6" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="250" cy="50" r="18" fill="white"/>
+  <circle cx="250" cy="450" r="18" fill="white"/>
+  <circle cx="50" cy="250" r="18" fill="white"/>
+  <circle cx="450" cy="250" r="18" fill="white"/>
+  <circle cx="108.6" cy="108.6" r="15" fill="white"/>
+  <circle cx="391.4" cy="391.4" r="15" fill="white"/>
+  <circle cx="108.6" cy="391.4" r="15" fill="white"/>
+  <circle cx="391.4" cy="108.6" r="15" fill="white"/>
   
-  <path d="M12 2V6" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M12 18V22" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M2 12H6" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M18 12H22" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M4.93 4.93L7.76 7.76" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M16.24 16.24L19.07 19.07" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M4.93 19.07L7.76 16.24" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M16.24 7.76L19.07 4.93" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-  
-  <circle cx="12" cy="2" r="1" fill="white"/>
-  <circle cx="12" cy="22" r="1" fill="white"/>
-  <circle cx="2" cy="12" r="1" fill="white"/>
-  <circle cx="22" cy="12" r="1" fill="white"/>
-  <circle cx="4.93" cy="4.93" r="0.8" fill="white"/>
-  <circle cx="19.07" cy="19.07" r="0.8" fill="white"/>
-  <circle cx="4.93" cy="19.07" r="0.8" fill="white"/>
-  <circle cx="19.07" cy="4.93" r="0.8" fill="white"/>
-  
-  <circle cx="12" cy="12" r="1.5" fill="white"/>
+  <circle cx="250" cy="250" r="25" fill="white"/>
 </svg>
