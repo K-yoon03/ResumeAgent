@@ -452,7 +452,9 @@ const Analyzer = ({ setGlobalExperience, setGlobalAnalysis }) => {
             <CardDescription>부족한 항목을 보완하면 더 정확한 평가를 받을 수 있어요</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            {(scoreData?.competencyResults || []).map((comp) => {
+            {(scoreData?.competencyResults || [])
+              .filter((comp) => comp.status !== "empty" || comp.field === "certifications" || comp.field === "language")
+              .map((comp) => {
               const isDepth = comp.status === "depth";
               const isEmpty = comp.status === "empty";
               const isComplex = comp.status === "complex";

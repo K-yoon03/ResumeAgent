@@ -42,8 +42,11 @@ dependencies {
 	//implementation 'org.springframework.ai:spring-ai-ollama-spring-boot-starter'
 
 	// [수정] h2-console은 별도 라이브러리가 아니라 h2 엔진에 포함되어 있습니다.
-	runtimeOnly 'com.h2database:h2'
-	runtimeOnly 'org.postgresql:postgresql' // 🔥 PostgreSQL 추가!
+	//runtimeOnly 'com.h2database:h2'
+	// PostgreSQL
+	implementation 'org.postgresql:postgresql'
+	// pgvector
+	implementation 'com.pgvector:pgvector:0.1.4'
 
 	compileOnly 'org.projectlombok:lombok'
 	annotationProcessor 'org.projectlombok:lombok'
@@ -59,7 +62,7 @@ dependencies {
 	runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.6'
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
 
-	runtimeOnly 'com.mysql:mysql-connector-j'        // MySQL 드라이버
+	//runtimeOnly 'com.mysql:mysql-connector-j'        // MySQL 드라이버
 	implementation 'org.springframework.boot:spring-boot-starter-data-redis'  // Redis
 
 	implementation 'org.springframework.boot:spring-boot-starter-mail'

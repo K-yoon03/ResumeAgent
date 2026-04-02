@@ -24,6 +24,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -35,6 +36,7 @@ public class DepthInterviewService {
     private final ResourceLoader resourceLoader;
     private final ObjectMapper objectMapper;
     private final VectorSimilarityService vectorSimilarityService;
+    private final RagAnchorService ragAnchorService;
 
     /**
      * 심층 질문 생성
@@ -54,11 +56,30 @@ public class DepthInterviewService {
         Resource promptResource = resourceLoader.getResource(promptPath);
         PromptTemplate template = new PromptTemplate(promptResource);
 
+// 관련 역량 코드 추출
+        String rawCodes = JobCapabilityProfile.getRelevantCodeNames(jobCode);
+        List<String> relevantCodes = Arrays.stream(rawCodes.split(",\\s*"))
+                .map(s -> s.contains("(") ? s.substring(0, s.indexOf("(")).trim() : s.trim())
+                .collect(java.util.stream.Collectors.toList());
+
+        System.out.println("=== 파싱된 코드 목록 ===");
+        relevantCodes.forEach(System.out::println);
+
+// 앵커 컨텍스트 조회
+        String anchorContext = ragAnchorService.getAnchorContextForCodes(relevantCodes);
+        String capCodesStr = rawCodes
+                + (anchorContext.isEmpty() ? "" : "\n\n[역량 평가 기준]\n" + anchorContext);
+
+        System.out.println("=== RAG 앵커 컨텍스트 ===");
+        System.out.println(anchorContext.isEmpty() ? "(앵커 없음)" : anchorContext);
+
+
+
         Prompt prompt = template.create(Map.of(
                 "jobName", jobName != null ? jobName : job.getGroupName(),
                 "jobCode", jobCode,
                 "itemName", itemName,
-                "capCodes", JobCapabilityProfile.getRelevantCodeNames(jobCode),
+                "capCodes", capCodesStr,
                 "maxQuestions", "3"
         ));
 
@@ -68,6 +89,8 @@ public class DepthInterviewService {
         JsonNode result = objectMapper.readTree(cleanJson);
         List<String> questions = new ArrayList<>();
         result.get("questions").forEach(q -> questions.add(q.asText()));
+        System.out.println("=== 생성된 질문 ===");
+        questions.forEach(System.out::println);
         return questions;
     }
 
@@ -97,10 +120,20 @@ public class DepthInterviewService {
         // Step 1 - InterviewAnalyzer: 코드별 L1/L2 레벨 + 점수 판정
         Resource analyzerPrompt = resourceLoader.getResource(interviewAnalyzerPath);
         PromptTemplate analyzerTemplate = new PromptTemplate(analyzerPrompt);
+
+        // InterviewAnalyzer에도 앵커 주입
+        String rawCodesForAnalyzer = JobCapabilityProfile.getRelevantCodeNames(assessment.getEvaluatedJobCode());
+        List<String> relevantCodesForAnalyzer = Arrays.stream(rawCodesForAnalyzer.split(",\\s*"))
+                .map(s -> s.contains("(") ? s.substring(0, s.indexOf("(")).trim() : s.trim())
+                .collect(java.util.stream.Collectors.toList());
+        String anchorContext = ragAnchorService.getAnchorContextForCodes(relevantCodesForAnalyzer);
+        String capCodesWithAnchor = rawCodesForAnalyzer
+                + (anchorContext.isEmpty() ? "" : "\n\n[역량 레벨 판단 기준]\n" + anchorContext);
+
         Prompt analyzerPromptObj = analyzerTemplate.create(Map.of(
                 "itemName", depthAnswers.isEmpty() ? "" : depthAnswers.get(0).getOrDefault("itemName", "").toString(),
                 "jobGroup", job.getGroupCode(),
-                "capabilityCodes", JobCapabilityProfile.getRelevantCodeNames(assessment.getEvaluatedJobCode()),
+                "capabilityCodes", capCodesWithAnchor,
                 "qna", depthAnswersText
         ));
 
@@ -110,6 +143,7 @@ public class DepthInterviewService {
 
         System.out.println("=== InterviewAnalyzer 원문 ===");
         System.out.println(analyzerResponse);
+
         // Step 2 - capabilityLevels 파싱 → UserCapability 맵 생성
         Map<String, Map<String, Object>> capabilityLevels = new LinkedHashMap<>();
         Map<CapabilityCode, UserCapability> userCapabilityMap = new LinkedHashMap<>();
@@ -193,7 +227,6 @@ public class DepthInterviewService {
                 improvements.add(capName + ": " + e.getValue().asText());
             });
         }
-        // strengths는 L2_ARCH 역량 코드명으로 자동 생성
         userCapabilityMap.entrySet().stream()
                 .filter(e -> e.getValue().level() == CapabilityLevel.L2_ARCH)
                 .forEach(e -> strengths.add(e.getKey().getDescription() + " 설계 역량 보유"));
@@ -213,7 +246,6 @@ public class DepthInterviewService {
         newScoreData.put("improvements", improvements);
         newScoreData.put("jobRanking", jobRanking);
 
-        // 기존 experiences 유지
         try {
             JsonNode existingScoreData = objectMapper.readTree(assessment.getScoreData());
             if (existingScoreData.has("experiences")) {
@@ -227,7 +259,6 @@ public class DepthInterviewService {
         assessment.setCapabilityLevels(capabilityLevels);
         assessment.setScoreData(objectMapper.writeValueAsString(newScoreData));
 
-        // capabilityVector 업데이트
         Map<String, Double> capVector = new LinkedHashMap<>();
         userCapabilityMap.forEach((code, uc) -> capVector.put(code.name(), uc.score()));
         assessment.setCapabilityVector(capVector);
@@ -254,11 +285,12 @@ public class DepthInterviewService {
         var profileMap = JobCapabilityProfile.JOB_PROFILES.get(groupCode);
         if (profileMap == null) return Collections.emptyMap();
         return profileMap.entrySet().stream()
-                .collect(java.util.stream.Collectors.toMap(
+                .collect(Collectors.toMap(
                         Map.Entry::getKey,
                         e -> e.getValue().weight()
                 ));
     }
+
     private double getCertWeight(Job.MeasureType measureType) {
         return switch (measureType) {
             case TECH_STACK -> 0.05;
