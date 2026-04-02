@@ -29,6 +29,7 @@ public class InterviewOrchestratorService {
     private final AssessmentRepository assessmentRepository;
     private final InterviewDataRepository interviewDataRepository;
     private final JobRepository jobRepository;
+    private final RagAnchorService ragAnchorService;
 
     /**
      * Base 3문항 생성
@@ -77,11 +78,19 @@ public class InterviewOrchestratorService {
                 ? job.getCompetencies().stream().map(c -> c.getCapCode()).reduce("", (a, b) -> a + ", " + b)
                 : "";
 
+        // ↓ 이 부분만 수정
+        String measureType = job != null ? job.getMeasureType().name() : "TECH_STACK";
+        String promptPath = com.kyoon.resumeagent.Capability.PromptPathResolver.interviewAnalyzer(measureType);
+        if (promptPath == null) {
+            // PORTFOLIO, CERT_ONLY는 스킵
+            return objectMapper.readTree("{\"needFollowUp\": false}");
+        }
+
         ChatClient client = ChatClient.builder(chatModel)
-                .defaultOptions(ChatOptions.builder().temperature(0.0).maxTokens(500).build())
+                .defaultOptions(ChatOptions.builder().temperature(0.0).maxTokens(1000).build())
                 .build();
 
-        var prompt = new PromptTemplate(resourceLoader.getResource("classpath:prompts/InterviewAnalyzer.st"))
+        var prompt = new PromptTemplate(resourceLoader.getResource(promptPath))
                 .create(Map.of(
                         "jobGroup", jobGroup,
                         "capabilityCodes", capCodes,
