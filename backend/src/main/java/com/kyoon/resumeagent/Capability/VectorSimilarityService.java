@@ -67,13 +67,14 @@ public class VectorSimilarityService {
             if (userCap == null || jobCap == null) continue;
             if (userCap.score() == 0.0 || jobCap.weight() == 0.0) continue;
 
-            // L2_ARCH 보너스
-            if (userCap.level() == CapabilityLevel.L2_ARCH) totalBonus += 0.1;
-            if (jobCap.isCore()) totalBonus += 0.15;
+            // L3 이상 심화 레벨 보너스
+            if (userCap.level() == CapabilityLevel.L3 || userCap.level() == CapabilityLevel.L4) {
+                totalBonus += 0.1;
+            }
 
             // isCore 보너스
             if (jobCap.isCore()) {
-                totalBonus += 0.5;
+                totalBonus += 0.15;
             }
         }
 

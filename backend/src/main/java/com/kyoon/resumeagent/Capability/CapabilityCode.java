@@ -108,7 +108,66 @@ public enum CapabilityCode {
     WORK_EXPERIENCE("유관 업무 및 실무 경력"),
 
     SOFT_COLLABORATION("팀 프로젝트 및 협업 커뮤니케이션"),
-    SOFT_PROBLEM_SOLVING("트러블슈팅 및 논리적 문제 해결");
+    SOFT_PROBLEM_SOLVING("트러블슈팅 및 논리적 문제 해결"),
+
+    // ── SW 공통 (NCS 응용SW엔지니어링) ──────────────────────
+    SW_REQUIREMENT_ANALYSIS("소프트웨어 요구사항 분석 및 명세"),
+    SW_DESIGN("소프트웨어 아키텍처 및 상세 설계"),
+    SW_TEST("소프트웨어 테스트 설계 및 수행"),
+    SW_MAINTENANCE("소프트웨어 유지보수 및 형상 관리"),
+
+    // ── AI/데이터 (NCS 인공지능개발) ────────────────────────
+    DATA_COLLECTION("데이터 수집 및 파이프라인 구축"),
+    MODEL_EVALUATION("모델 성능 평가 및 검증"),
+    AI_DEPLOYMENT("AI 모델 서빙 및 MLOps"),
+
+    // ── 시스템SW (NCS 임베디드SW개발) ───────────────────────
+    HW_SW_INTEGRATION("하드웨어-소프트웨어 연동 및 인터페이스"),
+    RTOS("실시간 운영체제(RTOS) 기반 개발"),
+    DRIVER_DEV("디바이스 드라이버 개발"),
+
+    // ── 게임 (NCS 게임프로그래밍) ───────────────────────────
+    GAME_LOGIC("게임 로직 및 시스템 구현"),
+    GAME_UI("게임 엔진 기반 UI 구현"),
+    GAME_NETWORK("게임 네트워크 및 멀티플레이 구현"),
+
+    // ── 인프라/보안 (NCS 정보시스템운영/정보보호관리운영) ────
+    DEVOPS_PIPELINE("CI/CD 파이프라인 구축 및 자동화"),
+    MONITORING("시스템 모니터링 및 장애 탐지"),
+    INCIDENT_RESPONSE("보안 사고 대응 및 포렌식"),
+
+    // ── 반도체SW (NCS 임베디드SW개발/자동제어) ──────────────
+    HW_INTERFACE("장비 인터페이스 및 통신 프로토콜 연동"),
+    REALTIME_CONTROL("실시간 제어 시스템 설계 및 구현"),
+
+    // ── 반도체공정 (NCS 반도체공정기술) ─────────────────────
+    YIELD_ANALYSIS("수율 분석 및 불량 패턴 도출"),
+    PROCESS_IMPROVEMENT("공정 개선 및 최적화 실행"),
+
+    // ── 전기/자동화 (NCS 자동제어) ──────────────────────────
+    CONTROL_LOGIC("제어 로직 설계 및 시뮬레이션"),
+    SYSTEM_INTEGRATION("자동화 시스템 통합 및 시운전"),
+
+    // ── 기계 (NCS 기계설계) ──────────────────────────────────
+    TOLERANCE_ANALYSIS("공차 분석 및 조립 검토"),
+    MATERIAL_SELECTION("재료 선정 및 물성 분석"),
+
+    // ── 바이오/제약 (NCS 바이오의약품제조) ──────────────────
+    BIO_PROCESS("바이오 공정 운영 및 스케일업"),
+    VALIDATION("공정/장비/분석법 밸리데이션"),
+
+    // ── 건축 (NCS 건축설계) ──────────────────────────────────
+    SITE_ANALYSIS("부지 분석 및 법규 검토"),
+    COST_ESTIMATION("물량 산출 및 공사비 추정"),
+
+    // ── 항공 (NCS 항공정비) ──────────────────────────────────
+    MAINTENANCE_PROCESS("항공기 정비 절차 수행 및 기록"),
+    SAFETY_MANAGEMENT("항공 안전 관리 및 위험 평가"),
+
+    // ── 비즈니스 (NCS 경영기획) ──────────────────────────────
+    MARKET_ANALYSIS("시장 조사 및 경쟁사 분석"),
+    BUSINESS_MODEL("사업 모델 설계 및 수익 구조 기획"),
+    FINANCIAL_ANALYSIS("재무제표 분석 및 투자 타당성 검토");
 
     private final String description;
 

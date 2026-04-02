@@ -169,14 +169,14 @@ public class DepthInterviewService {
             });
         }
 
-        // Step 3 - grade 판정
-        long l2Count = userCapabilityMap.values().stream()
-                .filter(uc -> uc.level() == CapabilityLevel.L2_ARCH)
+        // Step 3 - grade 판정 (L3 이상 비율 50% 이상이면 PROFESSIONER)
+        long advancedCount = userCapabilityMap.values().stream()
+                .filter(uc -> uc.level() == CapabilityLevel.L3 || uc.level() == CapabilityLevel.L4)
                 .count();
         long totalCount = userCapabilityMap.values().stream()
                 .filter(uc -> uc.level() != CapabilityLevel.valueOf("UNKNOWN") && uc.score() > 0)
                 .count();
-        String grade = (totalCount > 0 && (double) l2Count / totalCount >= 0.5)
+        String grade = (totalCount > 0 && (double) advancedCount / totalCount >= 0.5)
                 ? "PROFESSIONER" : "TECHNICIAN";
         assessment.setGrade(grade);
 
@@ -228,8 +228,8 @@ public class DepthInterviewService {
             });
         }
         userCapabilityMap.entrySet().stream()
-                .filter(e -> e.getValue().level() == CapabilityLevel.L2_ARCH)
-                .forEach(e -> strengths.add(e.getKey().getDescription() + " 설계 역량 보유"));
+                .filter(e -> e.getValue().level() == CapabilityLevel.L3 || e.getValue().level() == CapabilityLevel.L4)
+                .forEach(e -> strengths.add(e.getKey().getDescription() + " 심화 역량 보유"));
 
         // Step 7 - scoreData 구성 및 저장
         Map<String, Object> newScoreData = new LinkedHashMap<>();
