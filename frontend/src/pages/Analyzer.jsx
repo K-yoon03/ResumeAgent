@@ -17,7 +17,7 @@ const CACHE_KEY = (text) => {
   return `analysis_${CACHE_VERSION}_${hash}`;
 };
 
-const Analyzer = ({ setGlobalExperience, setGlobalAnalysis }) => {
+const Analyzer = () => {
   const navigate = useNavigate();
   const { user, refreshCredits, refreshUser } = useAuth();
   const [targetJob, setTargetJob] = useState("");

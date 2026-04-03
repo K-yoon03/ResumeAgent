@@ -11,7 +11,6 @@ import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.util.MimeType;
 import org.springframework.util.MimeTypeUtils;
-import com.kyoon.resumeagent.Capability.CapabilityCode;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 

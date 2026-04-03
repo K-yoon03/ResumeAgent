@@ -82,30 +82,41 @@ public class RagAnchorService {
      * 여러 capabilityCode → 앵커 컨텍스트 합산
      */
     public String getAnchorContextForCodes(List<String> capabilityCodes) {
+        System.out.println("[RAG] getAnchorContextForCodes 호출 - codes: " + capabilityCodes);
         StringBuilder sb = new StringBuilder();
         for (String code : capabilityCodes) {
-            String ctx = getAnchorContext(code.trim()); // ← trim() 추가
+            String ctx = getAnchorContext(code.trim());
             if (!ctx.isEmpty()) {
+                System.out.println("[RAG] 앵커 조회 성공: " + code);
                 sb.append(ctx).append("\n---\n");
+            } else {
+                System.out.println("[RAG] 앵커 조회 실패 (빈값): " + code);
             }
         }
-        return sb.toString().trim();
+        String result = sb.toString().trim();
+        System.out.println("[RAG] 최종 컨텍스트 길이: " + result.length());
+        return result;
     }
 
     private String buildContext(String content, String anchorsJson, String questionsJson) {
         StringBuilder sb = new StringBuilder();
         try {
-            // L1~L4 앵커 요약
             JsonNode anchors = objectMapper.readTree(anchorsJson);
             sb.append("[레벨 기준]\n");
             List.of("L1", "L2", "L3", "L4").forEach(level -> {
                 JsonNode node = anchors.get(level);
-                if (node != null && node.has("summary")) {
-                    sb.append(level).append(": ").append(node.get("summary").asText()).append("\n");
+                if (node != null) {
+                    if (node.has("summary")) {
+                        sb.append(level).append(": ").append(node.get("summary").asText()).append("\n");
+                    }
+                    if (node.has("criteria") && node.get("criteria").isArray()) {
+                        node.get("criteria").forEach(c ->
+                                sb.append("  - ").append(c.asText()).append("\n")
+                        );
+                    }
                 }
             });
 
-            // 면접 질문 샘플
             JsonNode questions = objectMapper.readTree(questionsJson);
             if (questions.isArray() && questions.size() > 0) {
                 sb.append("[참고 질문 예시]\n");
@@ -114,7 +125,6 @@ public class RagAnchorService {
                 }
             }
         } catch (Exception e) {
-            // 파싱 실패 시 content만 반환
             return content;
         }
         return sb.toString();

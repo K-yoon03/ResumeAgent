@@ -41,59 +41,6 @@ public class DepthInterviewService {
     /**
      * 심층 질문 생성
      */
-    public List<String> generateQuestions(String jobCode, String jobName, String itemName, String itemType, String reason) throws Exception {
-        Job job = jobRepository.findByGroupCode(jobCode)
-                .orElseThrow(() -> new RuntimeException("Job not found: " + jobCode));
-
-        ChatClient client = ChatClient.builder(chatModel)
-                .defaultOptions(ChatOptions.builder().temperature(0.7).maxTokens(500).build())
-                .build();
-
-        String promptPath = PromptPathResolver.depth(job.getMeasureType().name());
-        if (promptPath == null) {
-            throw new RuntimeException("DepthInterview not supported for measureType: " + job.getMeasureType());
-        }
-        Resource promptResource = resourceLoader.getResource(promptPath);
-        PromptTemplate template = new PromptTemplate(promptResource);
-
-// 관련 역량 코드 추출
-        String rawCodes = JobCapabilityProfile.getRelevantCodeNames(jobCode);
-        List<String> relevantCodes = Arrays.stream(rawCodes.split(",\\s*"))
-                .map(s -> s.contains("(") ? s.substring(0, s.indexOf("(")).trim() : s.trim())
-                .collect(java.util.stream.Collectors.toList());
-
-        System.out.println("=== 파싱된 코드 목록 ===");
-        relevantCodes.forEach(System.out::println);
-
-// 앵커 컨텍스트 조회
-        String anchorContext = ragAnchorService.getAnchorContextForCodes(relevantCodes);
-        String capCodesStr = rawCodes
-                + (anchorContext.isEmpty() ? "" : "\n\n[역량 평가 기준]\n" + anchorContext);
-
-        System.out.println("=== RAG 앵커 컨텍스트 ===");
-        System.out.println(anchorContext.isEmpty() ? "(앵커 없음)" : anchorContext);
-
-
-
-        Prompt prompt = template.create(Map.of(
-                "jobName", jobName != null ? jobName : job.getGroupName(),
-                "jobCode", jobCode,
-                "itemName", itemName,
-                "capCodes", capCodesStr,
-                "maxQuestions", "3"
-        ));
-
-        String response = client.prompt(prompt).call().content();
-        String cleanJson = response.trim().replaceAll("```json", "").replaceAll("```", "").trim();
-
-        JsonNode result = objectMapper.readTree(cleanJson);
-        List<String> questions = new ArrayList<>();
-        result.get("questions").forEach(q -> questions.add(q.asText()));
-        System.out.println("=== 생성된 질문 ===");
-        questions.forEach(System.out::println);
-        return questions;
-    }
-
     /**
      * 최종 점수 계산
      */

@@ -2,7 +2,7 @@ package com.kyoon.resumeagent.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.kyoon.resumeagent.Capability.JobCapabilityProfile;
+import com.kyoon.resumeagent.repository.JobRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;
@@ -22,6 +22,7 @@ public class ExperienceMatcherService {
     private final ChatModel chatModel;
     private final ResourceLoader resourceLoader;
     private final ObjectMapper objectMapper;
+    private final JobRepository jobRepository;
 
     public record MatchResult(String jobCode, double confidence, String reason, boolean noMatch) {}
 
@@ -48,7 +49,7 @@ public class ExperienceMatcherService {
         double confidence = result.get("confidence").asDouble();
         String reason = result.get("reason").asText();
 
-        if ("NO_MATCH".equals(jobCode) || !JobCapabilityProfile.JOB_PROFILES.containsKey(jobCode)) {
+        if ("NO_MATCH".equals(jobCode) || !jobRepository.existsByGroupCode(jobCode)) {
             return new MatchResult("NO_MATCH", 0.0, reason, true);
         }
 
@@ -57,28 +58,9 @@ public class ExperienceMatcherService {
 
     private String buildJobsDescription() {
         StringBuilder sb = new StringBuilder();
-        JobCapabilityProfile.JOB_PROFILES.forEach((groupCode, weights) -> {
-            String groupName = switch (groupCode) {
-                case "SW_WEB" -> "웹/앱 개발";
-                case "SW_AI" -> "AI/데이터 엔지니어링";
-                case "SW_SYSTEM" -> "시스템/임베디드/IoT";
-                case "SW_GAME" -> "게임/인터랙티브 콘텐츠";
-                case "SW_SPATIAL" -> "공간정보/디지털트윈";
-                case "SECURITY_CLOUD" -> "보안/클라우드/네트워크";
-                case "SEMI_SW" -> "반도체SW/제어";
-                case "SEMI_PROCESS" -> "반도체 공정/장비";
-                case "ELEC_AUTO" -> "전기/자동화";
-                case "MECHANIC" -> "기계/설계";
-                case "BIO_PHARMA" -> "바이오/의약";
-                case "ARCHITECTURE" -> "건축/토목";
-                case "AVIATION" -> "항공/모빌리티";
-                case "BUSINESS" -> "경영/비즈니스";
-                case "DESIGN_MEDIA" -> "디자인/미디어";
-                case "SERVICE_HUMAN" -> "서비스/인문";
-                default -> groupCode;
-            };
-            sb.append(String.format("- %s (%s)\n", groupCode, groupName));
-        });
+        jobRepository.findAll().forEach(job ->
+                sb.append(String.format("- %s (%s)%n", job.getGroupCode(), job.getGroupName()))
+        );
         return sb.toString();
     }
 }

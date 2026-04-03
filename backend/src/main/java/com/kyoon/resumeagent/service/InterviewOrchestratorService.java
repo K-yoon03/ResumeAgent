@@ -12,10 +12,12 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.prompt.ChatOptions;
-import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.chat.prompt.PromptTemplate;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Service;
+import com.kyoon.resumeagent.Capability.JobCapabilityProfile;
+import java.util.Arrays;
+import java.util.stream.Collectors;
 
 import java.util.*;
 
@@ -40,9 +42,18 @@ public class InterviewOrchestratorService {
         Job job = jobRepository.findByGroupCode(assessment.getEvaluatedJobCode()).orElse(null);
 
         String jobGroup = job != null ? job.getGroupName() : assessment.getEvaluatedJobCode();
-        String capCodes = job != null
-                ? job.getCompetencies().stream().map(c -> c.getCapCode()).reduce("", (a, b) -> a + ", " + b)
+
+        // RAG 앵커 주입
+        String rawCodes = job != null
+                ? JobCapabilityProfile.getRelevantCodeNames(assessment.getEvaluatedJobCode())
                 : "";
+        List<String> relevantCodes = Arrays.stream(rawCodes.split(",\\s*"))
+                .map(s -> s.contains("(") ? s.substring(0, s.indexOf("(")).trim() : s.trim())
+                .filter(s -> !s.isEmpty())
+                .collect(Collectors.toList());
+        String anchorContext = ragAnchorService.getAnchorContextForCodes(relevantCodes);
+        String capCodesWithAnchor = rawCodes
+                + (anchorContext.isEmpty() ? "" : "\n\n[역량 레벨 판단 기준]\n" + anchorContext);
 
         ChatClient client = ChatClient.builder(chatModel)
                 .defaultOptions(ChatOptions.builder().temperature(0.4).maxTokens(500).build())
@@ -51,7 +62,7 @@ public class InterviewOrchestratorService {
         var prompt = new PromptTemplate(resourceLoader.getResource("classpath:prompts/BaseInterview.st"))
                 .create(Map.of(
                         "jobGroup", jobGroup,
-                        "capabilityCodes", capCodes,
+                        "capabilityCodes", capCodesWithAnchor,
                         "itemName", itemName,
                         "itemType", ""
                 ));
@@ -64,7 +75,6 @@ public class InterviewOrchestratorService {
         node.get("questions").forEach(q -> questions.add(q.asText()));
         return questions;
     }
-
     /**
      * 답변 분석 → 추가 질문 필요 여부 + followUpTarget 반환
      */
@@ -123,6 +133,13 @@ public class InterviewOrchestratorService {
                 .system(systemPrompt)
                 .user("추가 질문을 생성해주세요.")
                 .call().content();
+    }
+
+    /**
+     * 인터뷰 데이터 초기화 (final 제출 전 호출)
+     */
+    public void deleteInterviewDataByAssessmentId(Long assessmentId) {
+        interviewDataRepository.deleteByAssessmentId(assessmentId);
     }
 
     /**

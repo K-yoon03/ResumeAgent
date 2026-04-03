@@ -69,25 +69,9 @@ public class AssessmentController {
             @AuthenticationPrincipal UserDetails userDetails) {
         try {
             ExperienceMatcherService.MatchResult result = experienceMatcherService.matchFromExperience(request.experience());
-            String jobName = switch (result.jobCode()) {
-                case "SW_WEB" -> "웹/앱 개발";
-                case "SW_AI" -> "AI/데이터 엔지니어링";
-                case "SW_SYSTEM" -> "시스템/임베디드/IoT";
-                case "SW_GAME" -> "게임/인터랙티브 콘텐츠";
-                case "SW_SPATIAL" -> "공간정보/디지털트윈";
-                case "SECURITY_CLOUD" -> "보안/클라우드/네트워크";
-                case "SEMI_SW" -> "반도체SW/제어";
-                case "SEMI_PROCESS" -> "반도체 공정/장비";
-                case "ELEC_AUTO" -> "전기/자동화";
-                case "MECHANIC" -> "기계/설계";
-                case "BIO_PHARMA" -> "바이오/의약";
-                case "ARCHITECTURE" -> "건축/토목";
-                case "AVIATION" -> "항공/모빌리티";
-                case "BUSINESS" -> "경영/비즈니스";
-                case "DESIGN_MEDIA" -> "디자인/미디어";
-                case "SERVICE_HUMAN" -> "서비스/인문";
-                default -> result.jobCode();
-            };
+            String jobName = jobRepository.findByGroupCode(result.jobCode())
+                    .map(job -> job.getGroupName())
+                    .orElse(result.jobCode());
             return ResponseEntity.ok(new MatchJobResponse(
                     result.jobCode(),
                     jobName,

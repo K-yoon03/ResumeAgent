@@ -170,22 +170,77 @@ public class DataInitializer implements ApplicationRunner {
     private static record JobGroupMeta(String groupName, String category, String description, Job.MeasureType measureType) {
         static JobGroupMeta of(String groupCode) {
             return switch (groupCode) {
-                case "SW_WEB"         -> new JobGroupMeta("웹/앱 개발", "IT", "백엔드/프론트엔드 웹 및 앱 개발", Job.MeasureType.TECH_STACK);
-                case "SW_AI"          -> new JobGroupMeta("AI/데이터 엔지니어링", "IT", "머신러닝, 딥러닝, 데이터 분석", Job.MeasureType.TECH_STACK);
-                case "SW_SYSTEM"      -> new JobGroupMeta("시스템/임베디드/IoT", "IT", "시스템 프로그래밍, 임베디드, IoT", Job.MeasureType.TECH_STACK);
-                case "SW_GAME"        -> new JobGroupMeta("게임/인터랙티브 콘텐츠", "IT", "게임 개발, VR/AR 콘텐츠 제작", Job.MeasureType.TECH_STACK);
-                case "SW_SPATIAL"     -> new JobGroupMeta("공간정보/디지털트윈", "IT", "GIS, 공간데이터, 디지털트윈", Job.MeasureType.TECH_STACK);
-                case "SECURITY_CLOUD" -> new JobGroupMeta("보안/클라우드/네트워크", "IT", "사이버보안, 클라우드 인프라, 네트워크", Job.MeasureType.TECH_STACK);
-                case "SEMI_SW"        -> new JobGroupMeta("반도체SW/제어", "제조", "반도체 장비SW, 디지털 제어", Job.MeasureType.TECH_STACK);
-                case "SEMI_PROCESS"   -> new JobGroupMeta("반도체 공정/장비", "제조", "반도체 공정, 테스트, 장비정비", Job.MeasureType.TROUBLESHOOTING);
-                case "ELEC_AUTO"      -> new JobGroupMeta("전기/자동화", "제조", "전기설비, 스마트팩토리, 자동화", Job.MeasureType.TROUBLESHOOTING);
-                case "MECHANIC"       -> new JobGroupMeta("기계/설계", "제조", "기계설계, CAD/CAM, 로봇", Job.MeasureType.DESIGN_INTENT);
-                case "BIO_PHARMA"     -> new JobGroupMeta("바이오/의약", "바이오", "바이오의약품, AI헬스케어, 화학생명", Job.MeasureType.TROUBLESHOOTING);
-                case "ARCHITECTURE"   -> new JobGroupMeta("건축/토목", "건설", "건축설계, 실내건축, 토목", Job.MeasureType.DESIGN_INTENT);
-                case "AVIATION"       -> new JobGroupMeta("항공/모빌리티", "항공", "항공정비, 객실서비스, 항공경영", Job.MeasureType.DESIGN_INTENT);
-                case "BUSINESS"       -> new JobGroupMeta("경영/비즈니스", "경영", "디지털마케팅, 경영정보, 핀테크", Job.MeasureType.KPI);
-                case "DESIGN_MEDIA"   -> new JobGroupMeta("디자인/미디어", "디자인", "시각디자인, 미디어콘텐츠, 산업디자인", Job.MeasureType.PORTFOLIO);
-                case "SERVICE_HUMAN"  -> new JobGroupMeta("서비스/인문", "서비스", "관광, 세무회계, 사회복지", Job.MeasureType.CERT_ONLY);
+                // ── SW 웹 ───────────────────────────────────────────
+                case "SW_WEB_BE"   -> new JobGroupMeta("백엔드 개발", "IT", "Spring Boot, Java 기반 서버 개발", Job.MeasureType.TECH_STACK);
+                case "SW_WEB_FE"   -> new JobGroupMeta("프론트엔드 개발", "IT", "React, TypeScript 기반 UI 개발", Job.MeasureType.TECH_STACK);
+                case "SW_WEB_DB"   -> new JobGroupMeta("데이터베이스 엔지니어링", "IT", "DB 설계, 쿼리 최적화, DBA", Job.MeasureType.TECH_STACK);
+                case "SW_WEB_API"  -> new JobGroupMeta("API/MSA 개발", "IT", "REST/GraphQL API 설계, MSA 아키텍처", Job.MeasureType.TECH_STACK);
+
+                // ── SW AI ───────────────────────────────────────────
+                case "SW_AI_MODEL"   -> new JobGroupMeta("AI/ML 모델링", "IT", "딥러닝 모델 설계 및 학습", Job.MeasureType.TECH_STACK);
+                case "SW_AI_DATA"    -> new JobGroupMeta("데이터 엔지니어링", "IT", "데이터 수집, 전처리, 파이프라인 구축", Job.MeasureType.TECH_STACK);
+                case "SW_AI_SERVICE" -> new JobGroupMeta("AI 서비스 개발", "IT", "AI 모델 서빙, MLOps, API 개발", Job.MeasureType.TECH_STACK);
+
+                // ── SW 시스템 ────────────────────────────────────────
+                case "SW_SYSTEM_EMBEDDED" -> new JobGroupMeta("임베디드 SW 개발", "IT", "C/C++ 임베디드, RTOS, 드라이버 개발", Job.MeasureType.TECH_STACK);
+                case "SW_SYSTEM_NETWORK"  -> new JobGroupMeta("네트워크 SW 개발", "IT", "네트워크 프로토콜, 저수준 프로그래밍", Job.MeasureType.TECH_STACK);
+                case "SW_SYSTEM_OS"       -> new JobGroupMeta("시스템 SW 개발", "IT", "Linux 커널, 시스템 프로그래밍", Job.MeasureType.TECH_STACK);
+
+                // ── SW 게임 ─────────────────────────────────────────
+                case "SW_GAME_CLIENT"   -> new JobGroupMeta("게임 클라이언트 개발", "IT", "Unity/Unreal 기반 게임 클라이언트", Job.MeasureType.TECH_STACK);
+                case "SW_GAME_SERVER"   -> new JobGroupMeta("게임 서버 개발", "IT", "게임 서버 아키텍처, 멀티플레이어 구현", Job.MeasureType.TECH_STACK);
+                case "SW_GAME_GRAPHIC"  -> new JobGroupMeta("게임 그래픽/VR", "IT", "3D 모델링, 렌더링, VR/AR 콘텐츠", Job.MeasureType.TECH_STACK);
+                case "SW_GAME_PLANNING" -> new JobGroupMeta("게임 기획", "IT", "게임 시스템 설계 및 기획", Job.MeasureType.DESIGN_INTENT);
+
+                // ── SW 공간정보 ──────────────────────────────────────
+                case "SW_SPATIAL_GIS"      -> new JobGroupMeta("GIS 개발", "IT", "GIS, 공간 데이터 처리", Job.MeasureType.TECH_STACK);
+                case "SW_SPATIAL_ANALYSIS" -> new JobGroupMeta("공간정보 분석", "IT", "디지털트윈, 공간 데이터 분석", Job.MeasureType.TECH_STACK);
+
+                // ── 인프라/보안 ──────────────────────────────────────
+                case "INF_CLOUD_ARCH"      -> new JobGroupMeta("클라우드 아키텍처", "IT", "클라우드 네이티브 설계, AWS/GCP", Job.MeasureType.TECH_STACK);
+                case "INF_DEVOPS"          -> new JobGroupMeta("DevOps/SRE", "IT", "CI/CD, 컨테이너, 모니터링", Job.MeasureType.TECH_STACK);
+                case "INF_SECURITY_APP"    -> new JobGroupMeta("웹/앱 보안", "IT", "웹 취약점 점검, 모의해킹", Job.MeasureType.TECH_STACK);
+                case "INF_SECURITY_SYSTEM" -> new JobGroupMeta("시스템 보안", "IT", "시스템 보안, 악성코드 분석", Job.MeasureType.TECH_STACK);
+                case "INF_SECURITY_NETWORK"-> new JobGroupMeta("네트워크 보안", "IT", "네트워크 보안, 암호학, PKI", Job.MeasureType.TECH_STACK);
+
+                // ── 반도체 SW ────────────────────────────────────────
+                case "ENG_SEMI_FW"      -> new JobGroupMeta("반도체 장비SW", "제조", "SECS/GEM, 장비 인터페이스, 펌웨어", Job.MeasureType.TECH_STACK);
+                case "ENG_SEMI_CONTROL" -> new JobGroupMeta("반도체 제어SW", "제조", "PLC, RTOS, 실시간 제어 시스템", Job.MeasureType.TECH_STACK);
+
+                // ── 반도체 공정 ──────────────────────────────────────
+                case "ENG_SEMI_PROCESS" -> new JobGroupMeta("반도체 공정", "제조", "8대 공정, 클린룸, SOP, 설비 PM", Job.MeasureType.TROUBLESHOOTING);
+                case "ENG_SEMI_YIELD"   -> new JobGroupMeta("반도체 수율", "제조", "수율 분석, 불량 원인 분석 및 개선", Job.MeasureType.TROUBLESHOOTING);
+
+                // ── 전기/자동화 ──────────────────────────────────────
+                case "ENG_AUTO_CONTROL" -> new JobGroupMeta("자동화 제어", "제조", "PLC 제어, 전장 설계, SCADA", Job.MeasureType.TROUBLESHOOTING);
+                case "ENG_AUTO_ROBOT"   -> new JobGroupMeta("산업용 로봇", "제조", "로봇 티칭, 자동화 라인 구축", Job.MeasureType.TROUBLESHOOTING);
+                case "ENG_AUTO_PROCESS" -> new JobGroupMeta("공정 최적화", "제조", "생산 공정 최적화, 스마트팩토리", Job.MeasureType.TROUBLESHOOTING);
+
+                // ── 기계 ────────────────────────────────────────────
+                case "ENG_MECH_DESIGN"      -> new JobGroupMeta("기계 설계", "제조", "CAD 기반 기구 설계 및 도면 작성", Job.MeasureType.DESIGN_INTENT);
+                case "ENG_MECH_ANALYSIS"    -> new JobGroupMeta("기계 해석", "제조", "CAE 구조/유동 해석, 공차 분석", Job.MeasureType.DESIGN_INTENT);
+                case "ENG_MECH_PRODUCTION"  -> new JobGroupMeta("기계 생산/품질", "제조", "CNC 가공, 품질 관리, 공정 설계", Job.MeasureType.TROUBLESHOOTING);
+
+                // ── 바이오/제약 ──────────────────────────────────────
+                case "SCI_BIO_PROCESS"  -> new JobGroupMeta("바이오 공정", "바이오", "바이오의약품 공정 개발 및 스케일업", Job.MeasureType.TROUBLESHOOTING);
+                case "SCI_BIO_QC"       -> new JobGroupMeta("바이오 품질관리", "바이오", "GMP, 품질 보증, 밸리데이션", Job.MeasureType.TROUBLESHOOTING);
+                case "SCI_BIO_ANALYSIS" -> new JobGroupMeta("바이오 분석", "바이오", "바이오인포매틱스, AI 신약 개발", Job.MeasureType.TECH_STACK);
+
+                // ── 건축 ────────────────────────────────────────────
+                case "ENG_ARCH_DESIGN"      -> new JobGroupMeta("건축 설계", "건설", "건축 설계 의도 도출, 공간 기획", Job.MeasureType.DESIGN_INTENT);
+                case "ENG_ARCH_BIM"         -> new JobGroupMeta("BIM 설계", "건설", "BIM 기반 통합 설계 관리", Job.MeasureType.TECH_STACK);
+                case "ENG_ARCH_REGULATION"  -> new JobGroupMeta("건축 인허가", "건설", "건축법, 소방법, 인허가 대응", Job.MeasureType.TROUBLESHOOTING);
+
+                // ── 항공 ────────────────────────────────────────────
+                case "ENG_AVI_MAINT"    -> new JobGroupMeta("항공 정비", "항공", "MRO, NDT, 정비 절차 수행", Job.MeasureType.TROUBLESHOOTING);
+                case "ENG_AVI_QUALITY"  -> new JobGroupMeta("항공 품질/운항", "항공", "정비 품질 보증, 항공 운항 관리", Job.MeasureType.TROUBLESHOOTING);
+
+                // ── 비즈니스 ────────────────────────────────────────
+                case "BIZ_STRATEGY"  -> new JobGroupMeta("경영 전략", "경영", "신사업 기획, 비즈니스 전략 수립", Job.MeasureType.KPI);
+                case "BIZ_MARKETING" -> new JobGroupMeta("디지털 마케팅", "경영", "퍼포먼스 마케팅, SEO, 데이터 분석", Job.MeasureType.KPI);
+                case "BIZ_SALES"     -> new JobGroupMeta("영업/세일즈", "경영", "B2B/B2C 영업, CRM 운영", Job.MeasureType.KPI);
+                case "BIZ_DATA"      -> new JobGroupMeta("비즈니스 분석", "경영", "데이터 기반 의사결정, KPI 분석", Job.MeasureType.KPI);
+
                 default -> new JobGroupMeta(groupCode, "기타", "", Job.MeasureType.TECH_STACK);
             };
         }

@@ -26,15 +26,12 @@ public class AnalyzerService {
     ) {}
 
     private final ChatClient chatClient;
-    private final InputCleanerService cleanerService;
 
     @Value("classpath:/prompts/analyzer/Analyzer.st")
     private Resource analyzerPromptResource;
 
-    public AnalyzerService(ChatClient.Builder builder,
-                           InputCleanerService cleanerService) {
+    public AnalyzerService(ChatClient.Builder builder) {
         this.chatClient = builder.build();
-        this.cleanerService = cleanerService;
     }
 
     public Flux<String> analyzeExperienceStream(String experience) {

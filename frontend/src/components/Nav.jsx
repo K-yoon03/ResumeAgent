@@ -4,7 +4,7 @@ import { Button } from "./ui/button";
 import { Moon, Sun, User, ChevronDown, Settings, Coins, BarChart2, FileText, MessageSquare, LayoutDashboard, Building2 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import CareerPilotHelmIcon from './CareerPilotHelmIcon';
-import jobCodeMap from '../MappingTable/jobCodeMap.json';
+import jobCodeMap from '../MappingTable/JobCodeMap.json';
 
 const getGrade = (score) => {
   if (!score) return null;

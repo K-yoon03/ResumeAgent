@@ -12,6 +12,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 public class WebConfig implements WebMvcConfigurer {
 
     private final CreditInterceptor creditInterceptor;
+    private final RateLimitInterceptor rateLimitInterceptor;
 
     @Override
     public void addCorsMappings(CorsRegistry registry) {
@@ -19,11 +20,14 @@ public class WebConfig implements WebMvcConfigurer {
                 .allowedOrigins("http://localhost:5173")
                 .allowedMethods("*")
                 .allowedHeaders("*")
-                .exposedHeaders("Content-Type"); // 스트림 전용 헤더 노출
+                .exposedHeaders("Content-Type");
     }
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
+        registry.addInterceptor(rateLimitInterceptor)
+                .addPathPatterns("/api/**");
+
         registry.addInterceptor(creditInterceptor)
                 .addPathPatterns(
                         "/api/v1/agent/analyze",      // 역량 분석
@@ -35,14 +39,14 @@ public class WebConfig implements WebMvcConfigurer {
                 )
                 .excludePathPatterns(
                         "/api/auth/**",               // 인증 관련
-                        "/api/v1/agent/score",        // 역량 점수
-                        "/api/v1/agent/parse-job-posting", // 🔥 매직페이스트
-                        "/api/v1/agent/parse-job-posting-image", // 🔥 이미지 파싱
-                        "/api/projects/**",           // 🔥 프로젝트 전체 제외 (내부에서 차감)
-                        "/api/resume",                // 목록 조회
-                        "/api/resume/*",              // 🔥 상세 조회 + evaluate (내부에서 차감)
-                        "/api/interview",             // 면접 목록
-                        "/api/job-postings/**"        // 채용공고
+                        "/api/v1/agent/score",
+                        "/api/v1/agent/parse-job-posting",
+                        "/api/v1/agent/parse-job-posting-image",
+                        "/api/projects/**",
+                        "/api/resume",
+                        "/api/resume/*",
+                        "/api/interview",
+                        "/api/job-postings/**"
                 );
     }
 }

@@ -7,17 +7,7 @@ import { ArrowLeft, Trash2, MessageCircle } from "lucide-react";
 import { BASE_URL } from '../config';
 import { toast } from "sonner";
 import jobCodeMap from '../MappingTable/JobCodeMap.json';
-
-const CAP_CODE_MAP = {
-  BE_LANG: "백엔드 언어", BE_FRAMEWORK: "백엔드 프레임워크", FE_LANG: "프론트엔드 언어",
-  FE_FRAMEWORK: "프론트엔드 프레임워크", DB: "데이터베이스", API_DESIGN: "API 설계",
-  CS_FUNDAMENTAL: "CS 기초", PYTHON: "Python", ML_FRAMEWORK: "ML 프레임워크",
-  DATA_PROCESSING: "데이터 처리", ML_MODELING: "ML 모델링", MATH_STATS: "수학/통계",
-  DATA_VIZ: "데이터 시각화", TROUBLESHOOTING: "트러블슈팅", TEAM_PROJECT: "팀 프로젝트",
-  STRATEGY_PLANNING: "전략 기획", FINTECH: "핀테크", ERP_CRM: "ERP/CRM",
-  KPI_RESULT: "KPI 성과", DIGITAL_MARKETING: "디지털 마케팅", DATA_DRIVEN: "데이터 기반 의사결정",
-  DOCUMENTATION: "문서화",
-};
+import capCodeMap from '../MappingTable/capCodeMap.json';
 
 const getGrade = (score) => {
   if (score >= 95) return "S";
@@ -66,9 +56,9 @@ function AssessmentDetail() {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) setAssessment(await res.json());
-      else navigate("/assessments");
+      else navigate("/my-assessments");
     } catch {
-      navigate("/assessments");
+      navigate("/my-assessments");
     } finally {
       setLoading(false);
     }
@@ -83,7 +73,7 @@ function AssessmentDetail() {
       });
       if (res.ok) {
         toast.success("역량평가가 삭제되었습니다.");
-        navigate("/assessments");
+        navigate("/my-assessments");
       }
     } catch {
       toast.error("삭제에 실패했습니다.");
@@ -119,7 +109,7 @@ function AssessmentDetail() {
 
       {/* 헤더 */}
       <div className="flex items-center justify-between">
-        <button onClick={() => navigate("/assessments")}
+        <button onClick={() => navigate("/my-assessments")}
           className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
           <ArrowLeft className="h-4 w-4" />나의 역량평가
         </button>
@@ -168,7 +158,7 @@ function AssessmentDetail() {
           </CardHeader>
           <CardContent className="space-y-4">
             {competencyScores.map((comp, idx) => {
-              const name = CAP_CODE_MAP[comp.capCode] || comp.name || comp.capCode;
+              const name = capCodeMap[comp.capCode] || comp.name || comp.capCode;
               const compGrade = getGrade(comp.score);
               return (
                 <div key={idx} className="space-y-1.5">
