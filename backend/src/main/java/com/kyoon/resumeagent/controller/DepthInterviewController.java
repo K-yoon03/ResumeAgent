@@ -81,7 +81,7 @@ public class DepthInterviewController {
 
     // ── 인터뷰 완료 → 데이터 추출 + 저장 + 점수 계산 ──
     public record FinalRequest(List<Map<String, Object>> items) {}
-    public record FinalResponse(Long id, String evaluatedJobCode, String scoreData, Boolean isPrimary) {}
+    public record FinalResponse(Long id, String evaluatedJobCode, String scoreData, Boolean isPrimary, String grade) {}
 
     @Transactional
     @PostMapping("/{id}/interview/final")
@@ -105,12 +105,13 @@ public class DepthInterviewController {
                     assessment.getId(),
                     assessment.getEvaluatedJobCode(),
                     assessment.getScoreData(),
-                    assessment.getIsPrimary()
+                    assessment.getIsPrimary(),
+                    assessment.getGrade()
             ));
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.internalServerError()
-                    .body(new FinalResponse(null, null, e.getMessage(), null));
+                    .body(new FinalResponse(null, null, e.getMessage(), null, null));
         }
     }
 

@@ -93,7 +93,7 @@ public class InterviewOrchestratorService {
         String promptPath = com.kyoon.resumeagent.Capability.PromptPathResolver.interviewAnalyzer(measureType);
         if (promptPath == null) {
             // PORTFOLIO, CERT_ONLY는 스킵
-            return objectMapper.readTree("{\"needFollowUp\": false}");
+            return objectMapper.readTree("{\"needsFollowUp\": false}");
         }
 
         ChatClient client = ChatClient.builder(chatModel)

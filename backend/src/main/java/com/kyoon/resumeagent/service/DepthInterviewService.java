@@ -140,6 +140,9 @@ public class DepthInterviewService {
             if (uc.level() == CapabilityLevel.valueOf("UNKNOWN") || uc.score() == 0.0) {
                 continue;
             }
+            if (!weights.containsKey(code)) {
+                continue;
+            }
             double weight = weights.getOrDefault(code, 0.0);
             double scoreScaled = Math.round(uc.score() * 100.0);
             double contribution = Math.round(scoreScaled * weight * 10.0) / 10.0;
@@ -186,6 +189,7 @@ public class DepthInterviewService {
         double certEffect = certWeight * relevance;
         int finalScore = (int) Math.min(Math.round((totalScore + certEffect) * 100), 100);
         newScoreData.put("totalScore", finalScore);
+        newScoreData.put("grade", grade);
         newScoreData.put("certEffect", Math.round(certEffect * 100));
         newScoreData.put("competencyScores", competencyScores);
         newScoreData.put("isFinal", true);
