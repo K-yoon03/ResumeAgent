@@ -52,11 +52,8 @@ public class DepthInterviewService {
         Job job = jobRepository.findByGroupCode(assessment.getEvaluatedJobCode())
                 .orElseThrow(() -> new RuntimeException("Job not found"));
 
-        // PORTFOLIO, CERT_ONLY는 InterviewAnalyzer 스킵
-        String interviewAnalyzerPath = PromptPathResolver.interviewAnalyzer(job.getMeasureType().name());
-        if (interviewAnalyzerPath == null) {
-            return assessmentRepository.save(assessment);
-        }
+        String jobCode = assessment.getEvaluatedJobCode();
+        String interviewAnalyzerPath = PromptPathResolver.interviewAnalyzer(jobCode);
 
         String depthAnswersText = buildDepthAnswersText(depthAnswers);
 
@@ -64,24 +61,25 @@ public class DepthInterviewService {
                 .defaultOptions(ChatOptions.builder().temperature(0.0).maxTokens(1500).build())
                 .build();
 
-        // Step 1 - InterviewAnalyzer: 코드별 L1/L2 레벨 + 점수 판정
+        // Step 1 - InterviewAnalyzer: capability별 evidence 추출 + 레벨 판정
         Resource analyzerPrompt = resourceLoader.getResource(interviewAnalyzerPath);
         PromptTemplate analyzerTemplate = new PromptTemplate(analyzerPrompt);
 
-        // InterviewAnalyzer에도 앵커 주입
-        String rawCodesForAnalyzer = JobCapabilityProfile.getRelevantCodeNames(assessment.getEvaluatedJobCode());
+        String rawCodesForAnalyzer = JobCapabilityProfile.getRelevantCodeNames(jobCode);
         List<String> relevantCodesForAnalyzer = Arrays.stream(rawCodesForAnalyzer.split(",\\s*"))
                 .map(s -> s.contains("(") ? s.substring(0, s.indexOf("(")).trim() : s.trim())
+                .filter(s -> !s.isEmpty())
                 .collect(java.util.stream.Collectors.toList());
         String anchorContext = ragAnchorService.getAnchorContextForCodes(relevantCodesForAnalyzer);
-        String capCodesWithAnchor = rawCodesForAnalyzer
-                + (anchorContext.isEmpty() ? "" : "\n\n[역량 레벨 판단 기준]\n" + anchorContext);
+        String userInput = assessment.getExperience() != null ? assessment.getExperience() : "";
 
         Prompt analyzerPromptObj = analyzerTemplate.create(Map.of(
-                "itemName", depthAnswers.isEmpty() ? "" : depthAnswers.get(0).getOrDefault("itemName", "").toString(),
-                "jobGroup", job.getGroupCode(),
-                "capabilityCodes", capCodesWithAnchor,
-                "qna", depthAnswersText
+                "jobName", job.getGroupName(),
+                "jobCode", jobCode,
+                "capabilityList", rawCodesForAnalyzer,
+                "userInput", userInput,
+                "qnaText", depthAnswersText,
+                "anchorContext", anchorContext
         ));
 
         String analyzerResponse = client.prompt(analyzerPromptObj).call().content();
@@ -91,28 +89,34 @@ public class DepthInterviewService {
         System.out.println("=== InterviewAnalyzer 원문 ===");
         System.out.println(analyzerResponse);
 
-        // Step 2 - capabilityLevels 파싱 → UserCapability 맵 생성
+        // Step 2 - capabilities 파싱 → covered/not-covered 분리
         Map<String, Map<String, Object>> capabilityLevels = new LinkedHashMap<>();
         Map<CapabilityCode, UserCapability> userCapabilityMap = new LinkedHashMap<>();
         Map<CapabilityCode, Double> weights = getWeightsFromProfile(job.getGroupCode());
 
-        JsonNode levelsNode = analyzerNode.get("capabilityLevels");
-        if (levelsNode != null) {
-            levelsNode.fields().forEachRemaining(entry -> {
+        JsonNode capabilitiesNode = analyzerNode.get("capabilities");
+        if (capabilitiesNode != null) {
+            capabilitiesNode.fields().forEachRemaining(entry -> {
                 String codeName = entry.getKey();
                 JsonNode val = entry.getValue();
 
+                boolean covered = val.has("covered") && val.get("covered").asBoolean(false);
+                int rawScore = val.has("score") ? val.get("score").asInt(0) : 0;
+                String levelStr = val.has("level") ? val.get("level").asText("") : "";
+
                 Map<String, Object> levelData = new LinkedHashMap<>();
-                levelData.put("level", val.get("level").asText());
-                levelData.put("score", val.get("score").asDouble());
+                levelData.put("covered", covered);
+                levelData.put("score", rawScore / 100.0);
+                if (!levelStr.isEmpty()) levelData.put("level", levelStr);
                 capabilityLevels.put(codeName, levelData);
 
-                try {
-                    CapabilityCode code = CapabilityCode.valueOf(codeName);
-                    CapabilityLevel level = CapabilityLevel.valueOf(val.get("level").asText("UNKNOWN"));
-                    double score = val.get("score").asDouble(0.0);
-                    userCapabilityMap.put(code, new UserCapability(score, level));
-                } catch (IllegalArgumentException ignored) {}
+                if (covered && rawScore > 0 && !levelStr.isEmpty()) {
+                    try {
+                        CapabilityCode code = CapabilityCode.valueOf(codeName);
+                        CapabilityLevel level = CapabilityLevel.valueOf(levelStr);
+                        userCapabilityMap.put(code, new UserCapability(rawScore / 100.0, level));
+                    } catch (IllegalArgumentException ignored) {}
+                }
             });
         }
 
@@ -121,7 +125,7 @@ public class DepthInterviewService {
                 .filter(uc -> uc.level() == CapabilityLevel.L3 || uc.level() == CapabilityLevel.L4)
                 .count();
         long totalCount = userCapabilityMap.values().stream()
-                .filter(uc -> uc.level() != CapabilityLevel.valueOf("UNKNOWN") && uc.score() > 0)
+                .filter(uc -> uc.score() > 0)
                 .count();
         String grade = (totalCount > 0 && (double) advancedCount / totalCount >= 0.5)
                 ? "PROFESSIONER" : "TECHNICIAN";
@@ -130,30 +134,33 @@ public class DepthInterviewService {
         // Step 4 - 직군 매칭 점수 계산
         Map<String, Double> jobRanking = vectorSimilarityService.rankJobs(userCapabilityMap);
 
-        // Step 5 - capabilityLevels → competencyScores + totalScore 변환
+        // Step 5 - Depth Score / Coverage 계산 (분리된 2축)
         List<Map<String, Object>> competencyScores = new ArrayList<>();
-        double totalScore = 0.0;
+        double coveredWeightSum = 0.0;   // coverage 분자
+        double totalWeightSum = 0.0;     // coverage 분모
+        double weightedScoreSum = 0.0;   // depthScore 분자
+
+        // 전체 weight 합산 (분모)
+        for (Map.Entry<CapabilityCode, Double> wEntry : weights.entrySet()) {
+            totalWeightSum += wEntry.getValue();
+        }
 
         for (Map.Entry<CapabilityCode, UserCapability> entry : userCapabilityMap.entrySet()) {
             CapabilityCode code = entry.getKey();
             UserCapability uc = entry.getValue();
-            if (uc.level() == CapabilityLevel.valueOf("UNKNOWN") || uc.score() == 0.0) {
-                continue;
-            }
-            if (!weights.containsKey(code)) {
-                continue;
-            }
-            double weight = weights.getOrDefault(code, 0.0);
-            double scoreScaled = Math.round(uc.score() * 100.0);
-            double contribution = Math.round(scoreScaled * weight * 10.0) / 10.0;
-            totalScore += uc.score() * weight;
+            if (!weights.containsKey(code)) continue;
+
+            double weight = weights.get(code);
+            double scoreScaled = uc.score() * 100.0;
+
+            coveredWeightSum += weight;
+            weightedScoreSum += uc.score() * weight;
 
             Map<String, Object> detail = new LinkedHashMap<>();
             detail.put("capCode", code.name());
             detail.put("name", code.getDescription());
-            detail.put("score", (int) scoreScaled);
+            detail.put("score", (int) Math.round(scoreScaled));
             detail.put("weight", weight);
-            detail.put("contribution", contribution);
             detail.put("level", uc.level().name());
             detail.put("isCore", JobCapabilityProfile.JOB_PROFILES
                     .getOrDefault(assessment.getEvaluatedJobCode(), Map.of())
@@ -161,6 +168,16 @@ public class DepthInterviewService {
                     .isCore());
             competencyScores.add(detail);
         }
+
+        // depthScore = Σ(score × weight) / Σ(covered weight) — 언급된 역량 내 깊이
+        int depthScore = coveredWeightSum > 0
+                ? (int) Math.min(Math.round(weightedScoreSum / coveredWeightSum * 100), 100)
+                : 0;
+
+        // coverage = Σ(covered weight) / Σ(total weight) — 역량 범위 커버율
+        double coverage = totalWeightSum > 0
+                ? Math.round(coveredWeightSum / totalWeightSum * 100.0) / 100.0
+                : 0.0;
 
         // Step 6 - strengths/weakFields 파싱
         List<String> strengths = new ArrayList<>();
@@ -183,14 +200,10 @@ public class DepthInterviewService {
 
         // Step 7 - scoreData 구성 및 저장
         Map<String, Object> newScoreData = new LinkedHashMap<>();
-        double certWeight = getCertWeight(job.getMeasureType());
-        String certStatus = getCertStatus(assessment);
-        double relevance = "depth".equals(certStatus) ? 1.0 : "complex".equals(certStatus) ? 0.3 : 0.0;
-        double certEffect = certWeight * relevance;
-        int finalScore = (int) Math.min(Math.round((totalScore + certEffect) * 100), 100);
-        newScoreData.put("totalScore", finalScore);
+        newScoreData.put("depthScore", depthScore);   // 언급된 역량 내 깊이 (0~100)
+        newScoreData.put("coverage", coverage);        // 역량 커버율 (0.0~1.0)
+        newScoreData.put("totalScore", depthScore);    // 하위호환: Dashboard 등 기존 참조용
         newScoreData.put("grade", grade);
-        newScoreData.put("certEffect", Math.round(certEffect * 100));
         newScoreData.put("competencyScores", competencyScores);
         newScoreData.put("isFinal", true);
         newScoreData.put("strengths", strengths);
@@ -242,13 +255,12 @@ public class DepthInterviewService {
                 ));
     }
 
-    private double getCertWeight(Job.MeasureType measureType) {
-        return switch (measureType) {
-            case TECH_STACK -> 0.05;
-            case TROUBLESHOOTING, DESIGN_INTENT, KPI -> 0.15;
-            case PORTFOLIO -> 0.10;
-            case CERT_ONLY -> 0.40;
-        };
+    private double getCertWeight(String jobCode) {
+        // 자격증 가중치: BIZ/ENG 계열은 높게, SW/INF는 낮게
+        if (jobCode == null) return 0.05;
+        if (jobCode.startsWith("BIZ_")) return 0.15;
+        if (jobCode.startsWith("ENG_") || jobCode.startsWith("SCI_")) return 0.15;
+        return 0.05; // SW_, INF_ 계열
     }
 
     private String buildDepthAnswersText(List<Map<String, Object>> depthAnswers) {

@@ -16,9 +16,10 @@ import org.springframework.ai.chat.prompt.PromptTemplate;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Service;
 import com.kyoon.resumeagent.Capability.JobCapabilityProfile;
+import com.kyoon.resumeagent.Capability.PromptPathResolver;
+
 import java.util.Arrays;
 import java.util.stream.Collectors;
-
 import java.util.*;
 
 @Service
@@ -39,14 +40,13 @@ public class InterviewOrchestratorService {
     public List<String> generateBaseQuestions(Long assessmentId, String itemName) throws Exception {
         Assessment assessment = assessmentRepository.findById(assessmentId)
                 .orElseThrow(() -> new RuntimeException("Assessment not found"));
-        Job job = jobRepository.findByGroupCode(assessment.getEvaluatedJobCode()).orElse(null);
 
-        String jobGroup = job != null ? job.getGroupName() : assessment.getEvaluatedJobCode();
+        String jobCode = assessment.getEvaluatedJobCode();
+        Job job = jobRepository.findByGroupCode(jobCode).orElse(null);
+        String jobGroup = job != null ? job.getGroupName() : jobCode;
 
         // RAG 앵커 주입
-        String rawCodes = job != null
-                ? JobCapabilityProfile.getRelevantCodeNames(assessment.getEvaluatedJobCode())
-                : "";
+        String rawCodes = JobCapabilityProfile.getRelevantCodeNames(jobCode);
         List<String> relevantCodes = Arrays.stream(rawCodes.split(",\\s*"))
                 .map(s -> s.contains("(") ? s.substring(0, s.indexOf("(")).trim() : s.trim())
                 .filter(s -> !s.isEmpty())
@@ -55,16 +55,17 @@ public class InterviewOrchestratorService {
         String capCodesWithAnchor = rawCodes
                 + (anchorContext.isEmpty() ? "" : "\n\n[역량 레벨 판단 기준]\n" + anchorContext);
 
+        String promptPath = PromptPathResolver.baseInterview(jobCode);
+
         ChatClient client = ChatClient.builder(chatModel)
                 .defaultOptions(ChatOptions.builder().temperature(0.4).maxTokens(500).build())
                 .build();
 
-        var prompt = new PromptTemplate(resourceLoader.getResource("classpath:prompts/BaseInterview.st"))
+        var prompt = new PromptTemplate(resourceLoader.getResource(promptPath))
                 .create(Map.of(
                         "jobGroup", jobGroup,
                         "capabilityCodes", capCodesWithAnchor,
-                        "itemName", itemName,
-                        "itemType", ""
+                        "itemName", itemName
                 ));
 
         String response = client.prompt(prompt).call().content();
@@ -75,37 +76,44 @@ public class InterviewOrchestratorService {
         node.get("questions").forEach(q -> questions.add(q.asText()));
         return questions;
     }
+
     /**
-     * 답변 분석 → 추가 질문 필요 여부 + followUpTarget 반환
+     * 답변 분석 → capability별 레벨 판정 + followUp 여부 반환
+     * userInput: Assessment에서 가져온 원본 경험 텍스트 (evidence 보완용)
      */
     public JsonNode analyzeAnswers(Long assessmentId, String itemName, String qnaJson) throws Exception {
         Assessment assessment = assessmentRepository.findById(assessmentId)
                 .orElseThrow(() -> new RuntimeException("Assessment not found"));
-        Job job = jobRepository.findByGroupCode(assessment.getEvaluatedJobCode()).orElse(null);
 
-        String jobGroup = job != null ? job.getGroupName() : assessment.getEvaluatedJobCode();
-        String capCodes = job != null
-                ? job.getCompetencies().stream().map(c -> c.getCapCode()).reduce("", (a, b) -> a + ", " + b)
-                : "";
+        String jobCode = assessment.getEvaluatedJobCode();
+        Job job = jobRepository.findByGroupCode(jobCode).orElse(null);
+        String jobName = job != null ? job.getGroupName() : jobCode;
 
-        // ↓ 이 부분만 수정
-        String measureType = job != null ? job.getMeasureType().name() : "TECH_STACK";
-        String promptPath = com.kyoon.resumeagent.Capability.PromptPathResolver.interviewAnalyzer(measureType);
-        if (promptPath == null) {
-            // PORTFOLIO, CERT_ONLY는 스킵
-            return objectMapper.readTree("{\"needsFollowUp\": false}");
-        }
+        // capability 목록 (anchor 포함)
+        String rawCodes = JobCapabilityProfile.getRelevantCodeNames(jobCode);
+        List<String> relevantCodes = Arrays.stream(rawCodes.split(",\\s*"))
+                .map(s -> s.contains("(") ? s.substring(0, s.indexOf("(")).trim() : s.trim())
+                .filter(s -> !s.isEmpty())
+                .collect(Collectors.toList());
+        String anchorContext = ragAnchorService.getAnchorContextForCodes(relevantCodes);
+
+        // userInput: Assessment의 원본 경험 텍스트 (experience 컬럼)
+        String userInput = assessment.getExperience() != null ? assessment.getExperience() : "";
+
+        String promptPath = PromptPathResolver.interviewAnalyzer(jobCode);
 
         ChatClient client = ChatClient.builder(chatModel)
-                .defaultOptions(ChatOptions.builder().temperature(0.0).maxTokens(1000).build())
+                .defaultOptions(ChatOptions.builder().temperature(0.0).maxTokens(1500).build())
                 .build();
 
         var prompt = new PromptTemplate(resourceLoader.getResource(promptPath))
                 .create(Map.of(
-                        "jobGroup", jobGroup,
-                        "capabilityCodes", capCodes,
-                        "itemName", itemName,
-                        "qna", qnaJson
+                        "jobName", jobName,
+                        "jobCode", jobCode,
+                        "capabilityList", rawCodes,
+                        "userInput", userInput,
+                        "qnaText", qnaJson,
+                        "anchorContext", anchorContext
                 ));
 
         String response = client.prompt(prompt).call().content();
@@ -117,6 +125,28 @@ public class InterviewOrchestratorService {
      * 추가 질문 1개 생성 (followUpTarget 기반)
      */
     public String generateFollowUpQuestion(String itemName, String followUpTarget, String weakReason) throws Exception {
+        // 특수문자 이스케이프 (따옴표/개행이 JSON 직렬화 오류 유발)
+        itemName = itemName != null
+                ? itemName.replace("\"", "'")
+                .replace("\r\n", " ")
+                .replace("\n", " ")
+                .replace("\r", "")
+                : "";
+
+        followUpTarget = followUpTarget != null
+                ? followUpTarget.replace("\"", "'")
+                .replace("\r\n", " ")
+                .replace("\n", " ")
+                .replace("\r", "")
+                : "";
+
+        weakReason = weakReason != null
+                ? weakReason.replace("\"", "'")
+                .replace("\r\n", " ")
+                .replace("\n", " ")
+                .replace("\r", "")
+                : "";
+
         ChatClient client = ChatClient.builder(chatModel)
                 .defaultOptions(ChatOptions.builder().temperature(0.4).maxTokens(200).build())
                 .build();
@@ -166,10 +196,8 @@ public class InterviewOrchestratorService {
         String clean = response.trim().replaceAll("```json", "").replaceAll("```", "").trim();
         JsonNode node = objectMapper.readTree(clean);
 
-        // tech 배열 → JSON 문자열
         String techJson = node.has("tech") ? objectMapper.writeValueAsString(node.get("tech")) : "[]";
 
-        // 기존 데이터 있으면 삭제 후 재저장
         interviewDataRepository.findByAssessmentIdOrderByCreatedAtAsc(assessmentId).stream()
                 .filter(d -> d.getItemName().equals(itemName))
                 .forEach(d -> interviewDataRepository.delete(d));
