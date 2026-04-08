@@ -8,6 +8,7 @@ import { Building2, Briefcase, FileText, Star, Sparkles, ChevronDown, ChevronUp 
 import { BASE_URL } from '../config';
 import { useAuth } from '@/context/AuthContext';
 import { MagicPaste } from '@/components/MagicPaste';
+import PostingModal from './PostingModal';
 
 const CompanyNew = () => {
   const navigate = useNavigate();
@@ -19,6 +20,8 @@ const CompanyNew = () => {
   // 공고 관련 state
   const [showPosting, setShowPosting] = useState(false);
   const [magicPasteOpen, setMagicPasteOpen] = useState(false);
+  const [pendingParsed, setPendingParsed] = useState(null); // MagicPaste 후 모달용
+  const [savedCompanyId, setSavedCompanyId] = useState(null);
   const [postingForm, setPostingForm] = useState({
     position: "",
     mainTasks: "",
@@ -33,18 +36,8 @@ const CompanyNew = () => {
   const inputClass = "w-full px-4 py-2.5 rounded-lg border border-input text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[var(--gradient-mid)]/50 focus:border-[var(--gradient-mid)] transition-all bg-background text-foreground";
 
   const handleParsed = (json) => {
-    setPostingForm({
-      position: json.position || "",
-      mainTasks: json.mainTasks || "",
-      requirements: json.requirements || "",
-      preferred: json.preferred || "",
-      techStack: json.techStack || "",
-      workPlace: json.workPlace || "",
-      employmentType: json.employmentType || "",
-    });
-    setRawText(JSON.stringify(json));
-    setShowPosting(true);
-    toast.success("공고 내용이 자동으로 채워졌어요!");
+    setMagicPasteOpen(false);
+    setPendingParsed(typeof json === "string" ? JSON.parse(json) : json);
   };
 
   const hasPostingContent = Object.values(postingForm).some(v => v.trim());

@@ -8,7 +8,7 @@ import Footer from './components/Footer';
 import ProtectedRoute from './components/ProtectedRoute';
 
 import Landing from './pages/Landing';
-import { DashboardPage } from './pages/Dashboard';
+import { DashboardPage } from './pages/DashboardPage';
 import Analyzer from './pages/Analyzer';
 import MyAssessments from './pages/MyAssessments';
 import AssessmentDetail from './pages/AssessmentDetail';
@@ -26,6 +26,7 @@ import MyPage from './pages/MyPage';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import OAuth2Callback from './pages/OAuth2Callback';
+import PostingDetail from './pages/PostingDetail';
 
 import './App.css';
 
@@ -53,6 +54,7 @@ function App() {
           <Route path="/resume/:id" element={<ProtectedRoute><ResumeViewer /></ProtectedRoute>} />
           <Route path="/interview" element={<ProtectedRoute><InterviewAgent /></ProtectedRoute>} />
           <Route path="/interview/advanced" element={<AdvancedInterview />} />
+          <Route path="/companies/:companyId/postings/:postingId" element={<ProtectedRoute><PostingDetail /></ProtectedRoute>} />
           <Route path="/my-interviews" element={<ProtectedRoute><MyInterviews /></ProtectedRoute>} />
           <Route path="/my-assessments" element={<ProtectedRoute><MyAssessments /></ProtectedRoute>} />
           <Route path="/assessments/:id" element={<ProtectedRoute><AssessmentDetail /></ProtectedRoute>} />

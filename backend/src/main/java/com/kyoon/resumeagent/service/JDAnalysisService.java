@@ -50,12 +50,13 @@ public class JDAnalysisService {
                 })
                 .collect(Collectors.joining("\n"));
 
-        // Step 3: 앵커 주입 + evidence 추출 + 레벨 판정 (단일 프롬프트)
+        // Step 3: 단일 호출로 meta + capabilities 동시 파싱
         String anchorContext = ragAnchorService.getAnchorContextForCodes(capCodes);
-        Map<String, CapabilityRequirement> requirements =
+        EvaluatorResult evalResult =
                 runCapabilityEvaluator(jdText, allowedCapabilities, anchorContext);
 
-        return new JDProfile(jobCode, jobCodeResult.confidence(), requirements);
+        return new JDProfile(jobCode, jobCodeResult.confidence(),
+                evalResult.capabilities(), evalResult.requiredExperience(), evalResult.requiredEducation());
     }
 
     // ─────────────────────────────────────────────
@@ -83,7 +84,7 @@ public class JDAnalysisService {
     // Step 2: capability 평가 (evidence + level + score 단일 패스)
     // ─────────────────────────────────────────────
 
-    private Map<String, CapabilityRequirement> runCapabilityEvaluator(
+    private EvaluatorResult runCapabilityEvaluator(
             String jdText, String allowedCapabilities, String anchorContext) throws Exception {
 
         ChatClient client = ChatClient.builder(chatModel)
@@ -102,10 +103,22 @@ public class JDAnalysisService {
         log.debug("[JDCapabilityEvaluator] raw: {}", response);
 
         JsonNode root = objectMapper.readTree(clean(response));
-        Map<String, CapabilityRequirement> result = new LinkedHashMap<>();
 
-        root.fields().forEachRemaining(e -> {
+        // meta 파싱
+        String exp = "UNKNOWN", edu = "UNKNOWN";
+        if (root.has("meta")) {
+            JsonNode meta = root.get("meta");
+            exp = meta.path("requiredExperience").asText("UNKNOWN");
+            edu = meta.path("requiredEducation").asText("UNKNOWN");
+        }
+
+        // capabilities 파싱 (신규 구조: root.capabilities, 구버전 호환: root 직접)
+        JsonNode capNode = root.has("capabilities") ? root.get("capabilities") : root;
+        Map<String, CapabilityRequirement> result = new LinkedHashMap<>();
+        capNode.fields().forEachRemaining(e -> {
+            if (e.getKey().equals("meta")) return; // meta 키 스킵
             JsonNode v = e.getValue();
+            if (!v.has("requiredLevel")) return;
             result.put(e.getKey(), new CapabilityRequirement(
                     v.get("requiredLevel").asText(),
                     v.get("score").asDouble(),
@@ -114,8 +127,14 @@ public class JDAnalysisService {
             ));
         });
 
-        return result;
+        return new EvaluatorResult(result, exp, edu);
     }
+
+    private record EvaluatorResult(
+            Map<String, CapabilityRequirement> capabilities,
+            String requiredExperience,
+            String requiredEducation
+    ) {}
 
     // ─────────────────────────────────────────────
     // Util
@@ -135,7 +154,9 @@ public class JDAnalysisService {
     public record JDProfile(
             String jobCode,
             double confidence,
-            Map<String, CapabilityRequirement> capabilities
+            Map<String, CapabilityRequirement> capabilities,
+            String requiredExperience,
+            String requiredEducation
     ) {}
 
     public record CapabilityRequirement(

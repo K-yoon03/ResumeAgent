@@ -13,6 +13,7 @@ import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.Map;
 
 @Service
@@ -24,7 +25,8 @@ public class ExperienceMatcherService {
     private final ObjectMapper objectMapper;
     private final JobRepository jobRepository;
 
-    public record MatchResult(String jobCode, double confidence, String reason, boolean noMatch) {}
+    public record TopMatch(String jobCode, double confidence) {}
+    public record MatchResult(String jobCode, double confidence, String reason, boolean noMatch, List<TopMatch> topMatches) {}
 
     public MatchResult matchFromExperience(String experience) throws Exception {
         ChatClient client = ChatClient.builder(chatModel)
@@ -49,11 +51,24 @@ public class ExperienceMatcherService {
         double confidence = result.get("confidence").asDouble();
         String reason = result.get("reason").asText();
 
-        if ("NO_MATCH".equals(jobCode) || !jobRepository.existsByGroupCode(jobCode)) {
-            return new MatchResult("NO_MATCH", 0.0, reason, true);
+        // topMatches 파싱
+        List<TopMatch> topMatches = new java.util.ArrayList<>();
+        JsonNode topMatchesNode = result.get("topMatches");
+        if (topMatchesNode != null && topMatchesNode.isArray()) {
+            for (JsonNode node : topMatchesNode) {
+                String code = node.path("jobCode").asText();
+                double conf = node.path("confidence").asDouble();
+                if (!code.isBlank() && jobRepository.existsByGroupCode(code)) {
+                    topMatches.add(new TopMatch(code, conf));
+                }
+            }
         }
 
-        return new MatchResult(jobCode, confidence, reason, false);
+        if ("NO_MATCH".equals(jobCode) || !jobRepository.existsByGroupCode(jobCode)) {
+            return new MatchResult("NO_MATCH", 0.0, reason, true, topMatches);
+        }
+
+        return new MatchResult(jobCode, confidence, reason, false, topMatches);
     }
 
     private String buildJobsDescription() {

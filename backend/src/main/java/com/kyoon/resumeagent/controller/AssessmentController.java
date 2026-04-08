@@ -56,8 +56,11 @@ public class AssessmentController {
             double confidence,
             boolean isTemporary,
             boolean noMatch,
-            String reason
+            String reason,
+            List<TopMatchResponse> topMatches
     ) {}
+
+    public record TopMatchResponse(String jobCode, String jobName, double confidence) {}
 
     // ========================================
     // JobMatcher - 경험 기반 직무 자동 추론
@@ -72,18 +75,26 @@ public class AssessmentController {
             String jobName = jobRepository.findByGroupCode(result.jobCode())
                     .map(job -> job.getGroupName())
                     .orElse(result.jobCode());
+
+            List<TopMatchResponse> topMatches = (result.topMatches() != null)
+                    ? result.topMatches().stream()
+                    .map(m -> new TopMatchResponse(
+                            m.jobCode(),
+                            jobRepository.findByGroupCode(m.jobCode())
+                                    .map(j -> j.getGroupName()).orElse(m.jobCode()),
+                            m.confidence()
+                    ))
+                    .toList()
+                    : List.of();
+
             return ResponseEntity.ok(new MatchJobResponse(
-                    result.jobCode(),
-                    jobName,
-                    "AUTO",
-                    result.confidence(),
-                    false,
-                    result.noMatch(),
-                    result.reason()
+                    result.jobCode(), jobName, "AUTO",
+                    result.confidence(), false, result.noMatch(),
+                    result.reason(), topMatches
             ));
         } catch (Exception e) {
             return ResponseEntity.ok(new MatchJobResponse(
-                    "SW_WEB", "SW_WEB", "FALLBACK", 0.5, false, false, ""
+                    "SW_WEB", "SW_WEB", "FALLBACK", 0.5, false, false, "", List.of()
             ));
         }
     }

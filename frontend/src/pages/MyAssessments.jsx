@@ -7,6 +7,7 @@ import { usePaginatedSearch } from '../hooks/usePaginatedSearch';
 import { BASE_URL } from '../config';
 import { toast } from "sonner";
 import jobCodeMap from '../MappingTable/JobCodeMap.json';
+import { getGrade, getGradeColor, getGradeMent } from '../lib/Gradeutils';
 
 function MyAssessments() {
   const navigate = useNavigate();
@@ -63,30 +64,6 @@ function MyAssessments() {
     if (!dateStr) return "";
     const d = new Date(dateStr);
     return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`;
-  };
-
-  const getGrade = (score) => {
-    if (score >= 95) return "S";
-    if (score >= 90) return "A+";
-    if (score >= 85) return "A";
-    if (score >= 80) return "A-";
-    if (score >= 75) return "B+";
-    if (score >= 70) return "B";
-    if (score >= 65) return "B-";
-    if (score >= 60) return "C+";
-    if (score >= 55) return "C";
-    return "C-";
-  };
-
-  const getPercentile = (score) => {
-    if (score >= 95) return "상위 3%";
-    if (score >= 90) return "상위 5%";
-    if (score >= 85) return "상위 10%";
-    if (score >= 80) return "상위 15%";
-    if (score >= 75) return "상위 25%";
-    if (score >= 70) return "상위 35%";
-    if (score >= 65) return "상위 50%";
-    return "상위 60%";
   };
 
   const getTotalScore = (scoreDataStr) => {
@@ -162,7 +139,6 @@ function MyAssessments() {
           const globalIdx = (page - 1) * 10 + idx + 1;
           const totalScore = getTotalScore(assessment.scoreData);
           const grade = totalScore != null ? getGrade(totalScore) : null;
-          const percentile = totalScore != null ? getPercentile(totalScore) : null;
           const vector = assessment.capabilityVector || {};
           const topCodes = Object.entries(vector)
             .filter(([_, v]) => v > 0)
@@ -198,21 +174,25 @@ function MyAssessments() {
 
                     {/* 점수 / 등급 */}
                     {totalScore != null ? (
-                      <div className="flex items-center gap-3 flex-wrap">
-                        <span className="text-2xl font-bold text-foreground">{totalScore}점</span>
-                        <span className="text-sm font-semibold px-2.5 py-1 rounded-lg bg-[var(--gradient-mid)]/10 text-[var(--gradient-mid)]">
-                          {grade}
-                        </span>
-                        <span className="text-sm text-muted-foreground">{percentile}</span>
-                        {assessment.grade && (
-                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                            assessment.grade === "PROFESSIONER"
-                              ? "bg-yellow-500/15 text-yellow-500"
-                              : "bg-blue-500/15 text-blue-500"
-                          }`}>
-                            {assessment.grade}
+                      <div className="space-y-1.5">
+                        <div className="flex items-center gap-3 flex-wrap">
+                          <span className="text-2xl font-bold text-foreground">{totalScore}점</span>
+                          <span className={`text-sm font-bold px-2.5 py-1 rounded-lg bg-gradient-to-r ${getGradeColor(grade)} text-white`}>
+                            {grade}
                           </span>
-                        )}
+                          {assessment.grade && (
+                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                              assessment.grade === "PROFESSIONER"
+                                ? "bg-yellow-500/15 text-yellow-500"
+                                : "bg-blue-500/15 text-blue-500"
+                            }`}>
+                              {assessment.grade}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {getGradeMent(grade, assessment.grade)}
+                        </p>
                       </div>
                     ) : (
                       <p className="text-sm text-muted-foreground">점수 정보 없음</p>

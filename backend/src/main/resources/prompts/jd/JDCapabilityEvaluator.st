@@ -47,5 +47,13 @@ IMPORTANT scoring discipline:
 
 == Output Format ==
 Respond ONLY with a valid JSON object. No explanation, no markdown, no code block.
-Include ONLY capabilities that have evidence in the JD. Omit capabilities with no evidence.
+The JSON must have two top-level keys: "meta" and "capabilities".
+
+"meta" contains:
+- requiredExperience: one of "ENTRY" (신입/경력무관) | "JUNIOR" (1~2년) | "MIDLEVEL" (3~5년) | "SENIOR" (6년 이상) | "UNKNOWN"
+- requiredEducation: one of "ANY" (학력무관/고졸이상) | "ASSOCIATE" (초대졸이상) | "BACHELOR" (대졸이상) | "MASTER" (석사이상) | "UNKNOWN"
+
+Determine these from explicit JD text. If not mentioned, use "UNKNOWN".
+
+"capabilities" contains ONLY capabilities that have evidence in the JD. Omit capabilities with no evidence.
 Each capability key maps to an object with: requiredLevel (L1/L2/L3/L4), score (decimal 0.0-1.0), confidence (decimal 0.0-1.0), evidence (array of strings), reason (string, written in Korean).

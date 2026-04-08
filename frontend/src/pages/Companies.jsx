@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Building2, Plus, Star, StarOff, Trash2, Pencil, X, ChevronDown, ChevronUp, FileText, Sparkles, CheckCircle2, Search } from "lucide-react";
+import { Building2, Plus, Star, StarOff, Trash2, Pencil, X, ChevronDown, ChevronUp, FileText, Sparkles, CheckCircle2, Search, Eye } from "lucide-react";
 import { usePaginatedSearch } from '../hooks/usePaginatedSearch';
 import { BASE_URL } from '../config';
 import { MagicPaste } from '@/components/MagicPaste';
+import PostingModal from './PostingModal';
 
 const industries = ["IT·인터넷", "금융·은행", "제조·화학", "게임", "커머스·유통", "미디어·엔터", "스타트업", "공공·기관", "기타"];
 
@@ -107,11 +108,69 @@ const EditModal = ({ company, onClose, onSave }) => {
 
 // ── 채용공고 섹션 ──
 const JobPostingsSection = ({ company }) => {
+  const navigate = useNavigate();
   const [postings, setPostings] = useState([]);
   const [loading, setLoading] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [showMagicPaste, setShowMagicPaste] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [analyzingId, setAnalyzingId] = useState(null);
+  const [gapResults, setGapResults] = useState({});
+  const [expandedGap, setExpandedGap] = useState(null);
+  // PostingModal: { mode: 'new'|'edit', parsedJson, postingId }
+  const [postingModal, setPostingModal] = useState(null);
+
+  const handleAnalyze = async (posting) => {
+    const token = localStorage.getItem("token");
+    setAnalyzingId(posting.id);
+    try {
+      // jdText: rawText 또는 parsedData를 JD 텍스트로 사용
+      const jdText = posting.rawText || posting.parsedData || "";
+
+      const analyzeRes = await fetch(`${BASE_URL}/api/jd/analyze`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ companyJobPostingId: posting.id, jdText }),
+      });
+      if (!analyzeRes.ok) throw new Error("JD 분석 실패");
+      const analyzeData = await analyzeRes.json();
+
+      // assessmentId: 최근 평가 조회
+      const assessmentRes = await fetch(`${BASE_URL}/api/assessments/latest`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const assessmentId = assessmentRes.ok
+        ? (await assessmentRes.json()).id
+        : null;
+
+      if (!assessmentId) {
+        toast.success("JD 분석 완료! (역량 평가 후 Gap 분석이 가능해요)");
+        setPostings(prev => prev.map(p =>
+          p.id === posting.id ? { ...p, analyzedJobCode: analyzeData.jobCode } : p
+        ));
+        return;
+      }
+
+      const gapRes = await fetch(`${BASE_URL}/api/jd/gap`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ companyJobPostingId: posting.id, assessmentId }),
+      });
+      if (!gapRes.ok) throw new Error("Gap 분석 실패");
+      const gapData = await gapRes.json();
+
+      setPostings(prev => prev.map(p =>
+        p.id === posting.id ? { ...p, analyzedJobCode: analyzeData.jobCode } : p
+      ));
+      setGapResults(prev => ({ ...prev, [posting.id]: gapData }));
+      setExpandedGap(posting.id);
+      toast.success("JD 분석이 완료되었어요!");
+    } catch (err) {
+      toast.error(err.message || "분석에 실패했어요");
+    } finally {
+      setAnalyzingId(null);
+    }
+  };
 
   const fetchPostings = async () => {
     if (loading) return;
@@ -130,28 +189,10 @@ const JobPostingsSection = ({ company }) => {
     setExpanded(v => !v);
   };
 
-  const handleParsed = async (parsedJson) => {
+  const handleParsed = (parsedJson) => {
     setShowMagicPaste(false);
-    setSaving(true);
-    try {
-      const token = localStorage.getItem("token");
-      const parsed = typeof parsedJson === "string" ? JSON.parse(parsedJson) : parsedJson;
-      const res = await fetch(`${BASE_URL}/api/companies/${company.id}/postings`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          rawText: JSON.stringify(parsed),
-          position: parsed.position || "",
-        }),
-      });
-      if (res.ok) {
-        const saved = await res.json();
-        setPostings(prev => [saved, ...prev]);
-        toast.success("채용공고가 저장되었습니다!");
-        if (!expanded) setExpanded(true);
-      }
-    } catch { toast.error("저장에 실패했어요"); }
-    finally { setSaving(false); }
+    const parsed = typeof parsedJson === "string" ? JSON.parse(parsedJson) : parsedJson;
+    setPostingModal({ mode: "new", parsedJson: parsed });
   };
 
   const handleDelete = async (postingId) => {
@@ -220,6 +261,23 @@ const JobPostingsSection = ({ company }) => {
           onParsed={handleParsed}
         />
       )}
+      {postingModal && (
+        <PostingModal
+          companyId={company.id}
+          postingId={postingModal.mode === "edit" ? postingModal.postingId : null}
+          parsedJson={postingModal.parsedJson}
+          onClose={() => setPostingModal(null)}
+          onSaved={(saved) => {
+            if (postingModal.mode === "new") {
+              setPostings(prev => [saved, ...prev]);
+              if (!expanded) setExpanded(true);
+            } else {
+              setPostings(prev => prev.map(p => p.id === saved.id ? saved : p));
+            }
+            setPostingModal(null);
+          }}
+        />
+      )}
 
       <div className="flex items-center justify-between">
         <button
@@ -268,6 +326,20 @@ const JobPostingsSection = ({ company }) => {
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
                     <button
+                      onClick={() => navigate(`/companies/${company.id}/postings/${posting.id}`)}
+                      className="p-1 rounded-lg transition-colors text-muted-foreground hover:text-[var(--gradient-mid)] hover:bg-[var(--gradient-mid)]/10"
+                      title="공고 조회"
+                    >
+                      <Eye className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      onClick={() => setPostingModal({ mode: "edit", postingId: posting.id, parsedJson: parsed })}
+                      className="p-1 rounded-lg transition-colors text-muted-foreground hover:text-[var(--gradient-mid)] hover:bg-[var(--gradient-mid)]/10"
+                      title="공고 수정"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                    <button
                       onClick={() => posting.isPrimary ? handleUnsetPrimaryPosting(posting.id) : handleSetPrimaryPosting(posting.id)}
                       className={`p-1 rounded-lg transition-colors ${posting.isPrimary ? "text-pink-500 hover:bg-pink-500/10" : "text-muted-foreground hover:text-pink-500 hover:bg-pink-500/10"}`}
                       title={posting.isPrimary ? "주 목표 공고 해제" : "주 목표 공고로 설정"}
@@ -292,6 +364,63 @@ const JobPostingsSection = ({ company }) => {
                 {parsed?.techStack && (
                   <p className="text-xs text-[var(--gradient-mid)]">🛠 {parsed.techStack}</p>
                 )}
+                {/* JD 분석 버튼 / 결과 */}
+                <div className="pt-1 border-t border-border/30">
+                  {analyzingId === posting.id ? (
+                    <p className="text-xs text-muted-foreground animate-pulse">분석 중...</p>
+                  ) : gapResults[posting.id] ? (
+                    <div>
+                      <button
+                        onClick={() => setExpandedGap(prev => prev === posting.id ? null : posting.id)}
+                        className="flex items-center gap-1 text-xs text-[var(--gradient-mid)] hover:opacity-80 transition-opacity"
+                      >
+                        <CheckCircle2 className="h-3 w-3" />
+                        분석 완료 · {expandedGap === posting.id ? "접기" : "결과 보기"}
+                        {expandedGap === posting.id ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                      </button>
+                      {expandedGap === posting.id && (
+                        <div className="mt-2 space-y-2 text-xs">
+                          {gapResults[posting.id].gaps?.length > 0 && (
+                            <div>
+                              <p className="font-medium text-foreground mb-1">부족한 역량</p>
+                              {gapResults[posting.id].gaps.slice(0, 3).map((gap, i) => {
+                                const isMissing = gap.status === "MISSING" || gap.userScore === 0;
+                                return (
+                                  <div key={i} className="flex items-center gap-2 py-0.5">
+                                    <span className="text-muted-foreground truncate">{gap.capabilityName || gap.capCode}</span>
+                                    <span className={`shrink-0 text-xs ${isMissing ? "text-gray-400" : gap.status === "CLOSE" ? "text-yellow-500" : "text-red-500"}`}>
+                                      {isMissing ? "미보유" : `현재 ${gap.userLevel ?? "없음"} → 필요 ${gap.requiredLevel}`}
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                          {gapResults[posting.id].roadmap && (
+                            <div>
+                              <p className="font-medium text-foreground mb-1">로드맵</p>
+                              <p className="text-muted-foreground leading-relaxed line-clamp-4">{gapResults[posting.id].roadmap}</p>
+                            </div>
+                          )}
+                          <button
+                            onClick={() => handleAnalyze(posting)}
+                            className="text-muted-foreground hover:text-[var(--gradient-mid)] transition-colors"
+                          >
+                            재분석
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => handleAnalyze(posting)}
+                      className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-[var(--gradient-mid)]/10 text-[var(--gradient-mid)] hover:bg-[var(--gradient-mid)]/20 transition-colors"
+                    >
+                      <Sparkles className="h-3 w-3" />
+                      JD 분석
+                    </button>
+                  )}
+                </div>
               </div>
             );
           })}

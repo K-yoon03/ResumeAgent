@@ -22,38 +22,7 @@ import { toast } from "sonner";
 import { BASE_URL } from "../config";
 import capCodeMap from "../MappingTable/capCodeMap.json";
 import jobCodeMap from "../MappingTable/JobCodeMap.json";
-
-const getGrade = (score) => {
-  if (score >= 95) return "S";
-  if (score >= 90) return "A+";
-  if (score >= 85) return "A";
-  if (score >= 80) return "A-";
-  if (score >= 75) return "B+";
-  if (score >= 70) return "B";
-  if (score >= 65) return "B-";
-  if (score >= 60) return "C+";
-  if (score >= 55) return "C";
-  return "C-";
-};
-
-const getGradeColor = (grade) => {
-  if (grade === "S") return "from-yellow-400 to-orange-500";
-  if (grade.startsWith("A")) return "from-green-400 to-emerald-500";
-  if (grade.startsWith("B")) return "from-blue-400 to-cyan-500";
-  if (grade.startsWith("C")) return "from-purple-400 to-pink-500";
-  return "from-gray-400 to-gray-500";
-};
-
-const getPercentile = (score) => {
-  if (score >= 95) return { text: "상위 3%", color: "#f59e0b", glow: "rgba(245,158,11,0.4)" };
-  if (score >= 90) return { text: "상위 5%", color: "#10b981", glow: "rgba(16,185,129,0.4)" };
-  if (score >= 85) return { text: "상위 10%", color: "#3b82f6", glow: "rgba(59,130,246,0.4)" };
-  if (score >= 80) return { text: "상위 15%", color: "#6366f1", glow: "rgba(99,102,241,0.4)" };
-  if (score >= 75) return { text: "상위 25%", color: "#8b5cf6", glow: "rgba(139,92,246,0.4)" };
-  if (score >= 70) return { text: "상위 35%", color: "#a78bfa", glow: "rgba(167,139,250,0.4)" };
-  if (score >= 65) return { text: "상위 50%", color: "#94a3b8", glow: "rgba(148,163,184,0.4)" };
-  return { text: "상위 60%", color: "#64748b", glow: "rgba(100,116,139,0.3)" };
-};
+import { getGrade, getGradeColor, getGradeHex, getGradeMent, scoreToFill } from "../lib/gradeUtils";
 
 const getAverageGrade = (competencyScores) => {
   if (!competencyScores || competencyScores.length === 0) return "N/A";
@@ -67,24 +36,21 @@ const getAverageScore = (competencyScores) => {
   return Math.round(weighted);
 };
 
-
+// fill 값(0~100) 기준 색상 보간 — 낮으면 회색, 높아질수록 보라→파랑→초록→황금
 const COLOR_STOPS = [
-  { at: 15,  hex: "#94a3b8" },
-  { at: 35,  hex: "#a78bfa" },
-  { at: 50,  hex: "#8b5cf6" },
-  { at: 65,  hex: "#6366f1" },
-  { at: 75,  hex: "#3b82f6" },
-  { at: 85,  hex: "#10b981" },
-  { at: 100, hex: "#f59e0b" },
+  { at: 0,  hex: "#94a3b8" }, // C- 회색
+  { at: 40, hex: "#8b5cf6" }, // C 구간 시작 → 보라
+  { at: 50, hex: "#6d77f0" }, // B- 구간 시작 → 보라→파랑 전환
+  { at: 65, hex: "#3b82f6" }, // B 구간 → 파랑
+  { at: 75, hex: "#10b981" }, // A 구간 → 초록
+  { at: 85, hex: "#f59e0b" }, // S 구간 → 황금 (여유 있게)
 ];
 
-const lerpColor = (a, b, t) => {
+const lerpHex = (a, b, t) => {
   const ah = parseInt(a.slice(1), 16), bh = parseInt(b.slice(1), 16);
-  const ar = (ah >> 16) & 0xff, ag = (ah >> 8) & 0xff, ab = ah & 0xff;
-  const br = (bh >> 16) & 0xff, bg = (bh >> 8) & 0xff, bb = bh & 0xff;
-  const r = Math.round(ar + (br - ar) * t).toString(16).padStart(2, '0');
-  const g = Math.round(ag + (bg - ag) * t).toString(16).padStart(2, '0');
-  const bl = Math.round(ab + (bb - ab) * t).toString(16).padStart(2, '0');
+  const r = Math.round(((ah >> 16) & 0xff) + (((bh >> 16) & 0xff) - ((ah >> 16) & 0xff)) * t).toString(16).padStart(2, '0');
+  const g = Math.round(((ah >> 8) & 0xff) + (((bh >> 8) & 0xff) - ((ah >> 8) & 0xff)) * t).toString(16).padStart(2, '0');
+  const bl = Math.round((ah & 0xff) + ((bh & 0xff) - (ah & 0xff)) * t).toString(16).padStart(2, '0');
   return `#${r}${g}${bl}`;
 };
 
@@ -92,10 +58,59 @@ const getColorByFill = (fill) => {
   for (let i = 0; i < COLOR_STOPS.length - 1; i++) {
     if (fill <= COLOR_STOPS[i + 1].at) {
       const t = (fill - COLOR_STOPS[i].at) / (COLOR_STOPS[i + 1].at - COLOR_STOPS[i].at);
-      return lerpColor(COLOR_STOPS[i].hex, COLOR_STOPS[i + 1].hex, t);
+      return lerpHex(COLOR_STOPS[i].hex, COLOR_STOPS[i + 1].hex, Math.max(0, t));
     }
   }
   return COLOR_STOPS[COLOR_STOPS.length - 1].hex;
+};
+
+// 점수 게이지 + grade 뱃지
+const ScoreGauge = ({ score, jobName, tier }) => {
+  const grade = getGrade(score);
+  const fill = scoreToFill(score);
+  const radius = 42;
+  const circumference = 2 * Math.PI * radius;
+  const [animFill, setAnimFill] = useState(0);
+
+  useEffect(() => {
+    setAnimFill(0);
+    let start = null;
+    const animate = (ts) => {
+      if (!start) start = ts;
+      const progress = Math.min((ts - start) / 1200, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setAnimFill(fill * eased);
+      if (progress < 1) requestAnimationFrame(animate);
+    };
+    const timer = setTimeout(() => requestAnimationFrame(animate), 100);
+    return () => clearTimeout(timer);
+  }, [fill]);
+
+  const color = getColorByFill(animFill);
+  const offset = circumference - circumference * (animFill / 100);
+  const ment = getGradeMent(grade, tier);
+
+  return (
+    <div className="flex flex-col items-center gap-3">
+      <div className="relative w-36 h-36">
+        <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100" overflow="visible">
+          <circle cx="50" cy="50" r={radius} fill="none" stroke="currentColor" strokeWidth="9" className="text-muted/30" />
+          <circle cx="50" cy="50" r={radius} fill="none" stroke={color} strokeWidth="9"
+            strokeDasharray={circumference} strokeDashoffset={offset} strokeLinecap="round"
+            style={{ filter: `drop-shadow(0 0 6px ${color}88)` }}
+          />
+        </svg>
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-1">
+          <span className="text-2xl font-bold" style={{ color }}>{score}</span>
+          <span className={`text-xs font-bold px-2 py-0.5 rounded-full bg-gradient-to-r ${getGradeColor(grade)} text-white`}>
+            {grade}
+          </span>
+        </div>
+      </div>
+      <p className="text-sm text-center text-muted-foreground">{ment}</p>
+      <p className="text-xs text-muted-foreground">{jobName}</p>
+    </div>
+  );
 };
 
 // 역량별 점수 Progress 애니메이션
@@ -117,49 +132,6 @@ const AnimatedProgress = ({ value }) => {
   return <Progress value={animValue} className="h-2" />;
 };
 
-const PercentileChart = ({ score, jobName }) => {
-  const pct = parseInt(getPercentile(score).text.replace("상위 ", "").replace("%", ""));
-  const targetFill = 100 - pct;
-  const radius = 42;
-  const circumference = 2 * Math.PI * radius;
-  const [animFill, setAnimFill] = useState(0);
-
-  useEffect(() => {
-    setAnimFill(0);
-    let start = null;
-    const animate = (ts) => {
-      if (!start) start = ts;
-      const progress = Math.min((ts - start) / 1500, 1);
-      const eased = 1 - Math.pow(1 - progress, 3);
-      setAnimFill(Math.round(targetFill * eased));
-      if (progress < 1) requestAnimationFrame(animate);
-    };
-    const timer = setTimeout(() => requestAnimationFrame(animate), 100);
-    return () => clearTimeout(timer);
-  }, [pct]);
-
-  const color = getColorByFill(animFill);
-  const offset = circumference - circumference * (animFill / 100);
-
-  return (
-    <div className="flex flex-col items-center gap-2">
-      <div className="relative w-40 h-40 p-2">
-        <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100" overflow="visible">
-          <circle cx="50" cy="50" r={radius} fill="none" stroke="currentColor" strokeWidth="9" className="text-muted/30" />
-          <circle cx="50" cy="50" r={radius} fill="none" stroke={color} strokeWidth="9"
-            strokeDasharray={circumference} strokeDashoffset={offset} strokeLinecap="round"
-            style={{ filter: `drop-shadow(0 0 8px ${color}66)` }}
-          />
-        </svg>
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-xl font-bold" style={{ color }}>상위 {100 - animFill}%</span>
-        </div>
-      </div>
-      <p className="text-lg font-bold">{score}점</p>
-      <p className="text-xs text-muted-foreground text-center">추정치 기반 · {jobName}</p>
-    </div>
-  );
-};
 
 const PercentileChartLocked = () => {
   const circleRef = useRef(null);
@@ -181,7 +153,14 @@ const PercentileChartLocked = () => {
     for (let i = 0; i < stops.length - 1; i++) {
       if (fill <= stops[i + 1].at) {
         const t = (fill - stops[i].at) / (stops[i + 1].at - stops[i].at);
-        return lerpColor(stops[i].hex, stops[i + 1].hex, t);
+        const lerp = (a, b, t) => {
+          const ah = parseInt(a.slice(1), 16), bh = parseInt(b.slice(1), 16);
+          const r = Math.round(((ah >> 16) & 0xff) + (((bh >> 16) & 0xff) - ((ah >> 16) & 0xff)) * t).toString(16).padStart(2, '0');
+          const g = Math.round(((ah >> 8) & 0xff) + (((bh >> 8) & 0xff) - ((ah >> 8) & 0xff)) * t).toString(16).padStart(2, '0');
+          const bl = Math.round((ah & 0xff) + ((bh & 0xff) - (ah & 0xff)) * t).toString(16).padStart(2, '0');
+          return `#${r}${g}${bl}`;
+        };
+        return lerp(stops[i].hex, stops[i + 1].hex, t);
       }
     }
     return stops[stops.length - 1].hex;
@@ -373,12 +352,16 @@ export function DashboardPage() {
         <Card>
           <CardHeader>
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <TrendingUp className="h-4 w-4" />예상 상위 퍼센테이지
+              <TrendingUp className="h-4 w-4" />종합 점수
             </CardTitle>
           </CardHeader>
           <CardContent>
             {primaryAssessment
-              ? <PercentileChart score={primaryAssessment.totalScore} jobName={primaryAssessment.groupName} />
+              ? <ScoreGauge
+                  score={primaryAssessment.totalScore}
+                  jobName={primaryAssessment.groupName}
+                  tier={primaryAssessment.grade}
+                />
               : <PercentileChartLocked />
             }
           </CardContent>
@@ -451,22 +434,61 @@ export function DashboardPage() {
                 </div>
                 <div className="space-y-4">
                   <h4 className="font-semibold text-sm">역량별 점수</h4>
-                  {(primaryAssessment.coreScores || []).map((comp, idx) => (
-                    <div key={idx} className="space-y-2">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="font-medium">{comp.name}</span>
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="text-xs">{(comp.weight * 100).toFixed(0)}%</Badge>
-                          <Badge className={`bg-gradient-to-r ${getGradeColor(getGrade(comp.score))} text-white border-0`}>
-                            {getGrade(comp.score)}
-                          </Badge>
-                          <span className="font-bold">{comp.score}점</span>
-                        </div>
-                      </div>
-                      <AnimatedProgress value={comp.score} />
-                      <p className="text-xs text-muted-foreground">{comp.evidence}</p>
-                    </div>
-                  ))}
+                  {(() => {
+                    const scores = primaryAssessment.coreScores || [];
+                    const unknownScores = primaryAssessment.coreUnknownScores || [];
+                    const coveredWeightSum = scores.reduce((sum, c) => sum + (c.weight || 0), 0);
+                    const totalWeightSum = coveredWeightSum + unknownScores.reduce((sum, c) => sum + (c.weight || 0), 0);
+                    const baseSum = totalWeightSum > 0 ? totalWeightSum : coveredWeightSum;
+
+                    return (
+                      <>
+                        {scores.map((comp, idx) => {
+                          const displayWeight = baseSum > 0
+                            ? Math.round((comp.weight / baseSum) * 100)
+                            : Math.round(comp.weight * 100);
+                          return (
+                            <div key={idx} className="space-y-2">
+                              <div className="flex items-center justify-between text-sm">
+                                <span className="font-medium">{comp.name}</span>
+                                <div className="flex items-center gap-2">
+                                  <Badge variant="outline" className="text-xs">{displayWeight}%</Badge>
+                                  <Badge className={`bg-gradient-to-r ${getGradeColor(getGrade(comp.score))} text-white border-0`}>
+                                    {getGrade(comp.score)}
+                                  </Badge>
+                                  <span className="font-bold">{comp.score}점</span>
+                                </div>
+                              </div>
+                              <AnimatedProgress value={comp.score} />
+                              <p className="text-xs text-muted-foreground">{comp.evidence}</p>
+                            </div>
+                          );
+                        })}
+                        {unknownScores.map((comp, idx) => {
+                          const displayWeight = baseSum > 0
+                            ? Math.round((comp.weight / baseSum) * 100)
+                            : Math.round((comp.weight || 0) * 100);
+                          return (
+                            <div key={`unknown-${idx}`} className="space-y-2 opacity-40 hover:opacity-70 transition-opacity group relative">
+                              <div className="flex items-center justify-between text-sm">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="font-medium text-muted-foreground">{comp.name}</span>
+                                  <span className="text-xs text-muted-foreground/60 hidden group-hover:inline transition-all">
+                                    — 역량평가 당시 확인하지 못한 역량이에요
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Badge variant="outline" className="text-xs">{displayWeight}%</Badge>
+                                  <Badge variant="outline" className="text-xs text-muted-foreground">미확인</Badge>
+                                </div>
+                              </div>
+                              <Progress value={0} className="h-2" />
+                            </div>
+                          );
+                        })}
+                      </>
+                    );
+                  })()}
                   {((primaryAssessment.nonCoreScores || []).length > 0 || 
                     (primaryAssessment.commonScores || []).length >= 0) && (
                     <details className="space-y-2" open>
@@ -476,42 +498,49 @@ export function DashboardPage() {
                       <div className="space-y-4 pt-2 border-t border-border/50">
 
                         {/* 보조 역량 */}
-                        {(primaryAssessment.nonCoreScores || []).length > 0 && (
-                          <div className="space-y-3">
-                            <h5 className="text-xs font-semibold text-muted-foreground">보조 역량</h5>
-                            {primaryAssessment.nonCoreScores.map((comp, idx) => (
-                              <div key={idx} className="space-y-1">
-                                <div className="flex items-center justify-between text-sm">
-                                  <span className="text-muted-foreground">{comp.name}</span>
-                                  <div className="flex items-center gap-2">
-                                    <Badge variant="outline" className="text-xs">{(comp.weight * 100).toFixed(0)}%</Badge>
-                                    <Badge className={`bg-gradient-to-r ${getGradeColor(getGrade(comp.score))} text-white border-0 text-xs`}>
-                                      {getGrade(comp.score)}
-                                    </Badge>
-                                    <span className="text-xs font-bold">{comp.score}점</span>
+                        {(() => {
+                          // nonCoreScores + capabilityVector에만 있는 항목 합산
+                          const coveredCodes = new Set([
+                            ...(primaryAssessment.coreScores || []).map(c => c.capCode),
+                            ...(primaryAssessment.nonCoreScores || []).map(c => c.capCode),
+                            ...(primaryAssessment.coreUnknownScores || []).map(c => c.capCode),
+                            ...(primaryAssessment.commonScores || []).map(c => c.capCode),
+                          ]);
+                          const extraFromVector = Object.entries(primaryAssessment.capabilityVector || {})
+                            .filter(([code, score]) => score > 0 && !coveredCodes.has(code))
+                            .map(([code, score]) => ({
+                              capCode: code,
+                              name: capCodeMap[code] || code,
+                              score: Math.round(score * 100),
+                              weight: 0,
+                            }));
+                          const allNonCore = [...(primaryAssessment.nonCoreScores || []), ...extraFromVector];
+                          if (allNonCore.length === 0) return null;
+                          return (
+                            <div className="space-y-3">
+                              <h5 className="text-xs font-semibold text-muted-foreground">보조 역량</h5>
+                              {allNonCore.map((comp, idx) => (
+                                <div key={idx} className="space-y-1">
+                                  <div className="flex items-center justify-between text-sm">
+                                    <span className="text-muted-foreground">{comp.name}</span>
+                                    <div className="flex items-center gap-2">
+                                      {comp.weight > 0 && (
+                                        <Badge variant="outline" className="text-xs">{(comp.weight * 100).toFixed(0)}%</Badge>
+                                      )}
+                                      <Badge className={`bg-gradient-to-r ${getGradeColor(getGrade(comp.score))} text-white border-0 text-xs`}>
+                                        {getGrade(comp.score)}
+                                      </Badge>
+                                      <span className="text-xs font-bold">{comp.score}점</span>
+                                    </div>
                                   </div>
+                                  <Progress value={comp.score} className="h-1" />
                                 </div>
-                                <Progress value={comp.score} className="h-1" />
-                              </div>
-                            ))}
-                          </div>
-                        )}
+                              ))}
+                            </div>
+                          );
+                        })()}
                       </div>
                     </details>
-                  )}
-                  {(primaryAssessment.coreUnknownScores || []).length > 0 && (
-                    <div className="space-y-2 pt-2 border-t border-border/50">
-                      <h4 className="font-semibold text-xs text-muted-foreground flex items-center gap-1">
-                        <AlertCircle className="h-3 w-3 text-muted-foreground" />
-                        심층분석에서 확인되지 않은 항목
-                      </h4>
-                      {primaryAssessment.coreUnknownScores.map((comp, idx) => (
-                        <div key={idx} className="flex items-center justify-between text-sm text-muted-foreground">
-                          <span>{comp.name}</span>
-                          <Badge variant="outline" className="text-xs">미확인</Badge>
-                        </div>
-                      ))}
-                    </div>
                   )}
                   {(primaryAssessment.commonScores || []).length > 0 && (
                     <div className="pt-2 border-t border-border/50">
@@ -553,18 +582,28 @@ export function DashboardPage() {
                     </ul>
                   </div>
                 )}
-                {primaryAssessment.improvements?.length > 0 && (
-                  <div className="space-y-2">
-                    <h4 className="font-semibold text-sm flex items-center gap-2">
-                      <AlertCircle className="h-4 w-4 text-orange-500" />개선점
-                    </h4>
-                    <ul className="space-y-1">
-                      {primaryAssessment.improvements.map((i, idx) => (
-                        <li key={idx} className="text-sm text-muted-foreground pl-4 border-l-2 border-orange-500">{i}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
+                {primaryAssessment.improvements?.length > 0 && (() => {
+                  const unknownNames = new Set((primaryAssessment.coreUnknownScores || []).map(c => c.name));
+                  const unknownCodes = new Set((primaryAssessment.coreUnknownScores || []).map(c => c.capCode));
+                  const remaining = primaryAssessment.improvements.filter(i => {
+                    const prefix = i.split(": ")[0];
+                    return !unknownNames.has(prefix) && !unknownCodes.has(prefix);
+                  });
+                  if (remaining.length === 0) return null;
+                  return (
+                    <div className="space-y-2">
+                      <h4 className="font-semibold text-sm flex items-center gap-2">
+                        <AlertCircle className="h-4 w-4 text-orange-500" />개선점
+                      </h4>
+                      <ul className="space-y-1">
+                        {remaining.map((i, idx) => {
+                          const text = i.includes(": ") ? i.substring(i.indexOf(": ") + 2) : i;
+                          return <li key={idx} className="text-sm text-muted-foreground pl-4 border-l-2 border-orange-500">{text}</li>;
+                        })}
+                      </ul>
+                    </div>
+                  );
+                })()}
                 {primaryAssessment.jobRanking && (
                   <div className="space-y-2">
                     <h4 className="font-semibold text-sm flex items-center gap-2">
@@ -643,21 +682,68 @@ export function DashboardPage() {
                   <span className="text-xs text-muted-foreground">{primaryJobPosting.analyzedJobCode}</span>
                 </div>
 
+                {/* 적합도 도표 */}
+                {gapReport.fitLevel && (() => {
+                  const levels = [
+                    { key: "OVER_UP",   label: "리스크 높음", bg: "#0C447C", color: "#B5D4F4" },
+                    { key: "UP",        label: "보완 필요",     bg: "#378ADD", color: "#E6F1FB" },
+                    { key: "NORMAL",    label: "도전 가능",     bg: "#0F6E56", color: "#9FE1CB" },
+                    { key: "FIT",       label: "적합",     bg: "#3B6D11", color: "#C0DD97" },
+                    { key: "DOWN",      label: "안정권",     bg: "#D85A30", color: "#FAECE7" },
+                    { key: "OVER_DOWN", label: "여유", bg: "#A32D2D", color: "#F7C1C1" },
+                  ];
+                  const fitDesc = {
+                    OVER_UP:   "역량 gap이 커요. 장기적인 준비가 필요해요.",
+                    UP:        "도전적인 지원이에요. 부족한 역량을 집중 보완해보세요.",
+                    NORMAL:    "약간의 준비가 필요하지만 충분히 도전할 수 있어요.",
+                    FIT:       "현재 역량과 잘 맞는 공고예요.",
+                    DOWN:      "현재 역량에 안정적인 정도의 공고예요.",
+                    OVER_DOWN: "역량 대비 요구 수준이 여유로워요.",
+                  }[gapReport.fitLevel] || "";
+                  return (
+                    <div className="space-y-2">
+                      <div style={{ display: "flex", gap: "3px" }}>
+                        {levels.map(({ key, label, bg, color }) => {
+                          const isActive = key === gapReport.fitLevel;
+                          return (
+                            <div key={key} style={{
+                              flex: 1, height: "30px", borderRadius: "4px",
+                              background: bg, color,
+                              display: "flex", alignItems: "center", justifyContent: "center",
+                              fontSize: "10px", fontWeight: 500,
+                              opacity: isActive ? 1 : 0.35,
+                              outline: isActive ? `2px solid ${color}` : "none",
+                              outlineOffset: "1px",
+                            }}>
+                              {label}
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <p className="text-xs text-muted-foreground">{fitDesc}</p>
+                      <p style={{ fontSize: "10px", color: "var(--color-text-tertiary)", borderTop: "0.5px solid var(--color-border-tertiary)", paddingTop: "6px" }}>
+                        역량 데이터 기반 추정이며, 실제 합격 가능성과 다를 수 있습니다.
+                      </p>
+                    </div>
+                  );
+                })()}
+
                 {/* Gap 항목 */}
                 <div className="space-y-2">
                   {Object.entries(gapReport.gaps || {}).map(([code, gap]) => {
                     const statusColor = {
-                      MATCH: "text-green-500 bg-green-500/10",
-                      CLOSE: "text-yellow-500 bg-yellow-500/10",
-                      GAP: "text-red-500 bg-red-500/10"
+                      MATCH:   "text-green-500 bg-green-500/10",
+                      CLOSE:   "text-yellow-500 bg-yellow-500/10",
+                      GAP:     "text-red-500 bg-red-500/10",
+                      MISSING: "text-gray-400 bg-gray-500/10"
                     }[gap.status] || "";
-                    const statusLabel = { MATCH: "충족", CLOSE: "근접", GAP: "부족" }[gap.status] || "";
+                    const statusLabel = { MATCH: "충족", CLOSE: "근접", GAP: "부족", MISSING: "미보유" }[gap.status] || "";
                     const userPct = Math.round((gap.userScore || 0) * 100);
                     const reqPct = Math.round((gap.requiredScore || 0) * 100);
                     return (
                       <div key={code} className="space-y-1">
                         <div className="flex items-center justify-between text-xs">
-                          <span className="text-muted-foreground">{code}</span>
+                          <span className="text-muted-foreground">{capCodeMap[code] || code}</span>
                           <div className="flex items-center gap-1.5">
                             <span className="text-muted-foreground">{userPct} / {reqPct}</span>
                             <span className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${statusColor}`}>
@@ -694,6 +780,42 @@ export function DashboardPage() {
                       ))}
                     </div>
                   </details>
+                )}
+
+                {/* 경력/학력 플래그 */}
+                {(gapReport.experienceFlag || gapReport.educationFlag) && (
+                  <div className="pt-2 border-t border-border/50 space-y-1.5">
+                    {gapReport.experienceFlag === "WARN" && (
+                      <div className="flex items-center gap-2 text-xs px-2 py-1.5 rounded-lg bg-orange-500/10 text-orange-500">
+                        <span className="font-medium shrink-0">경력 주의</span>
+                        <span className="text-orange-500/80">경력직 요구 공고입니다. 관련 경험이 없다면 지원 전 확인이 필요해요.</span>
+                      </div>
+                    )}
+                    {gapReport.experienceFlag === "CHECK" && (
+                      <div className="flex items-center gap-2 text-xs px-2 py-1.5 rounded-lg bg-yellow-500/10 text-yellow-600">
+                        <span className="font-medium shrink-0">경력 확인</span>
+                        <span className="text-yellow-600/80">경력직 요구 공고예요. 이에 준하는 경험을 잘 어필해보세요.</span>
+                      </div>
+                    )}
+                    {gapReport.educationFlag === "WARN" && (
+                      <div className="flex items-center gap-2 text-xs px-2 py-1.5 rounded-lg bg-red-500/10 text-red-500">
+                        <span className="font-medium shrink-0">학력 주의</span>
+                        <span className="text-red-500/80">이 공고의 학력 요건을 충족하지 못할 수 있어요.</span>
+                      </div>
+                    )}
+                    {gapReport.educationFlag === "CHECK" && (
+                      <div className="flex items-center gap-2 text-xs px-2 py-1.5 rounded-lg bg-yellow-500/10 text-yellow-600">
+                        <span className="font-medium shrink-0">학력 확인</span>
+                        <span className="text-yellow-600/80">이 공고가 요구하는 학력보다 한 단계 낮아요. 지원 전 확인해보세요.</span>
+                      </div>
+                    )}
+                    {gapReport.educationFlag === "UNKNOWN" && (
+                      <div className="flex items-center gap-2 text-xs px-2 py-1.5 rounded-lg bg-muted text-muted-foreground">
+                        <span className="font-medium shrink-0">학력 미확인</span>
+                        <span>역량평가 입력에 학력 정보를 추가하면 더 정확한 분석이 가능해요.</span>
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
             )}

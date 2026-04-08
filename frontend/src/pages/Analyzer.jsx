@@ -155,48 +155,6 @@ const Analyzer = () => {
     const token = localStorage.getItem("token");
     if (!token) { askAi(); return; }
 
-    // 희망직무 있는 사람 → match-job 백그라운드 호출 후 모달
-    if (user?.mappedJobCode) {
-      setLoading(true);
-      setLoadingStep("matching");
-      try {
-        const res = await fetch(`${BASE_URL}/api/assessments/match-job`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ experience: question }),
-        });
-        const match = res.ok ? await res.json() : null;
-        const hintJobName = match && !match.noMatch && match.jobCode !== user.mappedJobCode
-          ? match.jobName : null;
-        const hintJobCode = match && !match.noMatch && match.jobCode !== user.mappedJobCode
-          ? match.jobCode : null;
-        setJobMatchModal({
-          jobCode: user.mappedJobCode,
-          jobName: jobCodeMap[user.mappedJobCode] || user.mappedJobCode,
-          noMatch: false,
-          reason: null,
-          hintJobName,
-          hintJobCode,
-          fromMapped: true,
-        });
-      } catch {
-        setJobMatchModal({
-          jobCode: user.mappedJobCode,
-          jobName: jobCodeMap[user.mappedJobCode] || user.mappedJobCode,
-          noMatch: false,
-          reason: null,
-          hintJobName: null,
-          hintJobCode: null,
-          fromMapped: true,
-        });
-      } finally {
-        setLoading(false);
-        setLoadingStep("");
-      }
-      return;
-    }
-
-    // 희망직무 없는 사람 → ExperienceMatcher
     setLoading(true);
     setLoadingStep("matching");
     try {
@@ -212,7 +170,7 @@ const Analyzer = () => {
         jobName: match.jobName,
         noMatch: match.noMatch,
         reason: match.reason,
-        fromMapped: false,
+        topMatches: match.topMatches || [],
       });
     } catch {
       askAi();
@@ -223,22 +181,9 @@ const Analyzer = () => {
   };
 
   const confirmJobMatch = async (jobCode) => {
-    const jobName = jobCodeMap[jobCode] || jobCode;
     setJobMatchModal(null);
     setSelectedJobCode(jobCode);
-    setSelectedJobName(jobName);
-    const token = localStorage.getItem("token");
-    if (token && saveAsDesired) {
-      try {
-        await fetch(`${BASE_URL}/api/user/job/direct`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ jobCode, jobName }),
-        });
-        await refreshUser();
-      } catch {}
-    }
-    setSaveAsDesired(false);
+    setSelectedJobName(jobCodeMap[jobCode] || jobCode);
     await askAi(null, jobCode);
   };
 
@@ -365,22 +310,6 @@ const Analyzer = () => {
           <CardDescription>각 항목에 맞게 작성해주세요. 없는 항목은 체크박스를 선택하면 됩니다.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {user?.mappedJobCode && (
-            <div className="flex items-center gap-2 p-3 rounded-lg bg-[var(--gradient-mid)]/10 border border-[var(--gradient-mid)]/20">
-              <Target className="h-4 w-4 text-[var(--gradient-mid)] shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="text-xs text-muted-foreground">평가 직무</p>
-                <p className="text-sm font-medium text-foreground truncate">
-                  {selectedJobName || jobCodeMap[user.mappedJobCode] || user.mappedJobCode}
-                  {!selectedJobCode && user.desiredJobText && user.desiredJobText !== jobCodeMap[user.mappedJobCode] && (
-                    <span className="text-xs text-muted-foreground ml-1">({user.desiredJobText})</span>
-                  )}
-                </p>
-              </div>
-              {user.isTemporaryJob && <span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 shrink-0">임시</span>}
-            </div>
-          )}
-
           <div className="border-t border-border/40" />
 
           {structFields.map(({ name, label, icon: Icon, placeholder, type }) => (
@@ -540,53 +469,7 @@ const Analyzer = () => {
                     <option key={code} value={code}>{name}</option>
                   ))}
                 </select>
-                <label className="flex items-center gap-2 text-sm text-muted-foreground mb-4 cursor-pointer">
-                  <input type="checkbox" checked={saveAsDesired} onChange={(e) => setSaveAsDesired(e.target.checked)} className="rounded" />
-                  희망직무로 저장
-                </label>
                 <Button variant="outline" className="w-full" onClick={() => setJobMatchModal(null)}>취소</Button>
-              </>
-            ) : jobMatchModal.fromMapped ? (
-              /* 희망직무 설정된 케이스 */
-              <>
-                <div className="inline-flex items-center justify-center p-3 rounded-full bg-gradient-to-br from-[var(--gradient-start)] to-[var(--gradient-end)] mb-4">
-                  <Briefcase className="h-6 w-6 text-white" />
-                </div>
-                <h3 className="text-lg font-bold text-foreground mb-1">이 직무로 평가할게요!</h3>
-                <p className="text-2xl font-bold bg-gradient-to-r from-[var(--gradient-start)] to-[var(--gradient-end)] bg-clip-text text-transparent my-4">
-                  {jobMatchModal.jobName}
-                </p>
-                {jobMatchModal.hintJobName && (
-                  <button
-                    onClick={() => confirmJobMatch(jobMatchModal.hintJobCode)}
-                    className="w-full text-left text-xs bg-[var(--gradient-mid)]/10 border border-[var(--gradient-mid)]/20 hover:bg-[var(--gradient-mid)]/20 rounded-lg px-3 py-2 mb-4 text-muted-foreground transition-colors cursor-pointer"
-                  >
-                    💡 입력하신 경험 기준으로는{" "}
-                    <span className="font-bold text-sm bg-gradient-to-r from-[var(--gradient-start)] via-[var(--gradient-mid)] to-[var(--gradient-end)] bg-clip-text text-transparent">
-                      {jobMatchModal.hintJobName}
-                    </span>
-                    {" "}이 잘 어울려요! →
-                  </button>
-                )}
-                <div className="space-y-2">
-                  <Button
-                    className="w-full bg-gradient-to-r from-[var(--gradient-start)] via-[var(--gradient-mid)] to-[var(--gradient-end)] text-white hover:opacity-90"
-                    onClick={() => confirmJobMatch(jobMatchModal.jobCode)}
-                  >
-                    시작하기
-                  </Button>
-                  <select
-                    className="w-full px-4 py-2.5 rounded-lg border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-[var(--gradient-mid)]/50"
-                    defaultValue=""
-                    onChange={(e) => e.target.value && confirmJobMatch(e.target.value)}
-                  >
-                    <option value="" disabled>다른 직무로 변경...</option>
-                    {Object.entries(jobCodeMap).map(([code, name]) => (
-                      <option key={code} value={code}>{name}</option>
-                    ))}
-                  </select>
-                  <Button variant="outline" className="w-full" onClick={() => setJobMatchModal(null)}>취소</Button>
-                </div>
               </>
             ) : (
               /* 자동 추론 케이스 */
@@ -595,16 +478,30 @@ const Analyzer = () => {
                   <Briefcase className="h-6 w-6 text-white" />
                 </div>
                 <h3 className="text-lg font-bold text-foreground mb-1">이 직무로 평가할게요!</h3>
-                <p className="text-2xl font-bold bg-gradient-to-r from-[var(--gradient-start)] to-[var(--gradient-end)] bg-clip-text text-transparent my-4">
+                <p className="text-2xl font-bold bg-gradient-to-r from-[var(--gradient-start)] to-[var(--gradient-end)] bg-clip-text text-transparent my-3">
                   {jobMatchModal.jobName}
                 </p>
                 {jobMatchModal.reason && (
-                  <p className="text-sm text-muted-foreground mb-3">{jobMatchModal.reason}</p>
+                  <p className="text-sm text-muted-foreground mb-4">{jobMatchModal.reason}</p>
                 )}
-                <label className="flex items-center gap-2 text-sm text-muted-foreground mb-4 cursor-pointer">
-                  <input type="checkbox" checked={saveAsDesired} onChange={(e) => setSaveAsDesired(e.target.checked)} className="rounded" />
-                  희망직무로 저장
-                </label>
+
+                {/* 유사 직군 버튼 */}
+                {jobMatchModal.topMatches?.length > 0 && (
+                  <div className="mb-4">
+                    <p className="text-xs text-muted-foreground mb-2">비슷한 직무도 있어요</p>
+                    <div className="flex flex-wrap gap-2">
+                      {jobMatchModal.topMatches.map((m) => (
+                        <button key={m.jobCode}
+                          onClick={() => confirmJobMatch(m.jobCode)}
+                          className="px-3 py-1.5 rounded-lg text-xs border border-[var(--gradient-mid)]/30 bg-[var(--gradient-mid)]/5 text-[var(--gradient-mid)] hover:bg-[var(--gradient-mid)]/15 transition-colors"
+                        >
+                          {m.jobName}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div className="space-y-2">
                   <Button
                     className="w-full bg-gradient-to-r from-[var(--gradient-start)] via-[var(--gradient-mid)] to-[var(--gradient-end)] text-white hover:opacity-90"

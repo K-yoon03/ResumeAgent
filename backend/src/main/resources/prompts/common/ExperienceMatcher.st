@@ -20,7 +20,12 @@ Rules:
 - If unsure but partially related → return best guess with confidence 0.3~0.6
 
 Output JSON only, no markdown:
-jobCode (string, must be one of the available group codes OR "NO_MATCH"), confidence (0.0-1.0), reason (Korean, 1 sentence)
+{
+  "jobCode": (string, must be one of the available group codes OR "NO_MATCH"),
+  "confidence": (0.0-1.0),
+  "reason": (Korean, 1 sentence),
+  "topMatches": (array of up to 3 objects, each with jobCode and confidence, ordered by relevance descending. Exclude the primary jobCode. Omit if NO_MATCH.)
+}
 
 User Experience:
 {experience}

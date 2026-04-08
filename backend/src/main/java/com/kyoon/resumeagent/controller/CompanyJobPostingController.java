@@ -49,11 +49,17 @@ public class CompanyJobPostingController {
             User user = getUser(userDetails);
             Company company = getCompany(companyId, user);
 
+            // 신규 공고가 primary 회사의 첫 공고라면 자동으로 isPrimary 설정
+            boolean isPrimary = Boolean.TRUE.equals(company.getIsPrimary())
+                    && postingRepository.findByCompanyIdOrderByCreatedAtDesc(companyId).isEmpty()
+                    && !postingRepository.findByCompanyUserEmailAndIsPrimaryTrue(user.getEmail()).isPresent();
+
             CompanyJobPosting posting = CompanyJobPosting.builder()
                     .company(company)
                     .position(request.position())
                     .rawText(request.rawText())
                     .status(CompanyJobPosting.Status.ACTIVE)
+                    .isPrimary(isPrimary)
                     .build();
 
             return ResponseEntity.ok(toResponse(postingRepository.save(posting), company));
