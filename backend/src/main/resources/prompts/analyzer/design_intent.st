@@ -23,16 +23,22 @@ Extract all items from 경력 및 경험 only.
 Each item has: name (string), durationMonths (number or null), role (string or null), deliverable (string or null)
 
 STEP 2 - Extract capability evidence:
-For each capability code, determine score based on explicit evidence only.
-- 0.7~1.0: Tool or skill is central to a described design project.
-- 0.4~0.6: Tool or skill is mentioned with some context.
-- 0.1~0.3: Tool or skill is merely listed without project application.
-- 0.0: No evidence found.
+For each capability code, determine score using ALL input fields in priority order:
+1. 경력 및 경험 (design projects): highest weight
+2. 보유 직무역량 (listed tools/skills): secondary weight
+3. 기타 (portfolio links): for PORTFOLIO_LINK capability
+4. 자격증 / 어학: only for CERT_MATCH and LANGUAGE_SCORE
+
+Scoring rules:
+- 0.7~1.0: Tool or skill is central to a described design project in 경력 및 경험.
+- 0.4~0.6: Tool or skill appears in 경력 및 경험 AND is also listed in 보유 직무역량.
+- 0.1~0.3: Tool or skill is listed in 보유 직무역량 only, without any project application.
+- 0.0: No evidence found in any field.
 
 STEP 3 - Classify each capability:
-- "depth": clearly evidenced in project or experience
-- "complex": mentioned but unclear
-- "empty": no evidence found
+- "depth": evidenced in 경력 및 경험 with project context (score 0.4+)
+- "complex": listed in 보유 직무역량 only without project context (score 0.1~0.3)
+- "empty": no evidence found in any field (score 0.0)
 
 STEP 4 - Identify missing signals:
 List capability codes that have no evidence but are relevant to this job group.

@@ -42,7 +42,7 @@ public class DepthInterviewController {
         }
     }
 
-    // ── 답변 분석 → 추가 질문 필요 여부 ──
+    // ── 답변 분석 → 추가 질문 필요 여부 (followUp 판단용, 저장 없음) ──
     public record AnalyzeRequest(String itemName, List<Map<String, String>> qna) {}
 
     @PostMapping("/{id}/interview/analyze")
@@ -79,7 +79,7 @@ public class DepthInterviewController {
         }
     }
 
-    // ── 인터뷰 완료 → 데이터 추출 + 저장 + 점수 계산 ──
+    // ── 인터뷰 완료 → 분석 + 저장 + 점수 계산 ──
     public record FinalRequest(List<Map<String, Object>> items) {}
     public record FinalResponse(Long id, String evaluatedJobCode, String scoreData, Boolean isPrimary, String grade) {}
 
@@ -90,16 +90,17 @@ public class DepthInterviewController {
             @RequestBody FinalRequest request,
             @AuthenticationPrincipal UserDetails userDetails) {
         try {
-            // 1. 각 항목별 InterviewData 추출 + 저장
+            // 1. 기존 데이터 초기화
             orchestratorService.deleteInterviewDataByAssessmentId(id);
+
+            // 2. 각 항목별 분석(InterviewAnalyzer) + STAR 추출(DataExtractor) + 저장
             for (Map<String, Object> item : request.items()) {
                 String itemName = (String) item.get("itemName");
-                Object qnaObj = item.get("qna");
-                String qnaJson = objectMapper.writeValueAsString(qnaObj);
-                orchestratorService.extractAndSave(id, itemName, qnaJson);
+                String qnaJson = objectMapper.writeValueAsString(item.get("qna"));
+                orchestratorService.analyzeAndSave(id, itemName, qnaJson);
             }
 
-            // 2. 기존 FinalScorer로 점수 계산 (depthAnswers 형식으로 변환)
+            // 3. FinalScorer로 점수 계산
             Assessment assessment = depthInterviewService.calculateFinalScore(id, request.items());
             return ResponseEntity.ok(new FinalResponse(
                     assessment.getId(),
@@ -114,6 +115,4 @@ public class DepthInterviewController {
                     .body(new FinalResponse(null, null, e.getMessage(), null, null));
         }
     }
-
-
 }

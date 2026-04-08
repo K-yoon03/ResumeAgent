@@ -2,7 +2,10 @@ package com.kyoon.resumeagent.Entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import java.time.LocalDateTime;
+import java.util.Map;
 
 @Entity
 @Table(name = "company_job_postings")
@@ -18,25 +21,28 @@ public class CompanyJobPosting {
     @JoinColumn(name = "company_id", nullable = false)
     private Company company;
 
-    // 직무명 (예: "백엔드 개발자", "데이터 분석가")
     @Column(name = "position", length = 200)
     private String position;
 
-    // 원본 텍스트 (매직페이스트)
     @Column(name = "raw_text", columnDefinition = "TEXT")
     private String rawText;
 
-    // 파싱된 데이터 JSON
-    // {companyName, position, mainTasks, requirements, preferred, techStack, workPlace, employmentType, vision}
     @Column(name = "parsed_data", columnDefinition = "TEXT")
     private String parsedData;
 
-    // 역량 벡터 JSON (기업분석 확장용)
-    // {"BE_FRAMEWORK": 0.9, "DB": 0.7, ...}
-    @Column(name = "capability_vector", columnDefinition = "TEXT")
-    private String capabilityVector;
+    // JD 분석 결과
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "jd_profile", columnDefinition = "json")
+    private Map<String, Object> jdProfile;
 
-    // 공고 상태
+    @Column(name = "analyzed_job_code", length = 50)
+    private String analyzedJobCode;
+
+    // 주 목표 공고 여부
+    @Column(name = "is_primary")
+    @Builder.Default
+    private Boolean isPrimary = false;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", length = 20)
     @Builder.Default
@@ -60,8 +66,8 @@ public class CompanyJobPosting {
     }
 
     public enum Status {
-        ACTIVE,  // 진행중
-        CLOSED,  // 마감
-        APPLIED  // 지원완료
+        ACTIVE,
+        CLOSED,
+        APPLIED
     }
 }

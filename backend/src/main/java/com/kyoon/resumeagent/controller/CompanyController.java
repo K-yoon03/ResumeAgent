@@ -21,10 +21,6 @@ public class CompanyController {
     private final CompanyService companyService;
     private final UserRepository userRepository;
 
-    /**
-     * 기업 추가
-     * POST /api/companies
-     */
     @PostMapping
     public ResponseEntity<CompanyResponse> addCompany(
             @AuthenticationPrincipal UserDetails userDetails,
@@ -32,121 +28,79 @@ public class CompanyController {
         User user = userRepository.findByEmail(userDetails.getUsername())
                 .orElseThrow(() -> new RuntimeException("User not found"));
         Company company = companyService.addCompany(
-                user,
-                request.companyName(),
-                request.industry(),
-                request.memo()
+                user, request.companyName(), request.industry(),
+                request.memo(), request.companySize()
         );
-
-        return ResponseEntity.ok(new CompanyResponse(
-                company.getId(),
-                company.getCompanyName(),
-                company.getIndustry(),
-                company.getMemo(),
-                company.getIsPrimary(),
-                company.getAddedAt()
-        ));
+        return ResponseEntity.ok(toResponse(company));
     }
 
-    /**
-     * 내 기업 목록 조회
-     * GET /api/companies
-     */
     @GetMapping
     public ResponseEntity<List<CompanyResponse>> getMyCompanies(
             @AuthenticationPrincipal UserDetails userDetails) {
-
         User user = userRepository.findByEmail(userDetails.getUsername())
                 .orElseThrow(() -> new RuntimeException("User not found"));
-
-        List<Company> companies = companyService.getMyCompanies(user);
-
-        List<CompanyResponse> response = companies.stream()
-                .map(c -> new CompanyResponse(
-                        c.getId(),
-                        c.getCompanyName(),
-                        c.getIndustry(),
-                        c.getMemo(),
-                        c.getIsPrimary(),
-                        c.getAddedAt()
-                ))
-                .toList();
-
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(
+                companyService.getMyCompanies(user).stream().map(this::toResponse).toList()
+        );
     }
 
-    /**
-     * 주 희망기업 설정
-     * PUT /api/companies/{id}/primary
-     */
+    @PutMapping("/{id}")
+    public ResponseEntity<CompanyResponse> updateCompany(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long id,
+            @RequestBody UpdateCompanyRequest request) {
+        User user = userRepository.findByEmail(userDetails.getUsername())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        Company company = companyService.updateCompany(user, id, request.industry(),
+                request.memo(), request.companySize());
+        return ResponseEntity.ok(toResponse(company));
+    }
+
     @PutMapping("/{id}/primary")
     public ResponseEntity<MessageResponse> setPrimaryCompany(
             @AuthenticationPrincipal UserDetails userDetails,
             @PathVariable Long id) {
-
         User user = userRepository.findByEmail(userDetails.getUsername())
                 .orElseThrow(() -> new RuntimeException("User not found"));
-
         try {
             companyService.setPrimaryCompany(user, id);
             return ResponseEntity.ok(new MessageResponse("주 희망기업으로 설정되었습니다."));
         } catch (RuntimeException e) {
-            return ResponseEntity.badRequest()
-                    .body(new MessageResponse(e.getMessage()));
+            return ResponseEntity.badRequest().body(new MessageResponse(e.getMessage()));
         }
     }
 
-    /**
-     * 주 희망기업 해제
-     * DELETE /api/companies/primary
-     */
     @DeleteMapping("/primary")
     public ResponseEntity<MessageResponse> removePrimaryCompany(
             @AuthenticationPrincipal UserDetails userDetails) {
-
         User user = userRepository.findByEmail(userDetails.getUsername())
                 .orElseThrow(() -> new RuntimeException("User not found"));
-
         companyService.removePrimaryCompany(user);
         return ResponseEntity.ok(new MessageResponse("주 희망기업이 해제되었습니다."));
     }
 
-    /**
-     * 기업 삭제
-     * DELETE /api/companies/{id}
-     */
     @DeleteMapping("/{id}")
     public ResponseEntity<MessageResponse> deleteCompany(
             @AuthenticationPrincipal UserDetails userDetails,
             @PathVariable Long id) {
-
         User user = userRepository.findByEmail(userDetails.getUsername())
                 .orElseThrow(() -> new RuntimeException("User not found"));
-
         try {
             companyService.deleteCompany(user, id);
             return ResponseEntity.ok(new MessageResponse("기업이 삭제되었습니다."));
         } catch (RuntimeException e) {
-            return ResponseEntity.badRequest()
-                    .body(new MessageResponse(e.getMessage()));
+            return ResponseEntity.badRequest().body(new MessageResponse(e.getMessage()));
         }
     }
 
-    // DTOs
-    record AddCompanyRequest(
-            String companyName,
-            String industry,
-            String memo
-    ) {}
+    private CompanyResponse toResponse(Company c) {
+        return new CompanyResponse(c.getId(), c.getCompanyName(), c.getIndustry(),
+                c.getMemo(), c.getIsPrimary(), c.getCompanySize(), c.getAddedAt());
+    }
 
-    record CompanyResponse(
-            Long id,
-            String companyName,
-            String industry,
-            String memo,
-            Boolean isPrimary,
-            LocalDateTime addedAt
-    ) {}
-
+    record AddCompanyRequest(String companyName, String industry, String memo, String companySize) {}
+    record UpdateCompanyRequest(String industry, String memo, String companySize) {}
+    record CompanyResponse(Long id, String companyName, String industry, String memo,
+                           Boolean isPrimary, String companySize, LocalDateTime addedAt) {}
     record MessageResponse(String message) {}
 }

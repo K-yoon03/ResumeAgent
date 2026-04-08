@@ -21,6 +21,24 @@ public class PromptPathResolver {
     }
 
     @Deprecated
+    public static String jdAnalyzer() {
+        // Lagacy - 삭제 예정
+        return null;
+    }
+
+    public static String jdJobClassifier() {
+        return "classpath:prompts/jd/JDJobClassifier.st";
+    }
+
+    public static String jdCapabilityEvaluator() {
+        return "classpath:prompts/jd/JDCapabilityEvaluator.st";
+    }
+
+    public static String jdRoadmapGenerator() {
+        return "classpath:prompts/jd/JDRoadmapGenerator.st";
+    }
+
+    @Deprecated
     public static String depth(String measureType) {
         return null;
     }

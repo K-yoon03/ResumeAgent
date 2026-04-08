@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Sparkles, Plus, Clock, Star } from "lucide-react";
+import { Sparkles, Plus, Clock, Star, Search } from "lucide-react";
+import { usePaginatedSearch } from '../hooks/usePaginatedSearch';
 import { BASE_URL } from '../config';
 import { toast } from "sonner";
 import jobCodeMap from '../MappingTable/JobCodeMap.json';
@@ -11,6 +12,14 @@ function MyAssessments() {
   const navigate = useNavigate();
   const [assessments, setAssessments] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  const { paged, filtered, query, handleQuery, totalPages, page, Pagination } = usePaginatedSearch(
+    assessments, 10,
+    (a, q) =>
+      (a.evaluatedJobCode || "").toLowerCase().includes(q) ||
+      (jobCodeMap[a.evaluatedJobCode] || "").toLowerCase().includes(q) ||
+      (a.grade || "").toLowerCase().includes(q)
+  );
 
   useEffect(() => { fetchAssessments(); }, []);
 
@@ -102,7 +111,9 @@ function MyAssessments() {
           <h1 className="text-3xl font-bold bg-gradient-to-r from-[var(--gradient-start)] via-[var(--gradient-mid)] to-[var(--gradient-end)] bg-clip-text text-transparent">
             나의 역량평가
           </h1>
-          <p className="text-muted-foreground text-sm">저장된 역량평가 결과를 확인하세요</p>
+          <p className="text-muted-foreground text-sm">
+            총 {assessments.length}개{filtered.length !== assessments.length ? ` · 검색결과 ${filtered.length}개` : ""} · {totalPages > 1 ? `${page} / ${totalPages} 페이지` : ""}
+          </p>
         </div>
         <Button
           className="bg-gradient-to-r from-[var(--gradient-start)] to-[var(--gradient-end)] text-white hover:opacity-90"
@@ -110,6 +121,18 @@ function MyAssessments() {
         >
           <Plus className="mr-2 h-4 w-4" />새 역량평가
         </Button>
+      </div>
+
+      {/* 검색 */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <input
+          type="text"
+          placeholder="직무코드, 직무명, 등급으로 검색..."
+          value={query}
+          onChange={e => handleQuery(e.target.value)}
+          className="w-full pl-9 pr-4 py-2 rounded-lg border border-input bg-muted/30 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--gradient-mid)]/50"
+        />
       </div>
 
       {/* 목록 없을 때 */}
@@ -135,7 +158,8 @@ function MyAssessments() {
 
       {/* 역량평가 목록 */}
       <div className="space-y-4">
-        {assessments.map((assessment) => {
+        {paged.map((assessment, idx) => {
+          const globalIdx = (page - 1) * 10 + idx + 1;
           const totalScore = getTotalScore(assessment.scoreData);
           const grade = totalScore != null ? getGrade(totalScore) : null;
           const percentile = totalScore != null ? getPercentile(totalScore) : null;
@@ -157,8 +181,11 @@ function MyAssessments() {
                   {/* 왼쪽 */}
                   <div className="flex-1 space-y-3">
 
-                    {/* 상단: 주역량 뱃지 + 날짜 */}
+                    {/* 상단: 번호 + 주역량 배지 + 날짜 */}
                     <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground font-mono">
+                        #{globalIdx}
+                      </span>
                       {assessment.isPrimary && (
                         <span className="text-xs px-2 py-0.5 rounded-full bg-[var(--gradient-mid)]/15 text-[var(--gradient-mid)] font-medium">
                           주 역량평가
@@ -169,7 +196,7 @@ function MyAssessments() {
                       </span>
                     </div>
 
-                    {/* 점수 / 등급 / 퍼센테이지 */}
+                    {/* 점수 / 등급 */}
                     {totalScore != null ? (
                       <div className="flex items-center gap-3 flex-wrap">
                         <span className="text-2xl font-bold text-foreground">{totalScore}점</span>
@@ -177,6 +204,15 @@ function MyAssessments() {
                           {grade}
                         </span>
                         <span className="text-sm text-muted-foreground">{percentile}</span>
+                        {assessment.grade && (
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                            assessment.grade === "PROFESSIONER"
+                              ? "bg-yellow-500/15 text-yellow-500"
+                              : "bg-blue-500/15 text-blue-500"
+                          }`}>
+                            {assessment.grade}
+                          </span>
+                        )}
                       </div>
                     ) : (
                       <p className="text-sm text-muted-foreground">점수 정보 없음</p>
@@ -212,16 +248,18 @@ function MyAssessments() {
                     )}
                     <Button size="sm" variant="outline"
                       onClick={() => {
-                        const sd = JSON.parse(assessment.scoreData);
-                        navigate("/depth-interview", {
-                          state: {
-                            assessmentId: assessment.id,
-                            experiences: sd.experiences || [],
-                            depthItems: sd.depthItems || [],
-                            complexItems: sd.complexItems || [],
-                            jobCode: assessment.evaluatedJobCode,
-                          }
-                        });
+                        try {
+                          const sd = JSON.parse(assessment.scoreData);
+                          navigate("/depth-interview", {
+                            state: {
+                              assessmentId: assessment.id,
+                              experiences: sd.experiences || [],
+                              depthItems: sd.depthItems || [],
+                              complexItems: sd.complexItems || [],
+                              jobCode: assessment.evaluatedJobCode,
+                            }
+                          });
+                        } catch { toast.error("평가 데이터를 불러올 수 없습니다."); }
                       }}>
                       심층 분석
                     </Button>
@@ -248,6 +286,9 @@ function MyAssessments() {
           );
         })}
       </div>
+
+      <Pagination />
+
     </div>
   );
 }

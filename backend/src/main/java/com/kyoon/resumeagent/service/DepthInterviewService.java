@@ -179,6 +179,42 @@ public class DepthInterviewService {
                 ? Math.round(coveredWeightSum / totalWeightSum * 100.0) / 100.0
                 : 0.0;
 
+        // Step 5.5 - 인접 직군 크로스 보너스
+        // jobRanking에서 본인 직군 제외 상위 3개 인접 직군의 역량 점수를 감쇠하여 반영
+        // 공식: crossBonus += crossJobDepthScore × similarity × 0.3 (감쇠계수)
+        double crossBonusSum = 0.0;
+        int crossCount = 0;
+        for (Map.Entry<String, Double> rankEntry : jobRanking.entrySet()) {
+            if (crossCount >= 3) break;
+            String adjacentJobCode = rankEntry.getKey();
+            if (adjacentJobCode.equals(jobCode)) continue;
+
+            double similarity = rankEntry.getValue();
+            if (similarity < 0.3) break; // 유사도 낮으면 의미 없음
+
+            Map<CapabilityCode, Double> adjacentWeights = getWeightsFromProfile(adjacentJobCode);
+            double adjCoveredWeightSum = 0.0;
+            double adjWeightedScoreSum = 0.0;
+
+            for (Map.Entry<CapabilityCode, UserCapability> entry : userCapabilityMap.entrySet()) {
+                CapabilityCode code = entry.getKey();
+                UserCapability uc = entry.getValue();
+                if (!adjacentWeights.containsKey(code)) continue;
+                double w = adjacentWeights.get(code);
+                adjCoveredWeightSum += w;
+                adjWeightedScoreSum += uc.score() * w;
+            }
+
+            if (adjCoveredWeightSum > 0) {
+                double adjDepthScore = adjWeightedScoreSum / adjCoveredWeightSum * 100.0;
+                crossBonusSum += adjDepthScore * similarity * 0.3;
+                crossCount++;
+            }
+        }
+        // crossBonus는 최대 15점으로 제한 (보조 점수가 주 점수를 역전하지 않도록)
+        double crossBonus = Math.min(crossBonusSum, 15.0);
+        int totalScore = (int) Math.min(Math.round(depthScore + crossBonus), 100);
+
         // Step 6 - strengths/weakFields 파싱
         List<String> strengths = new ArrayList<>();
         List<String> improvements = new ArrayList<>();
@@ -202,7 +238,8 @@ public class DepthInterviewService {
         Map<String, Object> newScoreData = new LinkedHashMap<>();
         newScoreData.put("depthScore", depthScore);   // 언급된 역량 내 깊이 (0~100)
         newScoreData.put("coverage", coverage);        // 역량 커버율 (0.0~1.0)
-        newScoreData.put("totalScore", depthScore);    // 하위호환: Dashboard 등 기존 참조용
+        newScoreData.put("crossBonus", (int) Math.round(crossBonus)); // 인접 직군 보너스
+        newScoreData.put("totalScore", totalScore);    // depthScore + crossBonus (하위호환)
         newScoreData.put("grade", grade);
         newScoreData.put("competencyScores", competencyScores);
         newScoreData.put("isFinal", true);

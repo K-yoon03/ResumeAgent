@@ -20,17 +20,21 @@ public class Company {
     private User user;
 
     @Column(nullable = false, length = 200)
-    private String companyName;  // "카카오"
+    private String companyName;
 
     @Column(length = 100)
-    private String industry;  // "IT·인터넷"
+    private String industry;
 
     @Column(columnDefinition = "TEXT")
-    private String memo;  // "백엔드 개발자 채용 공고 지원 예정"
+    private String memo;
 
     @Column(name = "is_primary")
     @Builder.Default
-    private Boolean isPrimary = false;  // 주 희망기업 여부
+    private Boolean isPrimary = false;
+
+    // 기업 규모
+    @Column(name = "company_size", length = 20)
+    private String companySize; // 대기업 / 중견 / 중소 / 스타트업 / 공기업
 
     @CreatedDate
     @Column(updatable = false)

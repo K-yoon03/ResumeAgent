@@ -18,8 +18,8 @@ import { Button } from "../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
 import { Progress } from "../components/ui/progress";
-import axios from "axios";
 import { toast } from "sonner";
+import { BASE_URL } from "../config";
 import capCodeMap from "../MappingTable/capCodeMap.json";
 import jobCodeMap from "../MappingTable/JobCodeMap.json";
 
@@ -271,13 +271,15 @@ export function DashboardPage() {
     try {
       const token = localStorage.getItem("token");
       if (!token) { setError("로그인이 필요합니다."); setLoading(false); return; }
-      const response = await axios.get("http://localhost:8080/api/dashboard", {
+      const response = await fetch(`${BASE_URL}/api/dashboard`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setData(response.data);
-      setCompanyList((response.data.companyList || []).sort((a, b) => (b.isPrimary ? 1 : 0) - (a.isPrimary ? 1 : 0)));
+      if (!response.ok) throw new Error("데이터를 불러올 수 없습니다.");
+      const responseData = await response.json();
+      setData(responseData);
+      setCompanyList((responseData.companyList || []).sort((a, b) => (b.isPrimary ? 1 : 0) - (a.isPrimary ? 1 : 0)));
     } catch (error) {
-      setError(error.response?.data?.message || "데이터를 불러올 수 없습니다.");
+      setError(error.message || "데이터를 불러올 수 없습니다.");
     } finally { setLoading(false); }
   };
 
@@ -288,7 +290,7 @@ export function DashboardPage() {
     );
     try {
       const token = localStorage.getItem("token");
-      await fetch(`http://localhost:8080/api/companies/${id}/primary`, {
+      await fetch(`${BASE_URL}/api/companies/${id}/primary`, {
         method: "PUT", headers: { Authorization: `Bearer ${token}` }
       });
       toast.success("주 희망기업이 변경되었습니다!");
@@ -318,6 +320,9 @@ export function DashboardPage() {
   const userData = data?.user || { nickname: "사용자", email: "" };
   const desiredJob = data?.desiredJob;
   const primaryAssessment = data?.primaryAssessment;
+  const primaryCompany = data?.primaryCompany;
+  const primaryJobPosting = data?.primaryJobPosting;
+  const gapReport = data?.gapReport;
   const credits = data?.credits || { remaining: 0, daily: 50, used: 0 };
 
   return (
@@ -621,8 +626,79 @@ export function DashboardPage() {
             <CardTitle className="flex items-center gap-2">
               <Building2 className="h-5 w-5 text-pink-500" />희망기업
             </CardTitle>
+            {primaryJobPosting && (
+              <div className="text-xs text-muted-foreground mt-1">
+                주 목표: {primaryJobPosting.companyName} · {primaryJobPosting.position}
+              </div>
+            )}
           </CardHeader>
           <CardContent>
+            {/* Gap 분석 카드 - primaryJobPosting + gapReport 있을 때 */}
+            {primaryJobPosting && gapReport && (
+              <div className="mb-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-semibold flex items-center gap-2">
+                    <TrendingUp className="h-4 w-4 text-purple-500" />역량 갭 분석
+                  </h4>
+                  <span className="text-xs text-muted-foreground">{primaryJobPosting.analyzedJobCode}</span>
+                </div>
+
+                {/* Gap 항목 */}
+                <div className="space-y-2">
+                  {Object.entries(gapReport.gaps || {}).map(([code, gap]) => {
+                    const statusColor = {
+                      MATCH: "text-green-500 bg-green-500/10",
+                      CLOSE: "text-yellow-500 bg-yellow-500/10",
+                      GAP: "text-red-500 bg-red-500/10"
+                    }[gap.status] || "";
+                    const statusLabel = { MATCH: "충족", CLOSE: "근접", GAP: "부족" }[gap.status] || "";
+                    const userPct = Math.round((gap.userScore || 0) * 100);
+                    const reqPct = Math.round((gap.requiredScore || 0) * 100);
+                    return (
+                      <div key={code} className="space-y-1">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-muted-foreground">{code}</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-muted-foreground">{userPct} / {reqPct}</span>
+                            <span className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${statusColor}`}>
+                              {statusLabel}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="relative h-1.5 bg-muted rounded-full overflow-hidden">
+                          <div className="absolute inset-y-0 left-0 bg-purple-500/40 rounded-full"
+                            style={{ width: `${reqPct}%` }} />
+                          <div className="absolute inset-y-0 left-0 bg-purple-500 rounded-full"
+                            style={{ width: `${userPct}%` }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* 액션 아이템 */}
+                {(gapReport.actionItems || []).length > 0 && (
+                  <details className="pt-2 border-t border-border/50">
+                    <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground py-1">
+                      개선 로드맵 ({gapReport.actionItems.length}개)
+                    </summary>
+                    <div className="mt-2 space-y-2">
+                      {gapReport.actionItems.map((item, idx) => (
+                        <div key={idx} className="p-2.5 rounded-lg bg-muted/40 space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-medium">{item.capability}</span>
+                            <span className="text-xs text-muted-foreground">~{item.estimatedWeeks}주</span>
+                          </div>
+                          <p className="text-xs text-muted-foreground">{item.action}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+                )}
+              </div>
+            )}
+
+            {/* 기업 목록 */}
             <div className="space-y-3">
               {companyList.length > 0 ? companyList.map((company) => (
                 <div key={company.id} className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${
@@ -637,6 +713,9 @@ export function DashboardPage() {
                       {company.isPrimary && (
                         <span className="text-xs px-1.5 py-0.5 rounded-full bg-pink-500/15 text-pink-500 shrink-0">주</span>
                       )}
+                      {company.companySize && (
+                        <span className="text-xs px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground shrink-0">{company.companySize}</span>
+                      )}
                     </div>
                     {company.industry && <p className="text-xs text-muted-foreground">{company.industry}</p>}
                   </div>
@@ -647,28 +726,15 @@ export function DashboardPage() {
                     </button>
                   )}
                 </div>
-              )) : [
-                { id: 1, name: "카카오", industry: "IT·인터넷", isPrimary: true },
-                { id: 2, name: "네이버", industry: "IT·인터넷", isPrimary: false },
-                { id: 3, name: "라인플러스", industry: "IT·인터넷", isPrimary: false },
-              ].map((company) => (
-                <div key={company.id} className={`flex items-center gap-3 p-3 rounded-xl border ${
-                  company.isPrimary ? "border-pink-500/30 bg-pink-500/5" : "border-border/50 bg-muted/20"
-                }`}>
-                  <div className={`p-2 rounded-lg shrink-0 ${company.isPrimary ? "bg-pink-500/10" : "bg-muted"}`}>
-                    <Building2 className={`h-4 w-4 ${company.isPrimary ? "text-pink-500" : "text-muted-foreground"}`} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-medium text-foreground truncate">{company.name}</p>
-                      {company.isPrimary && (
-                        <span className="text-xs px-1.5 py-0.5 rounded-full bg-pink-500/15 text-pink-500 shrink-0">주</span>
-                      )}
-                    </div>
-                    {company.industry && <p className="text-xs text-muted-foreground">{company.industry}</p>}
-                  </div>
+              )) : (
+                <div className="text-center py-6">
+                  <Building2 className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground mb-3">등록된 희망기업이 없어요</p>
+                  <Link to="/companies/new">
+                    <Button size="sm" variant="outline">기업 추가하기</Button>
+                  </Link>
                 </div>
-              ))}
+              )}
               {companyList.length > 0 && (
                 <Link to="/companies">
                   <Button variant="outline" className="w-full mt-2" size="sm">기업 관리</Button>

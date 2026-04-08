@@ -3,7 +3,8 @@ import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Building2, Plus, Star, StarOff, Trash2, Pencil, X, ChevronDown, ChevronUp, FileText, Sparkles, CheckCircle2 } from "lucide-react";
+import { Building2, Plus, Star, StarOff, Trash2, Pencil, X, ChevronDown, ChevronUp, FileText, Sparkles, CheckCircle2, Search } from "lucide-react";
+import { usePaginatedSearch } from '../hooks/usePaginatedSearch';
 import { BASE_URL } from '../config';
 import { MagicPaste } from '@/components/MagicPaste';
 
@@ -12,11 +13,14 @@ const industries = ["IT·인터넷", "금융·은행", "제조·화학", "게임
 const inputClass = "w-full px-4 py-2.5 rounded-lg border border-input text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[var(--gradient-mid)]/50 focus:border-[var(--gradient-mid)] transition-all bg-muted/30 text-foreground";
 
 // ── 기업 수정 모달 ──
+const companySizes = ["대기업", "중견", "중소", "스타트업", "공기업"];
+
 const EditModal = ({ company, onClose, onSave }) => {
   const [form, setForm] = useState({
     companyName: company.companyName,
     industry: company.industry || "",
     memo: company.memo || "",
+    companySize: company.companySize || "",
   });
   const [loading, setLoading] = useState(false);
 
@@ -72,6 +76,21 @@ const EditModal = ({ company, onClose, onSave }) => {
             <textarea value={form.memo} onChange={(e) => setForm({...form, memo: e.target.value})}
               rows={3} placeholder="지원 포지션, 메모 등"
               className={`${inputClass} resize-none`} />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-foreground">기업 규모</label>
+            <div className="flex flex-wrap gap-2">
+              {companySizes.map((size) => (
+                <button key={size} onClick={() => setForm({...form, companySize: size})}
+                  className={`px-3 py-1 rounded-lg text-xs border transition-all ${
+                    form.companySize === size
+                      ? "border-[var(--gradient-mid)] bg-[var(--gradient-mid)]/10 text-[var(--gradient-mid)]"
+                      : "border-border text-muted-foreground hover:border-[var(--gradient-mid)]/50"
+                  }`}>
+                  {size}
+                </button>
+              ))}
+            </div>
           </div>
           <div className="flex gap-2 pt-2">
             <Button variant="outline" className="flex-1" onClick={onClose}>취소</Button>
@@ -161,6 +180,30 @@ const JobPostingsSection = ({ company }) => {
     } catch {}
   };
 
+  const handleSetPrimaryPosting = async (postingId) => {
+    const token = localStorage.getItem("token");
+    try {
+      const res = await fetch(`${BASE_URL}/api/companies/${company.id}/postings/${postingId}/primary`, {
+        method: "PUT", headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        setPostings(prev => prev.map(p => ({ ...p, isPrimary: p.id === postingId })));
+        toast.success("주 목표 공고로 설정되었습니다!");
+      }
+    } catch { toast.error("설정에 실패했어요"); }
+  };
+
+  const handleUnsetPrimaryPosting = async (postingId) => {
+    const token = localStorage.getItem("token");
+    try {
+      await fetch(`${BASE_URL}/api/companies/${company.id}/postings/primary`, {
+        method: "DELETE", headers: { Authorization: `Bearer ${token}` }
+      });
+      setPostings(prev => prev.map(p => ({ ...p, isPrimary: false })));
+      toast.success("주 목표 공고가 해제되었습니다.");
+    } catch { toast.error("해제에 실패했어요"); }
+  };
+
   const statusLabel = { ACTIVE: "진행중", CLOSED: "마감", APPLIED: "지원완료" };
   const statusColor = {
     ACTIVE: "bg-green-500/10 text-green-600 dark:text-green-400",
@@ -213,11 +256,24 @@ const JobPostingsSection = ({ company }) => {
                     <p className="text-sm font-medium text-foreground truncate">
                       {posting.position || parsed?.position || "포지션 미입력"}
                     </p>
+                    {posting.isPrimary && (
+                      <span className="text-xs px-1.5 py-0.5 rounded-full bg-pink-500/15 text-pink-500 shrink-0">주 목표</span>
+                    )}
+                    {posting.analyzedJobCode && (
+                      <span className="text-xs px-1.5 py-0.5 rounded-full bg-blue-500/10 text-blue-500 shrink-0">{posting.analyzedJobCode}</span>
+                    )}
                     {parsed?.mainTasks && (
                       <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{parsed.mainTasks}</p>
                     )}
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      onClick={() => posting.isPrimary ? handleUnsetPrimaryPosting(posting.id) : handleSetPrimaryPosting(posting.id)}
+                      className={`p-1 rounded-lg transition-colors ${posting.isPrimary ? "text-pink-500 hover:bg-pink-500/10" : "text-muted-foreground hover:text-pink-500 hover:bg-pink-500/10"}`}
+                      title={posting.isPrimary ? "주 목표 공고 해제" : "주 목표 공고로 설정"}
+                    >
+                      <Star className={`h-3.5 w-3.5 ${posting.isPrimary ? "fill-pink-500" : ""}`} />
+                    </button>
                     <select
                       value={posting.status}
                       onChange={(e) => handleStatusChange(posting.id, e.target.value)}
@@ -250,6 +306,15 @@ const Companies = () => {
   const [companies, setCompanies] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editTarget, setEditTarget] = useState(null);
+
+  const { paged, filtered, query, handleQuery, totalPages, page, Pagination } = usePaginatedSearch(
+    companies, 10,
+    (c, q) =>
+      (c.companyName || "").toLowerCase().includes(q) ||
+      (c.industry || "").toLowerCase().includes(q) ||
+      (c.companySize || "").toLowerCase().includes(q) ||
+      (c.memo || "").toLowerCase().includes(q)
+  );
 
   useEffect(() => { fetchCompanies(); }, []);
 
@@ -314,7 +379,7 @@ const Companies = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">목표기업</h1>
-          <p className="text-sm text-muted-foreground mt-1">지원 예정 기업과 채용공고를 관리하세요</p>
+          <p className="text-sm text-muted-foreground mt-1">총 {companies.length}개{filtered.length !== companies.length ? ` · 검색결과 ${filtered.length}개` : ""}</p>
         </div>
         <Link to="/companies/new">
           <Button className="bg-gradient-to-r from-[var(--gradient-start)] via-[var(--gradient-mid)] to-[var(--gradient-end)] text-white hover:opacity-90">
@@ -322,6 +387,20 @@ const Companies = () => {
           </Button>
         </Link>
       </div>
+
+      {/* 검색 */}
+      {companies.length > 0 && (
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <input
+            type="text"
+            placeholder="기업명, 산업군, 규모로 검색..."
+            value={query}
+            onChange={e => handleQuery(e.target.value)}
+            className="w-full pl-9 pr-4 py-2 rounded-lg border border-input bg-muted/30 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--gradient-mid)]/50"
+          />
+        </div>
+      )}
 
       {companies.length === 0 ? (
         <Card className="border border-border/50">
@@ -337,8 +416,9 @@ const Companies = () => {
           </CardContent>
         </Card>
       ) : (
+        <>
         <div className="space-y-3">
-          {companies.map((company) => (
+          {paged.map((company) => (
             <Card key={company.id} className={`border transition-all ${
               company.isPrimary ? "border-pink-500/30 bg-pink-500/5" : "border-border/50 bg-muted/30"
             }`}>
@@ -386,6 +466,8 @@ const Companies = () => {
             </Card>
           ))}
         </div>
+        <Pagination />
+        </>
       )}
     </div>
   );

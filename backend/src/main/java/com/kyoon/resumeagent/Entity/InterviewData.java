@@ -42,6 +42,12 @@ public class InterviewData {
     @Column(name = "raw_qna", columnDefinition = "TEXT")
     private String rawQna; // JSON으로 저장
 
+    @Column(columnDefinition = "TEXT")
+    private String weakFields; // JSON 배열 ["action_tech", "result"]
+
+    @Column(columnDefinition = "TEXT")
+    private String weakReasons; // JSON {"action_tech": "구현 내용만...", "result": "결과 불명확..."}
+
     // 완성도 점수 (0.0 ~ 1.0)
     @Column(name = "completeness_score")
     private Double completenessScore;

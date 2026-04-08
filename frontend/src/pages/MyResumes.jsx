@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { FileText, Plus, Clock, Trash2, Sparkles, MessageSquare, CheckCircle, Edit, BarChart, Zap } from "lucide-react";
+import { FileText, Plus, Clock, Trash2, Sparkles, MessageSquare, CheckCircle, Edit, BarChart, Zap, Search } from "lucide-react";
+import { usePaginatedSearch } from '../hooks/usePaginatedSearch';
 import { toast } from "sonner";
 import { BASE_URL } from '../config';
 import { useAuth } from '@/context/AuthContext';
@@ -12,6 +13,14 @@ export default function MyResumes() {
   const [resumes, setResumes] = useState([]);
   const [loading, setLoading] = useState(true);
   const { isAdmin, loading: authLoading } = useAuth();
+
+  const { paged, filtered, query, handleQuery, totalPages, page, Pagination } = usePaginatedSearch(
+    resumes, 10,
+    (r, q) =>
+      (r.title || "").toLowerCase().includes(q) ||
+      (r.status || "").toLowerCase().includes(q) ||
+      (r.content || "").toLowerCase().includes(q)
+  );
 
   useEffect(() => {
     fetchResumes();
@@ -232,7 +241,7 @@ export default function MyResumes() {
           <h1 className="text-3xl font-bold bg-gradient-to-r from-[var(--gradient-start)] via-[var(--gradient-mid)] to-[var(--gradient-end)] bg-clip-text text-transparent">
             나의 자소서
           </h1>
-          <p className="text-muted-foreground text-sm">저장된 자기소개서를 확인하세요</p>
+          <p className="text-muted-foreground text-sm">총 {resumes.length}개{filtered.length !== resumes.length ? ` · 검색결과 ${filtered.length}개` : ""}</p>
         </div>
         <Button
           className="bg-gradient-to-r from-[var(--gradient-start)] to-[var(--gradient-end)] text-white hover:opacity-90"
@@ -241,6 +250,18 @@ export default function MyResumes() {
           <Plus className="mr-2 h-4 w-4" />
           새 자소서
         </Button>
+      </div>
+
+      {/* 검색 */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <input
+          type="text"
+          placeholder="제목, 상태로 검색..."
+          value={query}
+          onChange={e => handleQuery(e.target.value)}
+          className="w-full pl-9 pr-4 py-2 rounded-lg border border-input bg-muted/30 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--gradient-mid)]/50"
+        />
       </div>
 
       {/* 목록 없을 때 */}
@@ -267,7 +288,7 @@ export default function MyResumes() {
 
       {/* 자소서 목록 */}
       <div className="space-y-4">
-        {resumes.map((resume) => (
+        {paged.map((resume) => (
           <Card key={resume.id} className="border border-border/50 hover:border-[var(--gradient-mid)]/30 transition-colors">
             <CardContent className="pt-5 pb-5">
               <div className="flex items-start justify-between gap-4">
@@ -301,6 +322,8 @@ export default function MyResumes() {
           </Card>
         ))}
       </div>
+
+      <Pagination />
 
     </div>
   );

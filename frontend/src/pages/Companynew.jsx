@@ -12,7 +12,8 @@ import { MagicPaste } from '@/components/MagicPaste';
 const CompanyNew = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [form, setForm] = useState({ companyName: "", industry: "", memo: "", isPrimary: false });
+  const [form, setForm] = useState({ companyName: "", industry: "", memo: "", companySize: "", isPrimary: false });
+  const companySizes = ["대기업", "중견", "중소", "스타트업", "공기업"];
   const [loading, setLoading] = useState(false);
 
   // 공고 관련 state
@@ -137,6 +138,24 @@ const CompanyNew = () => {
             <textarea value={form.memo} onChange={(e) => setForm({...form, memo: e.target.value})}
               placeholder="지원 포지션, 채용 공고 링크, 준비 사항 등을 자유롭게 적어주세요"
               rows={3} className={`${inputClass} resize-none`} />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium flex items-center gap-2 text-foreground">
+              <Briefcase className="h-4 w-4 text-[var(--gradient-mid)]" />기업 규모
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {companySizes.map((size) => (
+                <button key={size} onClick={() => setForm({...form, companySize: size})}
+                  className={`px-3 py-1.5 rounded-lg text-sm border transition-all ${
+                    form.companySize === size
+                      ? "border-[var(--gradient-mid)] bg-[var(--gradient-mid)]/10 text-[var(--gradient-mid)]"
+                      : "border-border text-muted-foreground hover:border-[var(--gradient-mid)]/50"
+                  }`}>
+                  {size}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className="flex items-center gap-3 p-3 rounded-lg border border-border/50">

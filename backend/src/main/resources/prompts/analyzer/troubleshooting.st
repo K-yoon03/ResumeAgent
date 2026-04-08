@@ -23,16 +23,21 @@ Extract all items from 경력 및 경험 only.
 Each item has: name (string), durationMonths (number or null), role (string or null), domain (string or null)
 
 STEP 2 - Extract capability evidence:
-For each capability code, determine score based on explicit evidence only.
-- 0.7~1.0: Skill or knowledge is central to a described hands-on experience.
-- 0.4~0.6: Skill is mentioned with some context.
-- 0.1~0.3: Skill is merely listed without experience application.
-- 0.0: No evidence found.
+For each capability code, determine score using ALL input fields in priority order:
+1. 경력 및 경험 (hands-on experience): highest weight
+2. 보유 직무역량 (listed skills/equipment): secondary weight
+3. 자격증 / 어학: only for CERT_MATCH and LANGUAGE_SCORE
+
+Scoring rules:
+- 0.7~1.0: Skill or knowledge is central to a described hands-on experience in 경력 및 경험.
+- 0.4~0.6: Skill appears in 경력 및 경험 AND is also listed in 보유 직무역량.
+- 0.1~0.3: Skill is listed in 보유 직무역량 only, without any experience application.
+- 0.0: No evidence found in any field.
 
 STEP 3 - Classify each capability:
-- "depth": clearly evidenced in experience
-- "complex": mentioned but unclear
-- "empty": no evidence found
+- "depth": evidenced in 경력 및 경험 with hands-on context (score 0.4+)
+- "complex": listed in 보유 직무역량 only without experience context (score 0.1~0.3)
+- "empty": no evidence found in any field (score 0.0)
 
 STEP 4 - Identify missing signals:
 List capability codes that have no evidence but are relevant to this job group.
