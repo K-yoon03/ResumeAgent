@@ -18,25 +18,25 @@ public class User {
 
     // 기본 정보
     @Column(unique = true)
-    private String email;           // 소셜 로그인은 null 가능
+    private String email;
 
-    private String password;        // 소셜 로그인은 null
+    private String password;
 
     @Column(nullable = false, unique = true)
-    private String nickname;        // 중복 방지, 임시 닉네임 부여
+    private String nickname;
 
-    private String name;            // 실명
+    private String name;
     private String birthDate;
 
     // 소셜 로그인
     @Column(nullable = false)
     private String provider;        // LOCAL / GOOGLE / KAKAO
 
-    private String providerId;      // 소셜 고유 ID (LOCAL은 null)
+    private String providerId;
 
-    // 선택 정보 (나중에 수집)
-    private String jobCategory;     // 희망 직무
-    private String interestField;   // 관심 분야
+    // 선택 정보
+    private String jobCategory;
+    private String interestField;
 
     // 서비스 운영
     @Builder.Default
@@ -45,16 +45,10 @@ public class User {
     @Builder.Default
     private boolean isActive = true;
 
-    // 🔥 크레딧 시스템
+    // 💰 크레딧 시스템 (충전형)
     @Column(nullable = false)
     @Builder.Default
-    private Integer dailyCredits = 50; // 일일 크레딧 (매일 0시 초기화)
-
-    @Column(nullable = false)
-    @Builder.Default
-    private Integer usedCredits = 0; // 오늘 사용한 크레딧
-
-    private LocalDate lastResetDate; // 마지막 초기화 날짜
+    private Integer credits = 10;   // 보유 크레딧 (가입 시 10 지급)
 
     // 타임스탬프
     private LocalDateTime lastLoginAt;
@@ -62,20 +56,21 @@ public class User {
     @CreatedDate
     @Column(updatable = false)
     private LocalDateTime createdAt;
-    //희망직무
+
+    // 희망직무
     @Column(name = "desired_job_text", length = 200)
-    private String desiredJobText;  // 사용자가 입력한 원문 (예: "게임 개발자")
+    private String desiredJobText;
     @Column(name = "mapped_job_code", length = 50)
-    private String mappedJobCode;  // 매핑된 직무 코드 (예: "CP001", "TEMP_IT")
+    private String mappedJobCode;
     @Column(name = "is_temporary_job")
     @Builder.Default
-    private Boolean isTemporaryJob = false;  // 임시 직무 여부
+    private Boolean isTemporaryJob = false;
     @Column(name = "job_match_type", length = 20)
-    private String jobMatchType;  // EXACT_MATCH, SIMILAR_MATCH, CATEGORY_MATCH
+    private String jobMatchType;
     @Column(name = "job_match_confidence")
-    private Double jobMatchConfidence;  // 0.0 ~ 1.0
+    private Double jobMatchConfidence;
     @Column(name = "job_mapped_at")
-    private LocalDateTime jobMappedAt;  // 매핑 일시
+    private LocalDateTime jobMappedAt;
 
     // 변경 제한
     @Column(name = "job_change_count")
@@ -83,12 +78,12 @@ public class User {
     private Integer jobChangeCount = 0;
 
     @Column(name = "last_job_change_date")
-    private LocalDate lastJobChangeDate;  // 마지막 변경 날짜
+    private LocalDate lastJobChangeDate;
 
-    // 🔥 주 역량 평가 (대시보드용)
+    // 주 역량 평가 (대시보드용)
     @ManyToOne
     @JoinColumn(name = "primary_assessment_id")
-    private Assessment primaryAssessment; // 선택한 대표 평가
+    private Assessment primaryAssessment;
 
     @OneToOne
     @JoinColumn(name = "primary_company_id")
@@ -106,41 +101,28 @@ public class User {
         if (birthDate != null && !birthDate.isBlank()) this.birthDate = birthDate;
     }
 
-    // 🔥 크레딧 관련 메서드
+    // 💰 크레딧 관련 메서드
 
-    /**
-     * 크레딧 사용 가능 여부 확인
-     */
+    /** 크레딧 사용 가능 여부 확인 */
     public boolean hasEnoughCredits(int required) {
-        checkAndResetDailyCredits();
-        return (dailyCredits - usedCredits) >= required;
+        return this.credits >= required;
     }
 
-    /**
-     * 크레딧 차감
-     */
+    /** 크레딧 차감 */
     public void useCredits(int amount) {
-        checkAndResetDailyCredits();
-        this.usedCredits += amount;
-    }
-
-    /**
-     * 남은 크레딧 조회
-     */
-    public int getRemainingCredits() {
-        checkAndResetDailyCredits();
-        return dailyCredits - usedCredits;
-    }
-
-    /**
-     * 날짜 변경 시 크레딧 초기화
-     */
-    private void checkAndResetDailyCredits() {
-        LocalDate today = LocalDate.now();
-
-        if (lastResetDate == null || !lastResetDate.equals(today)) {
-            this.usedCredits = 0;
-            this.lastResetDate = today;
+        if (this.credits < amount) {
+            throw new IllegalStateException("크레딧이 부족합니다.");
         }
+        this.credits -= amount;
+    }
+
+    /** 크레딧 충전 */
+    public void addCredits(int amount) {
+        this.credits += amount;
+    }
+
+    /** 남은 크레딧 조회 */
+    public int getRemainingCredits() {
+        return this.credits;
     }
 }

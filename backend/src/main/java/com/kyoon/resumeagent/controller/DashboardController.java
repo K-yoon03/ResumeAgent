@@ -115,7 +115,6 @@ public class DashboardController {
                     posting.getStatus().name()
             );
 
-            // Gap 분석: primaryAssessment + primaryJobPosting 둘 다 있을 때만
             if (primaryCandidate != null && posting.getJdProfile() != null) {
                 try {
                     JDAnalysisService.JDProfile jdProfile =
@@ -135,9 +134,7 @@ public class DashboardController {
                 .toList();
 
         // 크레딧
-        CreditInfo creditInfo = new CreditInfo(
-                user.getRemainingCredits(), user.getDailyCredits(), user.getUsedCredits()
-        );
+        CreditInfo creditInfo = new CreditInfo(user.getRemainingCredits());
 
         return ResponseEntity.ok(new DashboardResponse(
                 userInfo, desiredJobInfo, primaryAssessmentInfo,
@@ -169,7 +166,7 @@ public class DashboardController {
                             displayName,
                             scoreNode.get("score").asInt(),
                             scoreNode.get("weight").asDouble(),
-                            scoreNode.has("contribution") ? scoreNode.get("contribution").asDouble() : 0.0,  // null 방어
+                            scoreNode.has("contribution") ? scoreNode.get("contribution").asDouble() : 0.0,
                             scoreNode.has("evidence") ? scoreNode.get("evidence").asText() : "",
                             scoreNode.has("isCore") && scoreNode.get("isCore").asBoolean(),
                             scoreNode.has("level") ? scoreNode.get("level").asText() : "UNKNOWN"
@@ -311,5 +308,5 @@ public class DashboardController {
             Boolean isPrimary, String companySize
     ) {}
 
-    record CreditInfo(int remaining, int daily, int used) {}
+    record CreditInfo(int remaining) {}
 }

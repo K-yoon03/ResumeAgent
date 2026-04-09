@@ -43,21 +43,29 @@ covered = false ONLY if:
 STEP 3 - LEVEL AND SCORE EVALUATION:
 For covered capabilities only, determine level and score based on evidence quality.
 
-Scoring rules:
-- userInput evidence only (no QA detail)          -> L1~L2, score: 20~50
-- QA: vague or brief mention                       -> L1~L2, score: 30~55
-- QA: specific implementation with context         -> L2,     score: 50~65
-- QA: problem diagnosis + resolution process       -> L2~L3,  score: 60~75
-- QA: design decision + explicit rationale         -> L3,     score: 70~85
-- QA: design + trade-off + measurable outcome      -> L3~L4,  score: 80~92
-- QA: team-level propagation or standardization    -> L4,     score: 88~100
+LEVEL DEFINITIONS AND SCORE RANGES (strictly non-overlapping):
+- L1: score MUST be between 10 and 40  (basic usage, following instructions, no design decisions)
+- L2: score MUST be between 41 and 65  (independent implementation, bug fixing, basic logic)
+- L3: score MUST be between 66 and 85  (design decisions, optimization, rationale explained)
+- L4: score MUST be between 86 and 100 (standardization, team-level propagation, architectural leadership)
 
-CRITICAL RULES:
+Evidence → Level mapping:
+- userInput evidence only (no QA detail)          -> L1, score: 10~35
+- QA: vague or brief mention                       -> L1~L2, score: 30~50
+- QA: specific implementation with context         -> L2, score: 50~65
+- QA: problem diagnosis + resolution process       -> L2~L3, score: 60~70
+- QA: design decision + explicit rationale         -> L3, score: 66~80
+- QA: design + trade-off + measurable outcome      -> L3~L4, score: 75~90
+- QA: team-level propagation or standardization    -> L4, score: 86~100
+
+STRICT SCORING RULES:
+- L1 score range: 10~40. NEVER assign score > 40 for L1.
+- L2 score range: 41~65. NEVER assign score > 65 for L2.
+- L3 score range: 66~85. NEVER assign score > 85 for L3.
+- L4 score range: 86~100. NEVER assign score < 86 for L4.
+- If level is L3 but score would be 60, raise score to minimum 66.
+- If level is L2 but score would be 70, lower score to maximum 65.
 - userInput is WEAK evidence: max L2 from userInput alone, never L3+
-- QA depth determines L3/L4: look for rationale, alternatives considered, measurable outcomes
-- Use anchor criteria in {anchorContext} as primary reference for level boundaries
-- For not covered capabilities: score = 0, omit level field
-- When both sources have evidence, QA is primary and userInput is supporting
 
 COMPLETENESS SCORING (STAR-based):
 - role (max 0.2): clarity of individual contribution and ownership

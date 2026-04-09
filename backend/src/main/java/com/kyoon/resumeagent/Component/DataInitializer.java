@@ -74,7 +74,7 @@ public class DataInitializer implements ApplicationRunner {
                 .password(passwordEncoder.encode("admin1234!"))
                 .nickname("CareerPilot").name("관리자").birthDate("2000-01-01")
                 .provider("LOCAL").role("ADMIN")
-                .dailyCredits(999999).usedCredits(0).lastResetDate(LocalDate.now())
+                .credits(999999)
                 .desiredJobText("백엔드 개발자").mappedJobCode("SW_WEB")
                 .isTemporaryJob(false).jobChangeCount(0).build();
         userRepository.save(admin);

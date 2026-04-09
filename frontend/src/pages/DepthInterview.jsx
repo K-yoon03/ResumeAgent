@@ -47,6 +47,7 @@ const DepthInterview = () => {
   // 전체 완료된 항목 데이터
   const [allItems, setAllItems] = useState([]);
   const [submitting, setSubmitting] = useState(false);
+  const [partialScore, setPartialScore] = useState(null); // { score, completed, grade }
 
   const toggleExperience = (idx) => {
     setSelectedExperiences(prev => prev.map((e, i) => i === idx ? { ...e, selected: !e.selected } : e));
@@ -153,6 +154,22 @@ const DepthInterview = () => {
   };
 
   const proceedToNext = async (itemName, qna, _unused) => {
+    // 경험 1개 완료 → 즉시 저장 + 부분 채점
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${BASE_URL}/api/assessments/${assessmentId}/interview/submit-one`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ itemName, qna }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setPartialScore({ score: data.partialScore, completed: data.completedCount, grade: data.grade });
+      }
+    } catch {
+      // 저장 실패해도 계속 진행
+    }
+
     const newItems = [...allItems, { itemName, qna }];
     setAllItems(newItems);
 
@@ -273,7 +290,6 @@ const DepthInterview = () => {
     );
   }
 
-  // ── 인터뷰 화면 ──
   const currentItem = queue[currentIdx];
   if (!currentItem) return null;
   const progress = (currentIdx / queue.length) * 100;
@@ -341,11 +357,28 @@ const DepthInterview = () => {
       <div className="space-y-2">
         <div className="flex items-center justify-between text-xs text-muted-foreground">
           <span>{currentIdx + 1} / {queue.length}</span>
-          <span>{Math.round(progress)}% 완료</span>
+          <div className="flex items-center gap-3">
+            {partialScore && (
+              <span className="text-xs font-medium text-[#6366f1]">
+                현재 {partialScore.score}점 ({partialScore.completed}개 완료)
+              </span>
+            )}
+            <span>{Math.round(progress)}% 완료</span>
+          </div>
         </div>
         <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
           <div className="h-full bg-gradient-to-r from-[var(--gradient-start)] to-[var(--gradient-end)] rounded-full transition-all duration-500" style={{ width: `${progress}%` }} />
         </div>
+        {partialScore && partialScore.completed > 0 && (
+          <div className="flex justify-end">
+            <button
+              onClick={() => navigate("/my-assessments", { state: { highlightId: assessmentId } })}
+              className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors"
+            >
+              여기까지 결과 보기 →
+            </button>
+          </div>
+        )}
       </div>
 
       <Card className="border border-border/50 shadow-lg">

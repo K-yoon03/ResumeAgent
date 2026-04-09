@@ -10,7 +10,9 @@ import com.kyoon.resumeagent.Capability.VectorSimilarityService;
 import com.kyoon.resumeagent.Capability.VectorSimilarityService.UserCapability;
 import com.kyoon.resumeagent.Entity.Assessment;
 import com.kyoon.resumeagent.Entity.Job;
+import com.kyoon.resumeagent.Entity.InterviewData;
 import com.kyoon.resumeagent.repository.AssessmentRepository;
+import com.kyoon.resumeagent.repository.InterviewDataRepository;
 import com.kyoon.resumeagent.repository.JobRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.chat.client.ChatClient;
@@ -33,6 +35,7 @@ public class DepthInterviewService {
     private final ChatModel chatModel;
     private final JobRepository jobRepository;
     private final AssessmentRepository assessmentRepository;
+    private final InterviewDataRepository interviewDataRepository;
     private final ResourceLoader resourceLoader;
     private final ObjectMapper objectMapper;
     private final VectorSimilarityService vectorSimilarityService;
@@ -45,9 +48,26 @@ public class DepthInterviewService {
      * 최종 점수 계산
      */
     @Transactional
-    public Assessment calculateFinalScore(Long assessmentId, List<Map<String, Object>> depthAnswers) throws Exception {
+    public Assessment calculateFinalScore(Long assessmentId) throws Exception {
         Assessment assessment = assessmentRepository.findById(assessmentId)
                 .orElseThrow(() -> new RuntimeException("Assessment not found"));
+
+        // DB에서 완료된 경험 데이터 읽기
+        List<InterviewData> interviewDataList =
+                interviewDataRepository.findByAssessmentIdOrderByCreatedAtAsc(assessmentId);
+
+        List<Map<String, Object>> depthAnswers = interviewDataList.stream()
+                .map(d -> {
+                    Map<String, Object> item = new LinkedHashMap<>();
+                    item.put("itemName", d.getItemName());
+                    try {
+                        item.put("qna", objectMapper.readValue(d.getRawQna(), List.class));
+                    } catch (Exception e) {
+                        item.put("qna", List.of());
+                    }
+                    return item;
+                })
+                .collect(java.util.stream.Collectors.toList());
 
         Job job = jobRepository.findByGroupCode(assessment.getEvaluatedJobCode())
                 .orElseThrow(() -> new RuntimeException("Job not found"));
@@ -103,6 +123,12 @@ public class DepthInterviewService {
                 boolean covered = val.has("covered") && val.get("covered").asBoolean(false);
                 int rawScore = val.has("score") ? val.get("score").asInt(0) : 0;
                 String levelStr = val.has("level") ? val.get("level").asText("") : "";
+
+                // evidence 기반 레벨 하향 보정
+                if (covered && !levelStr.isEmpty()) {
+                    levelStr = adjustLevelByEvidence(levelStr, val);
+                    rawScore = clampScoreToLevel(rawScore, levelStr);
+                }
 
                 Map<String, Object> levelData = new LinkedHashMap<>();
                 levelData.put("covered", covered);
@@ -298,6 +324,187 @@ public class DepthInterviewService {
         if (jobCode.startsWith("BIZ_")) return 0.15;
         if (jobCode.startsWith("ENG_") || jobCode.startsWith("SCI_")) return 0.15;
         return 0.05; // SW_, INF_ 계열
+    }
+
+    /**
+     * 단일 역량 코드 점수만 업데이트 (경험 추가 재분석용)
+     * 전체 재계산 없이 해당 capCode의 점수만 교체 — 기존보다 높을 때만 반영
+     */
+    @Transactional
+    public int updateSingleCapability(Long assessmentId, String capCode, String qnaJson) throws Exception {
+        Assessment assessment = assessmentRepository.findById(assessmentId)
+                .orElseThrow(() -> new RuntimeException("Assessment not found"));
+
+        // 현재 scoreData 읽기
+        JsonNode existingScoreData = objectMapper.readTree(assessment.getScoreData());
+        int scoreBefore = existingScoreData.has("totalScore")
+                ? existingScoreData.get("totalScore").asInt() : 0;
+
+        // 가장 최근 저장된 InterviewData에서 capabilityResult 읽기 (LLM 재호출 없음)
+        List<com.kyoon.resumeagent.Entity.InterviewData> dataList =
+                interviewDataRepository.findByAssessmentIdOrderByCreatedAtAsc(assessmentId);
+
+        JsonNode capNode = null;
+        for (int i = dataList.size() - 1; i >= 0; i--) {
+            com.kyoon.resumeagent.Entity.InterviewData d = dataList.get(i);
+            if (d.getCapabilityResult() == null) continue;
+            try {
+                JsonNode capResult = objectMapper.readTree(d.getCapabilityResult());
+                if (capResult.has(capCode)) {
+                    capNode = capResult.get(capCode);
+                    break;
+                }
+            } catch (Exception ignored) {}
+        }
+
+        if (capNode == null || !capNode.has("covered") || !capNode.get("covered").asBoolean()) {
+            return scoreBefore;
+        }
+
+        int newScore = capNode.has("score") ? capNode.get("score").asInt(0) : 0;
+        String newLevel = capNode.has("level") ? capNode.get("level").asText("") : "";
+
+        // evidence 기반 레벨 하향 보정 + 클램핑
+        if (!newLevel.isEmpty()) {
+            newLevel = adjustLevelByEvidence(newLevel, capNode);
+            newScore = clampScoreToLevel(newScore, newLevel);
+        }
+
+        // 기존 competencyScores에서 해당 capCode 찾아서 높은 값만 교체
+        com.fasterxml.jackson.databind.node.ObjectNode scoreDataNode =
+                (com.fasterxml.jackson.databind.node.ObjectNode) objectMapper.readTree(assessment.getScoreData());
+
+        com.fasterxml.jackson.databind.node.ArrayNode competencyScores =
+                (com.fasterxml.jackson.databind.node.ArrayNode) scoreDataNode.get("competencyScores");
+
+        boolean updated = false;
+        boolean existsInScores = false;
+
+        if (competencyScores != null) {
+            for (JsonNode scoreNode : competencyScores) {
+                if (capCode.equals(scoreNode.has("capCode") ? scoreNode.get("capCode").asText() : "")) {
+                    existsInScores = true;
+                    int oldScore = scoreNode.get("score").asInt(0);
+                    if (newScore > oldScore) {
+                        ((com.fasterxml.jackson.databind.node.ObjectNode) scoreNode).put("score", newScore);
+                        ((com.fasterxml.jackson.databind.node.ObjectNode) scoreNode).put("level", newLevel);
+                        updated = true;
+                    }
+                    break;
+                }
+            }
+        }
+
+        // competencyScores에 없는 역량이면 새로 추가
+        if (!existsInScores && competencyScores != null) {
+            Map<CapabilityCode, Double> weights = getWeightsFromProfile(assessment.getEvaluatedJobCode());
+            CapabilityCode code;
+            try { code = CapabilityCode.valueOf(capCode); }
+            catch (IllegalArgumentException e) { return scoreBefore; }
+
+            double weight = weights.getOrDefault(code, 0.0);
+            boolean isCore = JobCapabilityProfile.JOB_PROFILES
+                    .getOrDefault(assessment.getEvaluatedJobCode(), Map.of())
+                    .getOrDefault(code, new com.kyoon.resumeagent.Capability.CapabilityWeight(0, null, false))
+                    .isCore();
+
+            com.fasterxml.jackson.databind.node.ObjectNode newNode = objectMapper.createObjectNode();
+            newNode.put("capCode", capCode);
+            newNode.put("name", code.getDescription());
+            newNode.put("score", newScore);
+            newNode.put("weight", weight);
+            newNode.put("level", newLevel);
+            newNode.put("isCore", isCore);
+            newNode.put("evidence", "");
+            newNode.put("contribution", 0.0);
+            competencyScores.add(newNode);
+            updated = true;
+        }
+
+        if (!updated) return scoreBefore;
+
+        // capabilityLevels도 업데이트
+        Map<String, Map<String, Object>> capLevels = assessment.getCapabilityLevels() != null
+                ? new LinkedHashMap<>(assessment.getCapabilityLevels())
+                : new LinkedHashMap<>();
+        Map<String, Object> capEntry = new LinkedHashMap<>();
+        capEntry.put("covered", true);
+        capEntry.put("score", newScore / 100.0);
+        capEntry.put("level", newLevel);
+        capLevels.put(capCode, capEntry);
+        assessment.setCapabilityLevels(capLevels);
+
+        // capabilityVector도 업데이트
+        Map<String, Double> capVector = assessment.getCapabilityVector() != null
+                ? new LinkedHashMap<>(assessment.getCapabilityVector())
+                : new LinkedHashMap<>();
+        capVector.put(capCode, newScore / 100.0);
+        assessment.setCapabilityVector(capVector);
+
+        // totalScore 재계산 (competencyScores 가중치 합산 + 기존 crossBonus 유지)
+        double weightedSum = 0.0, weightSum = 0.0;
+        if (competencyScores != null) {
+            for (JsonNode s : competencyScores) {
+                double w = s.has("weight") ? s.get("weight").asDouble(0) : 0;
+                double sc = s.has("score") ? s.get("score").asDouble(0) : 0;
+                weightedSum += sc * w;
+                weightSum += w;
+            }
+        }
+        int depthScore = weightSum > 0 ? (int) Math.min(Math.round(weightedSum / weightSum), 100) : scoreBefore;
+
+        // 기존 crossBonus 유지 (재계산 없음)
+        int crossBonus = existingScoreData.has("crossBonus") ? existingScoreData.get("crossBonus").asInt(0) : 0;
+        int newTotalScore = (int) Math.min(depthScore + crossBonus, 100);
+
+        // 총점도 올랐을 때만 반영
+        if (newTotalScore > scoreBefore) {
+            scoreDataNode.put("totalScore", newTotalScore);
+            assessment.setScoreData(objectMapper.writeValueAsString(scoreDataNode));
+            assessmentRepository.save(assessment);
+            return newTotalScore;
+        }
+
+        // 총점은 안 올랐지만 역량 레벨/벡터는 업데이트
+        assessment.setScoreData(objectMapper.writeValueAsString(scoreDataNode));
+        assessmentRepository.save(assessment);
+        return scoreBefore;
+    }
+
+    /**
+     * 레벨에 맞게 점수 강제 클램핑
+     * L1: 10~40, L2: 41~65, L3: 66~85, L4: 86~100
+     */
+    private int clampScoreToLevel(int score, String level) {
+        return switch (level) {
+            case "L1" -> Math.min(Math.max(score, 10), 40);
+            case "L2" -> Math.min(Math.max(score, 41), 65);
+            case "L3" -> Math.min(Math.max(score, 66), 85);
+            case "L4" -> Math.min(Math.max(score, 86), 100);
+            default -> score;
+        };
+    }
+
+    /**
+     * evidence 기반 레벨 하향 보정
+     * L3: QA 소스 evidence 0개 → L2로 다운
+     * L4: QA 소스 evidence 1개 이하 → L3로 다운
+     */
+    private String adjustLevelByEvidence(String level, JsonNode capNode) {
+        if (capNode == null || !capNode.has("evidence")) return level;
+        JsonNode evidence = capNode.get("evidence");
+        if (!evidence.isArray()) return level;
+
+        long qaCount = 0;
+        for (JsonNode e : evidence) {
+            if ("QA".equals(e.has("source") ? e.get("source").asText() : "")) qaCount++;
+        }
+
+        return switch (level) {
+            case "L3" -> qaCount == 0 ? "L2" : level;
+            case "L4" -> qaCount <= 1 ? "L3" : level;
+            default -> level;
+        };
     }
 
     private String buildDepthAnswersText(List<Map<String, Object>> depthAnswers) {

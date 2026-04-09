@@ -78,6 +78,10 @@ public class InterviewOrchestratorService {
      * 답변 분석 → capability별 레벨 판정 + followUp 여부 반환
      */
     public JsonNode analyzeAnswers(Long assessmentId, String itemName, String qnaJson) throws Exception {
+        return analyzeAnswersWithExtra(assessmentId, itemName, qnaJson, null);
+    }
+
+    private JsonNode analyzeAnswersWithExtra(Long assessmentId, String itemName, String qnaJson, String extraCapCode) throws Exception {
         Assessment assessment = assessmentRepository.findById(assessmentId)
                 .orElseThrow(() -> new RuntimeException("Assessment not found"));
 
@@ -86,6 +90,12 @@ public class InterviewOrchestratorService {
         String jobName = job != null ? job.getGroupName() : jobCode;
 
         String rawCodes = JobCapabilityProfile.getRelevantCodeNames(jobCode);
+
+        // extraCapCode가 있으면 해당 역량만 단독으로 분석 (직군 외 역량 정확도 보장)
+        if (extraCapCode != null && !rawCodes.contains(extraCapCode)) {
+            rawCodes = extraCapCode; // 단독 분석
+        }
+
         List<String> relevantCodes = Arrays.stream(rawCodes.split(",\\s*"))
                 .map(s -> s.contains("(") ? s.substring(0, s.indexOf("(")).trim() : s.trim())
                 .filter(s -> !s.isEmpty())
@@ -141,6 +151,10 @@ public class InterviewOrchestratorService {
                 .call().content();
     }
 
+    public long getCompletedCount(Long assessmentId) {
+        return interviewDataRepository.findByAssessmentIdOrderByCreatedAtAsc(assessmentId).size();
+    }
+
     /**
      * 인터뷰 데이터 초기화
      */
@@ -154,13 +168,17 @@ public class InterviewOrchestratorService {
      * 반환값: analyzeAnswers 결과 (needsFollowUp, followUpTarget 등 프론트 사용)
      */
     public JsonNode analyzeAndSave(Long assessmentId, String itemName, String qnaJson) throws Exception {
+        return analyzeAndSave(assessmentId, itemName, qnaJson, null);
+    }
+
+    public JsonNode analyzeAndSave(Long assessmentId, String itemName, String qnaJson, String extraCapCode) throws Exception {
         Assessment assessment = assessmentRepository.findById(assessmentId)
                 .orElseThrow(() -> new RuntimeException("Assessment not found"));
         Job job = jobRepository.findByGroupCode(assessment.getEvaluatedJobCode()).orElse(null);
         String jobGroup = job != null ? job.getGroupName() : assessment.getEvaluatedJobCode();
 
-        // Step 1: InterviewAnalyzer → capability 판정 + weakReasons
-        JsonNode analyzerNode = analyzeAnswers(assessmentId, itemName, qnaJson);
+        // Step 1: InterviewAnalyzer → capability 판정 + weakReasons (extraCapCode 주입)
+        JsonNode analyzerNode = analyzeAnswersWithExtra(assessmentId, itemName, qnaJson, extraCapCode);
 
         // Step 2: DataExtractor → STAR 구조화
         ChatClient client = ChatClient.builder(chatModel)
@@ -209,6 +227,8 @@ public class InterviewOrchestratorService {
                         ? analyzerNode.get("completenessScore").asDouble() : 0.0)
                 .weakFields(weakFieldsJson)
                 .weakReasons(weakReasonsJson)
+                .capabilityResult(analyzerNode.has("capabilities")
+                        ? objectMapper.writeValueAsString(analyzerNode.get("capabilities")) : null)
                 .build();
 
         interviewDataRepository.save(data);

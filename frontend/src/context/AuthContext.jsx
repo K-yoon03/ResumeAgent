@@ -24,7 +24,7 @@ export function AuthProvider({ children }) {
       })
       .then(data => {
         setUser({ token, ...data });
-        setCredits(data.remainingCredits); // 🔥 크레딧 설정!
+        setCredits(data.credits); // 🔥 크레딧 설정!
       })
       .catch(async () => {
         // Access Token 만료 시 Refresh Token으로 갱신 시도
@@ -40,7 +40,7 @@ export function AuthProvider({ children }) {
               const data = await res.json();
               localStorage.setItem("token", data.token);
               setUser(data);
-              setCredits(data.remainingCredits); // 🔥 크레딧 설정!
+              setCredits(data.credits); // 🔥 크레딧 설정!
               return;
             }
           } catch {
@@ -53,6 +53,12 @@ export function AuthProvider({ children }) {
         setCredits(null); // 🔥 크레딧 초기화!
       })
       .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    const handler = (e) => setCredits(e.detail.credits);
+    window.addEventListener("credit-updated", handler);
+    return () => window.removeEventListener("credit-updated", handler);
   }, []);
 
   const login = async (data) => {
@@ -72,11 +78,11 @@ export function AuthProvider({ children }) {
         setCredits(fullData.remainingCredits);
       } else {
         setUser(data);
-        setCredits(data.remainingCredits);
+        setCredits(data.credits);
       }
     } catch {
       setUser(data);
-      setCredits(data.remainingCredits);
+      setCredits(data.credits);
     }
 
     // 비회원 때 했던 역량평가 있으면 자동으로 DB에 저장
@@ -129,7 +135,7 @@ export function AuthProvider({ children }) {
       
       if (res.ok) {
         const data = await res.json();
-        setCredits(data.remainingCredits);
+        setCredits(data.credits);
       } else if (res.status === 401) {
         // Access Token 만료 시 갱신 시도
         const refreshToken = localStorage.getItem("refreshToken");
@@ -143,7 +149,7 @@ export function AuthProvider({ children }) {
             const newData = await refreshRes.json();
             localStorage.setItem("token", newData.token);
             setUser(newData);
-            setCredits(newData.remainingCredits);
+            setCredits(newData.credits);
           }
         }
       }
@@ -162,7 +168,7 @@ export function AuthProvider({ children }) {
     if (res.ok) {
       const data = await res.json();
       setUser({ token, ...data });
-      setCredits(data.remainingCredits); // 🔥 크레딧도 갱신!
+      setCredits(data.credits); // 🔥 크레딧도 갱신!
     } else if (res.status === 401) {
       // Access Token 만료 시 갱신 시도
       const refreshToken = localStorage.getItem("refreshToken");
@@ -176,7 +182,7 @@ export function AuthProvider({ children }) {
           const newData = await refreshRes.json();
           localStorage.setItem("token", newData.token);
           setUser(newData);
-          setCredits(newData.remainingCredits); // 🔥 크레딧도 갱신!
+          setCredits(newData.credits); // 🔥 크레딧도 갱신!
         }
       }
     }

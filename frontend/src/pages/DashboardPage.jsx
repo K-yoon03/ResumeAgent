@@ -23,6 +23,7 @@ import { BASE_URL } from "../config";
 import capCodeMap from "../MappingTable/capCodeMap.json";
 import jobCodeMap from "../MappingTable/JobCodeMap.json";
 import { getGrade, getGradeColor, getGradeHex, getGradeMent, scoreToFill } from "../lib/gradeUtils";
+import CapabilityBoostModal from "../components/CapabilityBoostModal";
 
 const getAverageGrade = (competencyScores) => {
   if (!competencyScores || competencyScores.length === 0) return "N/A";
@@ -243,6 +244,7 @@ export function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [companyList, setCompanyList] = useState([]);
+  const [boostModal, setBoostModal] = useState(null); // { capCode, currentLevel }
 
   useEffect(() => { fetchDashboard(); }, []);
 
@@ -306,6 +308,15 @@ export function DashboardPage() {
 
   return (
     <div className="max-w-7xl mx-auto space-y-8 p-6">
+      {boostModal && (
+        <CapabilityBoostModal
+          capCode={boostModal.capCode}
+          currentLevel={boostModal.currentLevel}
+          assessmentId={primaryAssessment?.id}
+          onClose={() => setBoostModal(null)}
+          onComplete={() => { setBoostModal(null); fetchDashboard(); }}
+        />
+      )}
       <div className="text-center space-y-4">
         <div className="inline-flex items-center justify-center p-3 rounded-full bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500">
           <LayoutDashboard className="h-8 w-8 text-white" />
@@ -366,7 +377,6 @@ export function DashboardPage() {
             }
           </CardContent>
         </Card>
-
         <Card>
           <CardHeader>
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
@@ -375,10 +385,10 @@ export function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-4xl font-bold mb-2">
-              {credits.remaining}<span className="text-lg text-muted-foreground">/{credits.daily}</span>
+              {credits.remaining}
+              <span className="text-lg text-muted-foreground"> 크레딧</span>
             </div>
-            <Progress value={(credits.remaining / credits.daily) * 100} className="h-2 mb-2" />
-            <p className="text-sm text-muted-foreground">오늘 사용: {credits.used} 크레딧</p>
+            <p className="text-sm text-muted-foreground">충전형 크레딧 · 소진 시 충전 필요</p>
           </CardContent>
         </Card>
       </div>
@@ -448,9 +458,13 @@ export function DashboardPage() {
                             ? Math.round((comp.weight / baseSum) * 100)
                             : Math.round(comp.weight * 100);
                           return (
-                            <div key={idx} className="space-y-2">
+                            <div
+                              key={idx}
+                              className="space-y-2 cursor-pointer group"
+                              onClick={() => setBoostModal({ capCode: comp.capCode, currentLevel: comp.level || "NONE" })}
+                            >
                               <div className="flex items-center justify-between text-sm">
-                                <span className="font-medium">{comp.name}</span>
+                                <span className="font-medium group-hover:text-purple-500 transition-colors">{comp.name}</span>
                                 <div className="flex items-center gap-2">
                                   <Badge variant="outline" className="text-xs">{displayWeight}%</Badge>
                                   <Badge className={`bg-gradient-to-r ${getGradeColor(getGrade(comp.score))} text-white border-0`}>
@@ -460,7 +474,12 @@ export function DashboardPage() {
                                 </div>
                               </div>
                               <AnimatedProgress value={comp.score} />
-                              <p className="text-xs text-muted-foreground">{comp.evidence}</p>
+                              <div className="flex items-center justify-between">
+                                <p className="text-xs text-muted-foreground">{comp.evidence}</p>
+                                <p className="text-xs text-muted-foreground/0 group-hover:text-purple-400 transition-colors">
+                                  개선 방법 보기 →
+                                </p>
+                              </div>
                             </div>
                           );
                         })}
@@ -520,9 +539,13 @@ export function DashboardPage() {
                             <div className="space-y-3">
                               <h5 className="text-xs font-semibold text-muted-foreground">보조 역량</h5>
                               {allNonCore.map((comp, idx) => (
-                                <div key={idx} className="space-y-1">
+                                <div
+                                  key={idx}
+                                  className="space-y-1 cursor-pointer group"
+                                  onClick={() => setBoostModal({ capCode: comp.capCode, currentLevel: comp.level || "L1" })}
+                                >
                                   <div className="flex items-center justify-between text-sm">
-                                    <span className="text-muted-foreground">{comp.name}</span>
+                                    <span className="text-muted-foreground group-hover:text-purple-400 transition-colors">{comp.name}</span>
                                     <div className="flex items-center gap-2">
                                       {comp.weight > 0 && (
                                         <Badge variant="outline" className="text-xs">{(comp.weight * 100).toFixed(0)}%</Badge>
@@ -530,7 +553,7 @@ export function DashboardPage() {
                                       <Badge className={`bg-gradient-to-r ${getGradeColor(getGrade(comp.score))} text-white border-0 text-xs`}>
                                         {getGrade(comp.score)}
                                       </Badge>
-                                      <span className="text-xs font-bold">{comp.score}점</span>
+                                      <span className="text-xs font-bold group-hover:text-purple-400 transition-colors">{comp.score}점</span>
                                     </div>
                                   </div>
                                   <Progress value={comp.score} className="h-1" />
@@ -762,25 +785,76 @@ export function DashboardPage() {
                   })}
                 </div>
 
-                {/* 액션 아이템 */}
-                {(gapReport.actionItems || []).length > 0 && (
-                  <details className="pt-2 border-t border-border/50">
-                    <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground py-1">
-                      개선 로드맵 ({gapReport.actionItems.length}개)
-                    </summary>
-                    <div className="mt-2 space-y-2">
-                      {gapReport.actionItems.map((item, idx) => (
-                        <div key={idx} className="p-2.5 rounded-lg bg-muted/40 space-y-1">
+                {/* 개선 사항 — Gap 기반 (희망기업 공고 있을 때) 또는 점수 낮은 순 */}
+                {(() => {
+                  const LEVEL_KO = { L1: "입문", L2: "기본", L3: "심화", L4: "전문" };
+                  const LEVEL_COLOR = {
+                    L1: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
+                    L2: "bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400",
+                    L3: "bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400",
+                    L4: "bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400",
+                  };
+
+                  // Gap 기반 항목 (희망기업 공고 있을 때 우선)
+                  const gapItems = gapReport
+                    ? Object.entries(gapReport.gaps || {})
+                        .filter(([, gap]) => ["MISSING", "GAP", "CLOSE"].includes(gap.status))
+                        .map(([code, gap]) => {
+                          const matched = (primaryAssessment?.coreScores || []).find(c => c.capCode === code);
+                          return {
+                            capCode: code,
+                            name: capCodeMap[code] || code,
+                            level: matched?.level || "NONE",
+                            status: gap.status,
+                          };
+                        })
+                        .slice(0, 3)
+                    : [];
+
+                  // Gap 없으면 점수 낮은 순
+                  const scoreItems = gapItems.length === 0
+                    ? (primaryAssessment?.coreScores || [])
+                        .slice().sort((a, b) => a.score - b.score).slice(0, 3)
+                    : [];
+
+                  const items = gapItems.length > 0 ? gapItems : scoreItems;
+                  if (items.length === 0) return null;
+
+                  const statusLabel = { MISSING: "미보유", GAP: "부족", CLOSE: "근접" };
+
+                  return (
+                    <div className="pt-2 border-t border-border/50 space-y-2">
+                      <h4 className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
+                        <Sparkles className="h-3.5 w-3.5 text-purple-400" />개선 사항
+                      </h4>
+                      {items.map((comp, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => setBoostModal({ capCode: comp.capCode, currentLevel: comp.level || "NONE" })}
+                          className="w-full text-left p-3 rounded-xl border border-border/50 bg-muted/20 hover:border-purple-500/40 hover:bg-purple-500/5 transition-all group"
+                        >
                           <div className="flex items-center justify-between">
-                            <span className="text-xs font-medium">{item.capability}</span>
-                            <span className="text-xs text-muted-foreground">~{item.estimatedWeeks}주</span>
+                            <div className="flex items-center gap-2">
+                              <span className={`text-xs px-1.5 py-0.5 rounded-full font-semibold ${LEVEL_COLOR[comp.level] || "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400"}`}>
+                                {LEVEL_KO[comp.level] || "미보유"}
+                              </span>
+                              <span className="text-xs font-medium text-foreground">{comp.name}</span>
+                              {comp.status && (
+                                <span className="text-xs text-muted-foreground">
+                                  · {statusLabel[comp.status]}
+                                </span>
+                              )}
+                            </div>
+                            <ArrowRight className="h-3.5 w-3.5 text-muted-foreground group-hover:text-purple-500 group-hover:translate-x-0.5 transition-all" />
                           </div>
-                          <p className="text-xs text-muted-foreground">{item.action}</p>
-                        </div>
+                          <p className="text-xs text-muted-foreground mt-1 group-hover:text-purple-400/70 transition-colors">
+                            로드맵 보기 →
+                          </p>
+                        </button>
                       ))}
                     </div>
-                  </details>
-                )}
+                  );
+                })()}
 
                 {/* 경력/학력 플래그 */}
                 {(gapReport.experienceFlag || gapReport.educationFlag) && (

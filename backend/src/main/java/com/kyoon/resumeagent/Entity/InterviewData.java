@@ -48,6 +48,10 @@ public class InterviewData {
     @Column(columnDefinition = "TEXT")
     private String weakReasons; // JSON {"action_tech": "구현 내용만...", "result": "결과 불명확..."}
 
+    // analyzerNode.get("capabilities") 저장 — updateSingleCapability에서 LLM 재호출 없이 재활용
+    @Column(name = "capability_result", columnDefinition = "TEXT")
+    private String capabilityResult;
+
     // 완성도 점수 (0.0 ~ 1.0)
     @Column(name = "completeness_score")
     private Double completenessScore;

@@ -8,74 +8,76 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 
+import java.util.Map;
+
 @Component
 @RequiredArgsConstructor
 public class CreditInterceptor implements HandlerInterceptor {
 
     private final UserRepository userRepository;
-    private final JwtUtil jwtUtil; // 🔥 추가!
+    private final JwtUtil jwtUtil;
+
+    // 엔드포인트별 차감 크레딧 정의
+    private static final Map<String, Integer> CREDIT_COSTS = Map.of(
+            "/api/v1/agent/analyze",        1,  // Analyzer
+            "/api/jd/analyze",              1,  // JD 분석
+            "/api/jd/gap",                  1,  // Gap 분석
+            "/api/resume/generate",         2,  // 자소서 생성
+            "/api/interview/question",      2,  // 면접 준비
+            "/api/interview/feedback",      2,
+            "/api/interview/summary",       2
+    );
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
 
-        System.out.println("=================================");
-        System.out.println("🔥 CreditInterceptor 실행!");
-        System.out.println("📍 Request URI: " + request.getRequestURI());
-        System.out.println("📍 Method: " + request.getMethod());
+        String uri = request.getRequestURI();
+        int cost = resolveCost(uri);
 
-        // 🔥 JWT에서 이메일 추출
+        // cost가 0이면 무료 (인터셉터 등록 경로지만 무료인 경우)
+        if (cost == 0) return true;
+
         String authHeader = request.getHeader("Authorization");
-        System.out.println("🔑 Authorization Header: " + authHeader);
-
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            System.out.println("❌ Authorization 헤더 없음 - 통과");
-            System.out.println("=================================");
-            return true; // 토큰 없으면 통과 (Security에서 처리)
+            return true; // Security에서 처리
         }
 
-        String token = authHeader.replace("Bearer ", "");
-        System.out.println("🎫 Token: " + token.substring(0, Math.min(20, token.length())) + "...");
-
-        String email = jwtUtil.extractEmail(token);
-        System.out.println("📧 Email: " + email);
-
+        String email = jwtUtil.extractEmail(authHeader.replace("Bearer ", ""));
         User user = userRepository.findByEmail(email).orElse(null);
 
-        if (user == null) {
-            System.out.println("❌ User not found - 통과");
-            System.out.println("=================================");
-            return true;
-        }
+        if (user == null) return true;
 
-        System.out.println("👤 User: " + user.getEmail());
-        System.out.println("👑 Admin: " + user.isAdmin());
-        System.out.println("💰 Current Credits: " + user.getRemainingCredits());
+        // 관리자 무제한
+        if (user.isAdmin()) return true;
 
-        // 관리자는 무제한
-        if (user.isAdmin()) {
-            System.out.println("👑 관리자 - 크레딧 차감 안 함");
-            System.out.println("=================================");
-            return true;
-        }
-
-        // 크레딧 확인
-        if (!user.hasEnoughCredits(1)) {
-            System.out.println("❌ 크레딧 부족!");
-            System.out.println("=================================");
-            response.setStatus(429); // Too Many Requests
-            response.setContentType("application/json");
-            response.getWriter().write("{\"error\":\"크레딧이 부족합니다. 내일 0시에 초기화됩니다.\"}");
+        // 크레딧 부족
+        if (!user.hasEnoughCredits(cost)) {
+            response.setStatus(402); // Payment Required
+            response.setContentType("application/json;charset=UTF-8");
+            response.getWriter().write(
+                    "{\"error\":\"크레딧이 부족합니다.\",\"required\":" + cost + ",\"remaining\":" + user.getRemainingCredits() + "}"
+            );
             return false;
         }
 
-        // 크레딧 차감
-        System.out.println("💸 크레딧 차감 시작...");
-        user.useCredits(1);
+        // 차감
+        user.useCredits(cost);
         userRepository.save(user);
 
-        System.out.println("✅ 크레딧 차감 완료! 남은 크레딧: " + user.getRemainingCredits());
-        System.out.println("=================================");
+        // 남은 크레딧 헤더에 전달 (프론트에서 즉시 반영 가능)
+        response.setHeader("X-Remaining-Credits", String.valueOf(user.getRemainingCredits()));
 
         return true;
+    }
+
+    private int resolveCost(String uri) {
+        // submit-one은 패턴 매칭 필요 (/api/assessments/{id}/interview/submit-one)
+        if (uri.matches("/api/assessments/\\d+/interview/submit-one")) return 1;
+
+        return CREDIT_COSTS.entrySet().stream()
+                .filter(e -> uri.startsWith(e.getKey()))
+                .mapToInt(Map.Entry::getValue)
+                .findFirst()
+                .orElse(0);
     }
 }

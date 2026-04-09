@@ -48,6 +48,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/assessments/evaluate").authenticated()
 
                         // 인증 필요한 경로
+                        .requestMatchers("/api/credits/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/interview/advanced/**").hasRole("ADMIN")
                         .requestMatchers("/api/projects/**").authenticated()
 

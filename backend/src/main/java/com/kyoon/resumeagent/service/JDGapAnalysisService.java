@@ -1,6 +1,7 @@
 package com.kyoon.resumeagent.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kyoon.resumeagent.Capability.CapabilityCode;
 import com.kyoon.resumeagent.Capability.CapabilityWeight;
@@ -14,11 +15,6 @@ import com.kyoon.resumeagent.service.JDAnalysisService.CapabilityRequirement;
 import com.kyoon.resumeagent.service.JDAnalysisService.JDProfile;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.chat.model.ChatModel;
-import org.springframework.ai.chat.prompt.ChatOptions;
-import org.springframework.ai.chat.prompt.PromptTemplate;
-import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -31,8 +27,6 @@ public class JDGapAnalysisService {
 
     private final AssessmentRepository assessmentRepository;
     private final InterviewDataRepository interviewDataRepository;
-    private final ChatModel chatModel;
-    private final ResourceLoader resourceLoader;
     private final ObjectMapper objectMapper;
 
     private static final double CORE_WEIGHT      = 1.2;
@@ -51,8 +45,12 @@ public class JDGapAnalysisService {
                         ? assessment.getCapabilityLevels()
                         : Collections.emptyMap();
 
+        // scoreData.competencyScores fallback 맵 구성
+        // capabilityLevels에 없는 역량은 scoreData에서 score를 가져옴
+        Map<String, Double> scoreDataFallback = buildScoreDataFallback(assessment.getScoreData());
+
         Set<String> coreCodes = getCoreCodesForJob(jdProfile.jobCode());
-        Map<String, GapItem> gaps = computeGaps(jdProfile, capabilityLevels);
+        Map<String, GapItem> gaps = computeGaps(jdProfile, capabilityLevels, scoreDataFallback);
         List<RoadmapItem> roadmap = buildRoadmap(gaps, coreCodes);
 
         // 적합도 계산
@@ -62,13 +60,10 @@ public class JDGapAnalysisService {
         ExperienceFlag experienceFlag = computeExperienceFlag(jdProfile.requiredExperience(), assessment.getExperience());
         EducationFlag educationFlag   = computeEducationFlag(jdProfile.requiredEducation(), assessment.getExperience());
 
-        // weakReasons 수집 (assessmentId 기준 InterviewData 전체)
+        // weakReasons 수집 — 향후 CapabilityBoostService에서 활용
         Map<String, String> weakReasons = collectWeakReasons(assessmentId);
 
-        // LLM 로드맵 생성
-        List<ActionItem> actionItems = generateActionItems(jdProfile.jobCode(), gaps, weakReasons, roadmap);
-
-        return new GapReport(jdProfile.jobCode(), gaps, roadmap, actionItems, fitLevel, experienceFlag, educationFlag);
+        return new GapReport(jdProfile.jobCode(), gaps, roadmap, Collections.emptyList(), fitLevel, experienceFlag, educationFlag);
     }
 
     // ─────────────────────────────────────────────
@@ -77,7 +72,8 @@ public class JDGapAnalysisService {
 
     private Map<String, GapItem> computeGaps(
             JDProfile jdProfile,
-            Map<String, Map<String, Object>> capabilityLevels
+            Map<String, Map<String, Object>> capabilityLevels,
+            Map<String, Double> scoreDataFallback
     ) {
         Map<String, GapItem> result = new LinkedHashMap<>();
 
@@ -85,17 +81,21 @@ public class JDGapAnalysisService {
             String code = e.getKey();
             CapabilityRequirement req = e.getValue();
 
-            // LLM score가 0~100으로 오는 경우 0~1로 정규화
             double requiredScore = req.score() > 1.0 ? req.score() / 100.0 : req.score();
 
             double userScore;
             double userConfidence;
 
             if (capabilityLevels.containsKey(code)) {
+                // DepthInterview에서 커버된 역량 (가장 정확)
                 Map<String, Object> uc = capabilityLevels.get(code);
                 userScore = uc.get("score") instanceof Number
                         ? ((Number) uc.get("score")).doubleValue() : 0.0;
                 userConfidence = req.confidence();
+            } else if (scoreDataFallback.containsKey(code)) {
+                // scoreData.competencyScores fallback (Analyzer 결과)
+                userScore = scoreDataFallback.get(code) / 100.0;
+                userConfidence = req.confidence() * 0.7; // 신뢰도 낮춤
             } else {
                 userScore = 0.0;
                 userConfidence = 0.0;
@@ -178,96 +178,29 @@ public class JDGapAnalysisService {
     }
 
     // ─────────────────────────────────────────────
-    // LLM 로드맵 생성
-    // ─────────────────────────────────────────────
-
-    private List<ActionItem> generateActionItems(
-            String jobCode,
-            Map<String, GapItem> gaps,
-            Map<String, String> weakReasons,
-            List<RoadmapItem> roadmap
-    ) {
-        // GAP/CLOSE/MISSING 항목만 대상
-        List<RoadmapItem> targets = roadmap.stream()
-                .filter(r -> {
-                    GapItem g = gaps.get(r.capability());
-                    return g != null && g.status() != GapStatus.MATCH;
-                })
-                .limit(5)
-                .toList();
-
-        if (targets.isEmpty()) return Collections.emptyList();
-
-        // IT 계열 여부 판단 (CLOSE 시 프로젝트 경험 vs 자격증 분기)
-        boolean isItJob = jobCode.startsWith("SW_") || jobCode.startsWith("INF_");
-
-        String gapSummary = targets.stream()
-                .map(r -> {
-                    GapItem g = gaps.get(r.capability());
-                    String desc = getDescription(r.capability());
-                    String actionHint = switch (g.status()) {
-                        case MISSING -> "관련 학습 시작 또는 이력서·포트폴리오에 관련 경험 추가 권장";
-                        case GAP     -> "해당 역량 심화 학습 및 개념 보강 권장";
-                        case CLOSE   -> isItJob
-                                ? "관련 프로젝트 경험 추가 또는 실전 적용 권장"
-                                : "관련 자격증 취득 또는 실무 경험 보강 권장";
-                        default      -> "";
-                    };
-                    return String.format("- %s(%s): 요구 %s / 보유 %s / 상태 %s / 권고방향: %s",
-                            r.capability(), desc,
-                            g.requiredLevel(),
-                            scoreToLevel(g.userScore()),
-                            g.status().name(),
-                            actionHint);
-                })
-                .collect(Collectors.joining("\n"));
-
-        String weakReasonsSummary = weakReasons.isEmpty() ? "없음" :
-                weakReasons.entrySet().stream()
-                        .map(e -> "- " + e.getKey() + ": " + e.getValue())
-                        .collect(Collectors.joining("\n"));
-
-        try {
-            ChatClient client = ChatClient.builder(chatModel)
-                    .defaultOptions(ChatOptions.builder().temperature(0.3).maxTokens(1500).build())
-                    .build();
-
-            var prompt = new PromptTemplate(
-                    resourceLoader.getResource(PromptPathResolver.jdRoadmapGenerator()))
-                    .create(Map.of(
-                            "jobCode", jobCode,
-                            "gapSummary", gapSummary,
-                            "weakReasons", weakReasonsSummary
-                    ));
-
-            String response = client.prompt(prompt).call().content();
-            String clean = response.trim()
-                    .replaceAll("(?s)```json\\s*", "")
-                    .replaceAll("(?s)```\\s*", "")
-                    .trim();
-
-            JsonNode root = objectMapper.readTree(clean);
-            List<ActionItem> result = new ArrayList<>();
-            root.get("roadmap").forEach(node -> result.add(new ActionItem(
-                    node.get("capability").asText(),
-                    node.get("priority").asDouble(),
-                    node.get("status").asText(),
-                    node.get("requiredLevel").asText(),
-                    node.get("currentLevel").asText(),
-                    node.get("action").asText(),
-                    node.get("estimatedWeeks").asInt()
-            )));
-            return result;
-
-        } catch (Exception e) {
-            log.error("[JDGap] 로드맵 LLM 생성 실패", e);
-            return Collections.emptyList();
-        }
-    }
-
-    // ─────────────────────────────────────────────
     // Helpers
     // ─────────────────────────────────────────────
+
+    private Map<String, Double> buildScoreDataFallback(String scoreDataJson) {
+        Map<String, Double> result = new LinkedHashMap<>();
+        if (scoreDataJson == null) return result;
+        try {
+            JsonNode root = objectMapper.readTree(scoreDataJson);
+            JsonNode scores = root.get("competencyScores");
+            if (scores != null && scores.isArray()) {
+                for (JsonNode node : scores) {
+                    String capCode = node.has("capCode") ? node.get("capCode").asText() : "";
+                    double score = node.has("score") ? node.get("score").asDouble() : 0.0;
+                    if (!capCode.isEmpty() && score > 0) {
+                        result.put(capCode, score);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warn("[JDGap] scoreData fallback 파싱 실패: {}", e.getMessage());
+        }
+        return result;
+    }
 
     private Set<String> getCoreCodesForJob(String jobCode) {
         Map<CapabilityCode, CapabilityWeight> profile = JobCapabilityProfile.JOB_PROFILES.get(jobCode);

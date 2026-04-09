@@ -20,7 +20,7 @@ public class WebConfig implements WebMvcConfigurer {
                 .allowedOrigins("http://localhost:5173")
                 .allowedMethods("*")
                 .allowedHeaders("*")
-                .exposedHeaders("Content-Type");
+                .exposedHeaders("Content-Type", "X-Remaining-Credits");
     }
 
     @Override
@@ -30,23 +30,14 @@ public class WebConfig implements WebMvcConfigurer {
 
         registry.addInterceptor(creditInterceptor)
                 .addPathPatterns(
-                        "/api/v1/agent/analyze",      // 역량 분석
-                        "/api/resume/generate",       // 자소서 생성
-                        "/api/interview/question",    // 면접 질문
-                        "/api/interview/feedback",    // 면접 피드백
-                        "/api/interview/summary",     // 종합 총평
-                        "/api/interview/advanced/**"  // Advanced 면접
-                )
-                .excludePathPatterns(
-                        "/api/auth/**",               // 인증 관련
-                        "/api/v1/agent/score",
-                        "/api/v1/agent/parse-job-posting",
-                        "/api/v1/agent/parse-job-posting-image",
-                        "/api/projects/**",
-                        "/api/resume",
-                        "/api/resume/*",
-                        "/api/interview",
-                        "/api/job-postings/**"
+                        "/api/v1/agent/analyze",                    // Analyzer (1 credit)
+                        "/api/assessments/*/interview/submit-one",  // DepthInterview 경험 1개 (1 credit)
+                        "/api/jd/analyze",                          // JD 분석 (1 credit)
+                        "/api/jd/gap",                              // Gap 분석 (1 credit)
+                        "/api/resume/generate",                     // 자소서 생성 (2 credit)
+                        "/api/interview/question",                  // 면접 준비 (2 credit)
+                        "/api/interview/feedback",
+                        "/api/interview/summary"
                 );
     }
 }

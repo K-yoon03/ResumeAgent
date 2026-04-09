@@ -79,6 +79,34 @@ public class DepthInterviewController {
         }
     }
 
+    // ── 경험 1개 완료 → 저장 + 즉시 채점 ──
+    public record SubmitOneRequest(String itemName, List<Map<String, String>> qna) {}
+    public record SubmitOneResponse(int partialScore, int completedCount, String grade) {}
+
+    @PostMapping("/{id}/interview/submit-one")
+    public ResponseEntity<?> submitOne(
+            @PathVariable Long id,
+            @RequestBody SubmitOneRequest request,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        try {
+            String qnaJson = objectMapper.writeValueAsString(request.qna());
+            orchestratorService.analyzeAndSave(id, request.itemName(), qnaJson);
+            Assessment assessment = depthInterviewService.calculateFinalScore(id);
+
+            int completedCount = (int) orchestratorService.getCompletedCount(id);
+            return ResponseEntity.ok(new SubmitOneResponse(
+                    Integer.parseInt(
+                            objectMapper.readTree(assessment.getScoreData()).get("totalScore").asText("0")
+                    ),
+                    completedCount,
+                    assessment.getGrade()
+            ));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
     // ── 인터뷰 완료 → 분석 + 저장 + 점수 계산 ──
     public record FinalRequest(List<Map<String, Object>> items) {}
     public record FinalResponse(Long id, String evaluatedJobCode, String scoreData, Boolean isPrimary, String grade) {}
@@ -100,8 +128,8 @@ public class DepthInterviewController {
                 orchestratorService.analyzeAndSave(id, itemName, qnaJson);
             }
 
-            // 3. FinalScorer로 점수 계산
-            Assessment assessment = depthInterviewService.calculateFinalScore(id, request.items());
+            // 3. FinalScorer로 점수 계산 (DB에서 읽음)
+            Assessment assessment = depthInterviewService.calculateFinalScore(id);
             return ResponseEntity.ok(new FinalResponse(
                     assessment.getId(),
                     assessment.getEvaluatedJobCode(),

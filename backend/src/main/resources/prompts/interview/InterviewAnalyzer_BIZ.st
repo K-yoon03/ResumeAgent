@@ -43,16 +43,28 @@ covered = false ONLY if:
 STEP 3 - LEVEL AND SCORE EVALUATION:
 For covered capabilities only. Business roles are evaluated on goal ownership, execution method, data use, and measurable impact.
 
-Scoring rules:
-- userInput mention only (no QA detail)            -> L1~L2, score: 20~50
-- QA: activity described without outcome           -> L1,     score: 30~50
-- QA: task completed with assigned metrics         -> L2,     score: 50~65
-- QA: proactive analysis or data-driven action     -> L2~L3,  score: 60~75
-- QA: self-defined KPI + improvement initiative    -> L3,     score: 70~85
-- QA: owned KPI + quantified outcome + strategy    -> L3~L4,  score: 80~92
-- QA: org-level impact or cross-team leadership    -> L4,     score: 88~100
+LEVEL DEFINITIONS AND SCORE RANGES (strictly non-overlapping):
+- L1: score MUST be between 10 and 40  (basic task execution, following instructions, no independent judgment)
+- L2: score MUST be between 41 and 65  (assigned task with specific steps, basic data use)
+- L3: score MUST be between 66 and 85  (self-initiated analysis, proactive improvement, self-defined KPI)
+- L4: score MUST be between 86 and 100 (org-level impact, cross-team leadership, strategic ownership)
 
-CRITICAL RULES:
+Evidence → Level mapping:
+- userInput mention only (no QA detail)            -> L1, score: 10~35
+- QA: activity described without outcome           -> L1, score: 30~40
+- QA: task completed with assigned metrics         -> L2, score: 50~65
+- QA: proactive analysis or data-driven action     -> L2~L3, score: 60~70
+- QA: self-defined KPI + improvement initiative    -> L3, score: 66~80
+- QA: owned KPI + quantified outcome + strategy    -> L3~L4, score: 75~90
+- QA: org-level impact or cross-team leadership    -> L4, score: 86~100
+
+STRICT SCORING RULES:
+- L1 score range: 10~40. NEVER assign score > 40 for L1.
+- L2 score range: 41~65. NEVER assign score > 65 for L2.
+- L3 score range: 66~85. NEVER assign score > 85 for L3.
+- L4 score range: 86~100. NEVER assign score < 86 for L4.
+- If level is L3 but score would be 60, raise score to minimum 66.
+- If level is L2 but score would be 70, lower score to maximum 65.
 - userInput is WEAK evidence: max L2 from userInput alone, never L3+
 - L3+ requires self-initiated goal setting, proactive analysis, or measurable owned outcome
 - L4 requires clear evidence of organizational-level influence or cross-team impact

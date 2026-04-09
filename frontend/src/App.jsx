@@ -27,6 +27,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import OAuth2Callback from './pages/OAuth2Callback';
 import PostingDetail from './pages/PostingDetail';
+import CreditInsufficientModal from "./components/CreditInsufficientModal";
 
 import './App.css';
 
@@ -40,6 +41,7 @@ function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
+        <CreditInsufficientModal />
         <Nav />
         <Toaster position="top-center" richColors />
         <Routes>

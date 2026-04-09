@@ -9,11 +9,10 @@ public record UserInfoResponse(
         String name,
         String birthDate,
         String role,
-        Integer remainingCredits,
-        Integer dailyCredits,
+        Integer credits,        // 보유 크레딧
         Boolean isAdmin,
 
-        //직무정보
+        // 직무정보
         String desiredJobText,
         String mappedJobCode,
         String jobMatchType,
