@@ -158,21 +158,19 @@ export default function CapabilityBoostModal({ capCode, currentLevel, assessment
 
           {/* 완료 결과 */}
           {completeResult && (
-            <div className={`p-4 rounded-xl border ${
-              completeResult.improved
-                ? "border-green-500/30 bg-green-500/10"
-                : "border-muted bg-muted/30"
-            }`}>
-              <p className={`text-sm font-semibold ${completeResult.improved ? "text-green-500" : "text-muted-foreground"}`}>
+            <div className="p-4 rounded-xl border border-purple-500/30 bg-purple-500/10 space-y-3">
+              <p className="text-sm font-semibold text-purple-400">
                 {completeResult.message}
               </p>
-              {completeResult.improved && (
-                <div className="flex items-center gap-3 mt-2">
-                  <span className="text-xs text-muted-foreground">{completeResult.scoreBefore}점</span>
-                  <ChevronRight className="h-3.5 w-3.5 text-green-500" />
-                  <span className="text-sm font-bold text-green-500">{completeResult.scoreAfter}점</span>
-                </div>
-              )}
+              <Button
+                className="w-full bg-gradient-to-r from-[#6366f1] to-[#a78bfa] text-white hover:opacity-90"
+                onClick={() => {
+                  setCompleteResult(null);
+                  setShowExperienceInput(true);
+                }}
+              >
+                이 경험을 직접 적어볼까요? →
+              </Button>
             </div>
           )}
 
@@ -242,6 +240,13 @@ export default function CapabilityBoostModal({ capCode, currentLevel, assessment
                       </span>
                     </button>
                   ))}
+                </div>
+              )}
+
+              {roadmap.estimatedScoreUp > 0 && (
+                <div className="flex items-center gap-2 p-3 rounded-xl bg-green-500/10 border border-green-500/20 text-sm text-green-600 dark:text-green-400 font-medium">
+                  <TrendingUp className="h-4 w-4 shrink-0" />
+                  이 내용을 보완하면 약 +{roadmap.estimatedScoreUp}점 상승이 예상됩니다!
                 </div>
               )}
             </div>

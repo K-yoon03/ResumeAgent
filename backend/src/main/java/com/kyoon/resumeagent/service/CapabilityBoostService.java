@@ -313,8 +313,7 @@ public class CapabilityBoostService {
     }
 
     /**
-     * 체크리스트 완료 처리
-     * 체크된 항목 기반 가상 Q&A 생성 → analyzeAndSave 주입 → 점수 비교
+     * 체크리스트 완료 처리 — 상태만 COMPLETED로 변경, 점수 반영 없음
      */
     @org.springframework.transaction.annotation.Transactional
     public CompleteResponse completeRoadmap(Long roadmapId, List<Integer> checkedIndexes,
@@ -324,13 +323,9 @@ public class CapabilityBoostService {
                 .orElseThrow(() -> new RuntimeException("Roadmap not found"));
 
         Assessment assessment = roadmap.getAssessment();
-        Long assessmentId = assessment.getId();
-
-        // 이전 점수 저장
         JsonNode prevScoreData = objectMapper.readTree(assessment.getScoreData());
         int scoreBefore = prevScoreData.has("totalScore") ? prevScoreData.get("totalScore").asInt() : 0;
 
-        // 체크된 항목만 추출
         List<String> checkedItems = new ArrayList<>();
         List<String> allItems = roadmap.getRoadmap();
         for (int idx : checkedIndexes) {
@@ -343,31 +338,15 @@ public class CapabilityBoostService {
             return new CompleteResponse(roadmapId, scoreBefore, scoreBefore, false, "체크된 항목이 없어요.");
         }
 
-        // 체크된 항목 기반 가상 Q&A 생성
-        String virtualQna = buildVirtualQna(roadmap.getCapCode(), roadmap.getCurrentLevel(),
-                roadmap.getTargetLevel(), checkedItems);
-
-        // analyzeAndSave 주입
-        orchestratorService.analyzeAndSave(assessmentId, "[역량 보완] " + roadmap.getCapCode(), virtualQna, roadmap.getCapCode());
-
-        // 해당 역량 하나만 업데이트 (전체 재계산 없음)
-        int scoreAfter = depthInterviewService.updateSingleCapability(
-                assessmentId, roadmap.getCapCode(), virtualQna);
-
-        boolean improved = scoreAfter > scoreBefore;
-
-        // 로드맵 완료 처리
+        // 상태만 COMPLETED로 변경 (점수 반영 없음)
         roadmap.setStatus("COMPLETED");
         roadmap.setScoreBefore(scoreBefore);
-        roadmap.setScoreAfter(scoreAfter);
+        roadmap.setScoreAfter(scoreBefore);
         roadmap.setCompletedAt(java.time.LocalDateTime.now());
         roadmapRepository.save(roadmap);
 
-        String message = improved
-                ? "+" + (scoreAfter - scoreBefore) + "점 상승했어요! 역량이 향상되었습니다."
-                : "이미 해당 역량이 충분히 반영되어 있어요. 점수는 유지됩니다.";
-
-        return new CompleteResponse(roadmapId, scoreBefore, scoreAfter, improved, message);
+        return new CompleteResponse(roadmapId, scoreBefore, scoreBefore, false,
+                "완료 기록이 저장됐어요! 실제 경험을 입력하면 점수에 반영할 수 있어요.");
     }
 
     /**
