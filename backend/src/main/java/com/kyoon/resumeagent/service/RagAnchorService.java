@@ -28,7 +28,7 @@ public class RagAnchorService {
     public String getAnchorContext(String capabilityCode) {
         try (Connection conn = dataSource.getConnection()) {
             PreparedStatement ps = conn.prepareStatement(
-                    "SELECT content, anchors, interview_questions " +
+                    "SELECT content, anchors " +
                             "FROM capability_anchors WHERE capability_code = ?"
             );
             ps.setString(1, capabilityCode);
@@ -37,8 +37,7 @@ public class RagAnchorService {
             if (rs.next()) {
                 return buildContext(
                         rs.getString("content"),
-                        rs.getString("anchors"),
-                        rs.getString("interview_questions")
+                        rs.getString("anchors")
                 );
             }
         } catch (Exception e) {
@@ -57,7 +56,7 @@ public class RagAnchorService {
             try (Connection conn = dataSource.getConnection()) {
                 PGvector.addVectorType(conn);
                 PreparedStatement ps = conn.prepareStatement(
-                        "SELECT content, anchors, interview_questions " +
+                        "SELECT content, anchors " +
                                 "FROM capability_anchors " +
                                 "ORDER BY embedding <=> ? LIMIT 1"
                 );
@@ -67,8 +66,7 @@ public class RagAnchorService {
                 if (rs.next()) {
                     return buildContext(
                             rs.getString("content"),
-                            rs.getString("anchors"),
-                            rs.getString("interview_questions")
+                            rs.getString("anchors")
                     );
                 }
             }
@@ -98,7 +96,7 @@ public class RagAnchorService {
         return result;
     }
 
-    private String buildContext(String content, String anchorsJson, String questionsJson) {
+    private String buildContext(String content, String anchorsJson) {
         StringBuilder sb = new StringBuilder();
         try {
             JsonNode anchors = objectMapper.readTree(anchorsJson);
@@ -114,16 +112,15 @@ public class RagAnchorService {
                                 sb.append("  - ").append(c.asText()).append("\n")
                         );
                     }
+                    if (node.has("failure_condition") && node.get("failure_condition").isArray()
+                            && node.get("failure_condition").size() > 0) {
+                        sb.append("  승급실패: ");
+                        List<String> fails = new ArrayList<>();
+                        node.get("failure_condition").forEach(f -> fails.add(f.asText()));
+                        sb.append(String.join(" / ", fails)).append("\n");
+                    }
                 }
             });
-
-            JsonNode questions = objectMapper.readTree(questionsJson);
-            if (questions.isArray() && questions.size() > 0) {
-                sb.append("[참고 질문 예시]\n");
-                for (int i = 0; i < Math.min(2, questions.size()); i++) {
-                    sb.append("- ").append(questions.get(i).asText()).append("\n");
-                }
-            }
         } catch (Exception e) {
             return content;
         }

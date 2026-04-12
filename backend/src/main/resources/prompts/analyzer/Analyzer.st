@@ -29,7 +29,7 @@ For technical/domain skills:
 - Nothing mentioned -> empty
 
 STEP 3 - Capability Vector Extraction:
-Extract the user's capability vector based on experience evidence only.
+Extract the user capability vector based on experience evidence only.
 Do NOT judge L1/L2 depth here. That is determined in the interview phase.
 
 Capability Code List:

@@ -9,7 +9,7 @@ Q&A:
 
 Extract the following fields:
 
-- role: string (the candidate's specific role or responsibility, 1-2 sentences Korean)
+- role: string (the candidate specific role or responsibility, 1-2 sentences Korean)
 - action: string (what they concretely did — decisions, behaviors, processes. Exclude tool names. Korean)
 - tech: array of strings (specific tools, languages, frameworks, systems mentioned. English names preferred)
 - result: string (outcome, impact, or metric. If no number given, describe qualitative change. Korean)

@@ -27,7 +27,7 @@ repositories {
 
 // Spring AI 버전을 하나로 통일합니다.
 ext {
-	set('springAiVersion', "1.0.0-M5")
+	set('springAiVersion', "1.1.0")
 }
 
 dependencies {
@@ -35,7 +35,7 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-web'
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 
-	implementation 'org.springframework.ai:spring-ai-openai-spring-boot-starter' // 잠시 주석
+	implementation 'org.springframework.ai:spring-ai-starter-model-openai'
 	implementation 'org.jsoup:jsoup:1.17.2'
 	implementation 'org.springframework.boot:spring-boot-starter-cache'
 	// [수정] Ollama 스타터
@@ -62,7 +62,6 @@ dependencies {
 	runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.6'
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
 
-	//runtimeOnly 'com.mysql:mysql-connector-j'        // MySQL 드라이버
 	implementation 'org.springframework.boot:spring-boot-starter-data-redis'  // Redis
 
 	implementation 'org.springframework.boot:spring-boot-starter-mail'

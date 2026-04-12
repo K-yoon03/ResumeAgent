@@ -21,7 +21,7 @@ For EVERY capability code in Target Capabilities, extract ALL relevant evidence 
 Do NOT skip any capability — even if evidence is weak or absent, record it explicitly.
 
 Evidence source types:
-- "userInput": candidate's written experience description
+- "userInput": candidate written experience description
 - "QA": interview Q&A answers
 
 Rules:
@@ -41,22 +41,31 @@ covered = false ONLY if:
 - No mention in either userInput or Q&A
 
 STEP 3 - LEVEL AND SCORE EVALUATION:
-For covered capabilities only, determine level and score based on evidence quality.
+For covered capabilities only, determine level and score.
+
+PRIMARY LEVEL CRITERION — "WHY" TEST:
+The single most important boundary is L2 vs L3 (junior vs senior).
+Ask: "If asked WHY they made that choice, can the candidate explain the reason?"
+- Cannot explain why → L2 or below
+- Can explain why (rationale, trade-off, or judgment basis stated) → L3 or above
 
 LEVEL DEFINITIONS AND SCORE RANGES (strictly non-overlapping):
-- L1: score MUST be between 10 and 40  (basic usage, following instructions, no design decisions)
-- L2: score MUST be between 41 and 65  (independent implementation, bug fixing, basic logic)
-- L3: score MUST be between 66 and 85  (design decisions, optimization, rationale explained)
-- L4: score MUST be between 86 and 100 (standardization, team-level propagation, architectural leadership)
+- L1 (신입/인턴): score 10~40  — Follows instructions. No independent decisions. Does what is told.
+- L2 (주니어):   score 41~65  — Implements independently but cannot explain WHY that approach was chosen. Follows convention.
+- L3 (시니어):   score 66~85  — Chooses approach AND explains the reason. Trade-off or judgment basis is stated.
+- L4 (테크리더): score 86~100 — Sets team/org standards. Others follow their decisions. Defines conventions.
+
+Use {anchorContext} as the primary reference for level boundary judgment.
+Anchor criteria and failure_conditions in {anchorContext} take precedence over the mappings below.
 
 Evidence → Level mapping:
-- userInput evidence only (no QA detail)          -> L1, score: 10~35
-- QA: vague or brief mention                       -> L1~L2, score: 30~50
-- QA: specific implementation with context         -> L2, score: 50~65
-- QA: problem diagnosis + resolution process       -> L2~L3, score: 60~70
-- QA: design decision + explicit rationale         -> L3, score: 66~80
-- QA: design + trade-off + measurable outcome      -> L3~L4, score: 75~90
-- QA: team-level propagation or standardization    -> L4, score: 86~100
+- userInput mention only (no QA detail)                    -> L1, score: 10~35
+- QA: vague or brief mention                               -> L1~L2, score: 30~50
+- QA: specific implementation, no rationale                -> L2, score: 50~65
+- QA: problem diagnosis + resolution, no rationale         -> L2, score: 55~65
+- QA: chose approach + stated reason or trade-off          -> L3, score: 66~80
+- QA: design decision + explicit rationale + outcome       -> L3, score: 70~85
+- QA: team-level standard setting or propagation           -> L4, score: 86~100
 
 STRICT SCORING RULES:
 - L1 score range: 10~40. NEVER assign score > 40 for L1.
@@ -66,6 +75,8 @@ STRICT SCORING RULES:
 - If level is L3 but score would be 60, raise score to minimum 66.
 - If level is L2 but score would be 70, lower score to maximum 65.
 - userInput is WEAK evidence: max L2 from userInput alone, never L3+
+- L3 requires explicit rationale, trade-off, or judgment — implementation alone is NOT enough for L3
+- L4 requires evidence of setting standards or making decisions others follow
 
 COMPLETENESS SCORING (STAR-based):
 - role (max 0.2): clarity of individual contribution and ownership
@@ -83,7 +94,7 @@ COMPLETENESS SCORING (STAR-based):
   0.0 if missing
 
 WEAK FIELD REASONS (Korean):
-- action_tech L2 or below: "구현 내용만 있어요. 기술 선택 이유나 설계 과정이 있다면 추가해주세요."
+- action_tech L2 or below: "구현 내용만 있어요. 왜 그 방식을 선택했는지 이유나 trade-off가 있다면 추가해주세요."
 - result missing or vague: "결과나 성과가 명확하지 않아요. 수치화된 변화가 있다면 알려주세요."
 - role vague: "본인이 직접 결정하거나 담당한 부분을 명확히 알려주세요."
 
@@ -98,7 +109,7 @@ capabilities: object where each key is a CapabilityCode and value contains:
   covered: boolean
   level: string L1 or L2 or L3 or L4 (omit this field if covered is false)
   score: integer 0 to 100 (use 0 if covered is false)
-  evidence: array of objects each with text as string, source as userInput or QA, confidence as number
+  evidence: array of objects each with text as string, source as userInput or QA, confidence as number. Include MAXIMUM 2 most relevant evidence items per capability.
 needsFollowUp: boolean (true if completenessScore below 0.7 or any core capability not covered)
 weakFields: array of field name strings
 weakReasons: object with field name keys and Korean string values

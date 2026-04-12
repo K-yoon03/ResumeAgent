@@ -14,7 +14,7 @@ Structured data:
 
 Generate STAR content in Korean:
 - situation: 2-3 sentences describing the context and challenge
-- task: 1-2 sentences describing the candidate's specific responsibility
+- task: 1-2 sentences describing the candidate specific responsibility
 - action: 2-3 sentences describing what they did (weave tech naturally)
 - result: 1-2 sentences describing the outcome (emphasize numbers/metrics if available)
 

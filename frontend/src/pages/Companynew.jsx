@@ -37,7 +37,20 @@ const CompanyNew = () => {
 
   const handleParsed = (json) => {
     setMagicPasteOpen(false);
-    setPendingParsed(typeof json === "string" ? JSON.parse(json) : json);
+    const parsed = typeof json === "string" ? JSON.parse(json) : json;
+    setPendingParsed(parsed);
+    // postingForm에 바로 반영
+    setPostingForm({
+        position: parsed.position || "",
+        mainTasks: parsed.mainTasks || "",
+        requirements: parsed.requirements || "",
+        preferred: parsed.preferred || "",
+        techStack: parsed.techStack || "",
+        workPlace: parsed.workPlace || "",
+        employmentType: parsed.employmentType || "",
+    });
+    setShowPosting(true); // 공고 섹션 펼치기
+    toast.success("공고 내용이 자동 입력되었습니다!");
   };
 
   const hasPostingContent = Object.values(postingForm).some(v => v.trim());

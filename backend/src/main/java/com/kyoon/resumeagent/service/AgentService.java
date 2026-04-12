@@ -312,55 +312,6 @@ public class AgentService {
         }
         return new HashMap<>();
     }
-    public Map<String, Double> extractCapabilityVector(String jobPostingText) {
-        String prompt = String.format("""
-        You are a job posting capability extractor.
-        
-        Extract the capability vector from the following job posting.
-        
-        Only include codes from: %s
-        
-        Rules:
-        - Only include codes clearly required in the posting
-        - Score 0.0 ~ 1.0
-          - 0.8~1.0: explicitly required
-          - 0.5~0.7: preferred or secondary
-          - 0.1~0.4: briefly mentioned
-        
-        Output strictly in this format:
-        [CAPABILITY_VECTOR]
-        code: score, code: score
-        [/CAPABILITY_VECTOR]
-        
-        Job Posting:
-        %s
-        """,
-                String.join(", ", Arrays.stream(CapabilityCode.values()).map(Enum::name).toList()),
-                jobPostingText
-        );
-
-        try {
-            Prompt aiPrompt = new Prompt(List.of(new UserMessage(prompt)));
-            String response = chatClient.prompt(aiPrompt).call().content();
-            return parseCapabilityVector(response);
-        } catch (Exception e) {
-            return new HashMap<>();
-        }
-    }
-
-
-    public Map<String, Object> parseJobPostingWithVector(String rawText) {
-        // 기존 파싱 로직 그대로
-        String parsed = parseJobPosting(rawText);
-
-        // Vector 추출 추가
-        Map<String, Double> vector = extractCapabilityVector(rawText);
-
-        Map<String, Object> result = new HashMap<>();
-        result.put("parsed", parsed);
-        result.put("capabilityVector", vector);
-        return result;
-    }
 
     /**
      * STAR 기법 AI 힌트 생성

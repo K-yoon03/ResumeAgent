@@ -21,7 +21,7 @@ For EVERY capability code in Target Capabilities, extract ALL relevant evidence 
 Do NOT skip any capability — even if evidence is weak or absent, record it explicitly.
 
 Evidence source types:
-- "userInput": candidate's written experience description
+- "userInput": candidate written experience description
 - "QA": interview Q&A answers
 
 Rules:
@@ -43,20 +43,29 @@ covered = false ONLY if:
 STEP 3 - LEVEL AND SCORE EVALUATION:
 For covered capabilities only. Business roles are evaluated on goal ownership, execution method, data use, and measurable impact.
 
+PRIMARY LEVEL CRITERION — "WHY" TEST:
+The single most important boundary is L2 vs L3 (junior vs senior).
+Ask: "If asked WHY they made that decision or chose that approach, can the candidate explain the reason?"
+- Cannot explain why → L2 or below
+- Can explain why (rationale, data basis, or judgment stated) → L3 or above
+
 LEVEL DEFINITIONS AND SCORE RANGES (strictly non-overlapping):
-- L1: score MUST be between 10 and 40  (basic task execution, following instructions, no independent judgment)
-- L2: score MUST be between 41 and 65  (assigned task with specific steps, basic data use)
-- L3: score MUST be between 66 and 85  (self-initiated analysis, proactive improvement, self-defined KPI)
-- L4: score MUST be between 86 and 100 (org-level impact, cross-team leadership, strategic ownership)
+- L1 (신입/인턴): score 10~40  — Executes assigned tasks. No independent judgment. Follows instructions.
+- L2 (주니어):   score 41~65  — Completes assigned work with specific steps but cannot explain WHY that approach. Follows convention.
+- L3 (시니어):   score 66~85  — Self-initiates analysis or improvement AND explains the reasoning. Data-backed judgment stated.
+- L4 (테크리더): score 86~100 — Org-level impact. Sets direction others follow. Cross-team ownership.
+
+Use {anchorContext} as the primary reference for level boundary judgment.
+Anchor criteria and failure_conditions in {anchorContext} take precedence over the mappings below.
 
 Evidence → Level mapping:
-- userInput mention only (no QA detail)            -> L1, score: 10~35
-- QA: activity described without outcome           -> L1, score: 30~40
-- QA: task completed with assigned metrics         -> L2, score: 50~65
-- QA: proactive analysis or data-driven action     -> L2~L3, score: 60~70
-- QA: self-defined KPI + improvement initiative    -> L3, score: 66~80
-- QA: owned KPI + quantified outcome + strategy    -> L3~L4, score: 75~90
-- QA: org-level impact or cross-team leadership    -> L4, score: 86~100
+- userInput mention only (no QA detail)                    -> L1, score: 10~35
+- QA: activity described without judgment basis            -> L1, score: 30~40
+- QA: task completed with assigned metrics, no rationale   -> L2, score: 50~65
+- QA: proactive action taken, no explicit reason stated    -> L2, score: 55~65
+- QA: self-initiated analysis + stated reasoning           -> L3, score: 66~80
+- QA: owned KPI + data-driven judgment + outcome           -> L3, score: 70~85
+- QA: org-level impact or cross-team leadership            -> L4, score: 86~100
 
 STRICT SCORING RULES:
 - L1 score range: 10~40. NEVER assign score > 40 for L1.
@@ -66,10 +75,8 @@ STRICT SCORING RULES:
 - If level is L3 but score would be 60, raise score to minimum 66.
 - If level is L2 but score would be 70, lower score to maximum 65.
 - userInput is WEAK evidence: max L2 from userInput alone, never L3+
-- L3+ requires self-initiated goal setting, proactive analysis, or measurable owned outcome
-- L4 requires clear evidence of organizational-level influence or cross-team impact
-- Use anchor criteria in {anchorContext} as primary reference for level boundaries
-- For not covered capabilities: score = 0, omit level field
+- L3 requires explicit reasoning, data basis, or judgment — activity completion alone is NOT enough for L3
+- L4 requires clear evidence of organizational-level influence or cross-team standard setting
 
 COMPLETENESS SCORING (STAR-based):
 - role (max 0.2): clarity of individual ownership and goal responsibility
@@ -77,7 +84,7 @@ COMPLETENESS SCORING (STAR-based):
   0.1 if vague or shared responsibility
   0.0 if not mentioned
 - action_tech (max 0.5): depth of execution and analytical method described
-  0.5 if L3+ (self-driven analysis, data-backed decision, or proactive improvement)
+  0.5 if L3+ (self-driven analysis, data-backed decision, or proactive improvement with reasoning)
   0.3 if L2 (assigned task completed with specific steps or tools)
   0.1 if L1 or vague (general activity description only)
   0.0 if missing
@@ -87,7 +94,7 @@ COMPLETENESS SCORING (STAR-based):
   0.0 if missing
 
 WEAK FIELD REASONS (Korean):
-- action_tech L2 or below: "수행한 활동만 있어요. 어떤 데이터나 방법으로 판단했는지, 개선 과정이 있다면 추가해주세요."
+- action_tech L2 or below: "수행한 활동만 있어요. 왜 그 방법을 선택했는지 이유나 데이터 근거가 있다면 추가해주세요."
 - result missing or vague: "결과가 명확하지 않아요. 매출, 전환율, 참여율 등 수치가 있다면 알려주세요."
 - role vague: "본인이 직접 기획하거나 책임진 부분을 명확히 알려주세요."
 
@@ -102,7 +109,7 @@ capabilities: object where each key is a CapabilityCode and value contains:
   covered: boolean
   level: string L1 or L2 or L3 or L4 (omit this field if covered is false)
   score: integer 0 to 100 (use 0 if covered is false)
-  evidence: array of objects each with text as string, source as userInput or QA, confidence as number
+  evidence: array of objects each with text as string, source as userInput or QA, confidence as number. Include MAXIMUM 2 most relevant evidence items per capability.
 needsFollowUp: boolean (true if completenessScore below 0.7 or any core capability not covered)
 weakFields: array of field name strings
 weakReasons: object with field name keys and Korean string values

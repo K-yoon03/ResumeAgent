@@ -93,7 +93,7 @@ public class CapabilityBoostService {
      */
     public Optional<RoadmapResponse> getExistingRoadmap(Long assessmentId, String capCode) {
         return roadmapRepository
-                .findByAssessmentIdAndCapCodeAndStatus(assessmentId, capCode, "GENERATED")
+                .findTopByAssessmentIdAndCapCodeOrderByCreatedAtDesc(assessmentId, capCode)
                 .map(r -> new RoadmapResponse(
                         r.getCapCode(),
                         getCapDescription(r.getCapCode()),
@@ -155,9 +155,14 @@ public class CapabilityBoostService {
 
         StringBuilder qnaBuilder = new StringBuilder();
         for (InterviewData d : interviewDataList) {
-            if (d.getRawQna() == null) continue;
-            qnaBuilder.append(String.format("[%s]\n", d.getItemName()));
+            if (d.getRawQna() == null || d.getCapabilityResult() == null) continue;
             try {
+                JsonNode capResult = objectMapper.readTree(d.getCapabilityResult());
+                // 해당 capCode가 covered된 경우만 포함
+                if (!capResult.has(capCode)) continue;
+                if (!capResult.get(capCode).path("covered").asBoolean(false)) continue;
+
+                qnaBuilder.append(String.format("[%s]\n", d.getItemName()));
                 JsonNode qnaNode = objectMapper.readTree(d.getRawQna());
                 if (qnaNode.isArray()) {
                     for (JsonNode qa : qnaNode) {
@@ -165,8 +170,8 @@ public class CapabilityBoostService {
                         qnaBuilder.append("A: ").append(qa.has("answer") ? qa.get("answer").asText() : "").append("\n");
                     }
                 }
+                qnaBuilder.append("\n");
             } catch (Exception ignored) {}
-            qnaBuilder.append("\n");
         }
         String qnaText = qnaBuilder.toString();
         // 미보유 역량은 L1부터 시작
@@ -224,13 +229,17 @@ public class CapabilityBoostService {
         );
 
         ChatClient client = ChatClient.builder(chatModel)
-                .defaultOptions(ChatOptions.builder().temperature(0.0).maxTokens(800).build())
+                .defaultOptions(ChatOptions.builder().temperature(0.0).build())
                 .build();
 
         String response = client.prompt()
                 .system(systemPrompt)
                 .user(userPrompt)
                 .call().content();
+
+        System.out.println("=== ROADMAP RAW RESPONSE ===");
+        System.out.println(response);
+        System.out.println("=== RESPONSE LENGTH: " + (response != null ? response.length() : "NULL") + " ===");
 
         String clean = response.trim().replaceAll("```json", "").replaceAll("```", "").trim();
         JsonNode result = objectMapper.readTree(clean);
@@ -245,9 +254,9 @@ public class CapabilityBoostService {
                 null
         );
 
-        // DB 저장 (기존 GENERATED 상태 있으면 덮어쓰기)
+        // 기존 로드맵 있으면 덮어쓰기
         CapabilityRoadmap existing = roadmapRepository
-                .findByAssessmentIdAndCapCodeAndStatus(assessmentId, capCode, "GENERATED")
+                .findTopByAssessmentIdAndCapCodeOrderByCreatedAtDesc(assessmentId, capCode)
                 .orElse(null);
 
         CapabilityRoadmap entity = existing != null ? existing : CapabilityRoadmap.builder()
@@ -293,8 +302,13 @@ public class CapabilityBoostService {
         assessment.setExperience(existing + "\n\n[추가 경험 - " + capCode + "]\n" + experienceText);
         assessmentRepository.save(assessment);
 
+        String sanitized = experienceText
+                .replace("\r\n", " ")
+                .replace("\n", " ")
+                .replace("\r", " ");
+
         List<Map<String, String>> qna = List.of(
-                Map.of("question", "이 경험에 대해 구체적으로 설명해주세요.", "answer", experienceText)
+                Map.of("question", "이 경험에 대해 구체적으로 설명해주세요.", "answer", sanitized)
         );
         String qnaJson = objectMapper.writeValueAsString(qna);
 
@@ -338,8 +352,7 @@ public class CapabilityBoostService {
             return new CompleteResponse(roadmapId, scoreBefore, scoreBefore, false, "체크된 항목이 없어요.");
         }
 
-        // 상태만 COMPLETED로 변경 (점수 반영 없음)
-        roadmap.setStatus("COMPLETED");
+        // 완료 기록만 저장 (status 변경 없음 — 이후에도 계속 반영 가능)
         roadmap.setScoreBefore(scoreBefore);
         roadmap.setScoreAfter(scoreBefore);
         roadmap.setCompletedAt(java.time.LocalDateTime.now());
@@ -353,16 +366,6 @@ public class CapabilityBoostService {
      * 체크된 항목 기반 가상 Q&A JSON 생성
      * 수동적 학습 아닌 직접 실행 경험 기준으로 작성
      */
-    private String buildVirtualQna(String capCode, String currentLevel, String targetLevel, List<String> checkedItems) throws Exception {
-        List<Map<String, String>> qna = new ArrayList<>();
-        for (String item : checkedItems) {
-            qna.add(Map.of(
-                    "question", "이 경험에 대해 구체적으로 설명해주세요.",
-                    "answer", item
-            ));
-        }
-        return objectMapper.writeValueAsString(qna);
-    }
 
     private String nextLevel(String current) {
         if (current == null || "NONE".equals(current)) return "L1";

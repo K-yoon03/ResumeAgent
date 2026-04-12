@@ -78,7 +78,7 @@ public class DepthInterviewService {
         String depthAnswersText = buildDepthAnswersText(depthAnswers);
 
         ChatClient client = ChatClient.builder(chatModel)
-                .defaultOptions(ChatOptions.builder().temperature(0.0).maxTokens(1500).build())
+                .defaultOptions(ChatOptions.builder().temperature(0.0).build())
                 .build();
 
         // Step 1 - InterviewAnalyzer: capability별 evidence 추출 + 레벨 판정
@@ -205,41 +205,10 @@ public class DepthInterviewService {
                 ? Math.round(coveredWeightSum / totalWeightSum * 100.0) / 100.0
                 : 0.0;
 
-        // Step 5.5 - 인접 직군 크로스 보너스
-        // jobRanking에서 본인 직군 제외 상위 3개 인접 직군의 역량 점수를 감쇠하여 반영
-        // 공식: crossBonus += crossJobDepthScore × similarity × 0.3 (감쇠계수)
-        double crossBonusSum = 0.0;
-        int crossCount = 0;
-        for (Map.Entry<String, Double> rankEntry : jobRanking.entrySet()) {
-            if (crossCount >= 3) break;
-            String adjacentJobCode = rankEntry.getKey();
-            if (adjacentJobCode.equals(jobCode)) continue;
-
-            double similarity = rankEntry.getValue();
-            if (similarity < 0.3) break; // 유사도 낮으면 의미 없음
-
-            Map<CapabilityCode, Double> adjacentWeights = getWeightsFromProfile(adjacentJobCode);
-            double adjCoveredWeightSum = 0.0;
-            double adjWeightedScoreSum = 0.0;
-
-            for (Map.Entry<CapabilityCode, UserCapability> entry : userCapabilityMap.entrySet()) {
-                CapabilityCode code = entry.getKey();
-                UserCapability uc = entry.getValue();
-                if (!adjacentWeights.containsKey(code)) continue;
-                double w = adjacentWeights.get(code);
-                adjCoveredWeightSum += w;
-                adjWeightedScoreSum += uc.score() * w;
-            }
-
-            if (adjCoveredWeightSum > 0) {
-                double adjDepthScore = adjWeightedScoreSum / adjCoveredWeightSum * 100.0;
-                crossBonusSum += adjDepthScore * similarity * 0.3;
-                crossCount++;
-            }
-        }
-        // crossBonus는 최대 15점으로 제한 (보조 점수가 주 점수를 역전하지 않도록)
-        double crossBonus = Math.min(crossBonusSum, 15.0);
-        int totalScore = (int) Math.min(Math.round(depthScore + crossBonus), 100);
+        // Step 5.5 - coverage 가중치 반영
+        // totalScore = depthScore × (0.7 + coverage × 0.3)
+        // coverage 1.0 → depthScore 그대로, coverage 0.0 → depthScore × 0.7
+        int totalScore = (int) Math.min(Math.round(depthScore * (0.7 + coverage * 0.3)), 100);
 
         // Step 6 - strengths/weakFields 파싱
         List<String> strengths = new ArrayList<>();
@@ -264,8 +233,7 @@ public class DepthInterviewService {
         Map<String, Object> newScoreData = new LinkedHashMap<>();
         newScoreData.put("depthScore", depthScore);   // 언급된 역량 내 깊이 (0~100)
         newScoreData.put("coverage", coverage);        // 역량 커버율 (0.0~1.0)
-        newScoreData.put("crossBonus", (int) Math.round(crossBonus)); // 인접 직군 보너스
-        newScoreData.put("totalScore", totalScore);    // depthScore + crossBonus (하위호환)
+        newScoreData.put("totalScore", totalScore);    // depthScore × coverage 가중치
         newScoreData.put("grade", grade);
         newScoreData.put("competencyScores", competencyScores);
         newScoreData.put("isFinal", true);
@@ -441,7 +409,7 @@ public class DepthInterviewService {
         capVector.put(capCode, newScore / 100.0);
         assessment.setCapabilityVector(capVector);
 
-        // totalScore 재계산 (competencyScores 가중치 합산 + 기존 crossBonus 유지)
+        // totalScore 재계산 (competencyScores 가중치 합산)
         double weightedSum = 0.0, weightSum = 0.0;
         if (competencyScores != null) {
             for (JsonNode s : competencyScores) {
@@ -453,9 +421,9 @@ public class DepthInterviewService {
         }
         int depthScore = weightSum > 0 ? (int) Math.min(Math.round(weightedSum / weightSum), 100) : scoreBefore;
 
-        // 기존 crossBonus 유지 (재계산 없음)
-        int crossBonus = existingScoreData.has("crossBonus") ? existingScoreData.get("crossBonus").asInt(0) : 0;
-        int newTotalScore = (int) Math.min(depthScore + crossBonus, 100);
+        // coverage 기반 totalScore 재계산
+        double coverage = existingScoreData.has("coverage") ? existingScoreData.get("coverage").asDouble(1.0) : 1.0;
+        int newTotalScore = (int) Math.min(Math.round(depthScore * (0.7 + coverage * 0.3)), 100);
 
         // 총점도 올랐을 때만 반영
         if (newTotalScore > scoreBefore) {

@@ -69,7 +69,7 @@ public class JDAnalysisService {
                 .collect(Collectors.joining("\n"));
 
         ChatClient client = ChatClient.builder(chatModel)
-                .defaultOptions(ChatOptions.builder().temperature(0.0).maxTokens(300).build())
+                .defaultOptions(ChatOptions.builder().temperature(0.0).build())
                 .build();
 
         var prompt = new PromptTemplate(resourceLoader.getResource(PromptPathResolver.jdJobClassifier()))
@@ -88,7 +88,7 @@ public class JDAnalysisService {
             String jdText, String allowedCapabilities, String anchorContext) throws Exception {
 
         ChatClient client = ChatClient.builder(chatModel)
-                .defaultOptions(ChatOptions.builder().temperature(0.0).maxTokens(3000).build())
+                .defaultOptions(ChatOptions.builder().temperature(0.0).build())
                 .build();
 
         var prompt = new PromptTemplate(

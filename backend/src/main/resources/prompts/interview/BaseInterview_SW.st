@@ -25,6 +25,8 @@ Required question types (one each):
 
 RULES:
 - Always frame questions around the specific experience "{itemName}"
+- NEVER mention capability code names or descriptions (e.g. "데이터베이스 기본 활용", "BE_LANG") in questions
+- Questions must feel like natural interview questions, not capability assessments
 - If solo/personal project: replace "팀" with "본인의 판단", "이해관계자" with "사용자 또는 기획 의도"
 - Use anchor criteria in {capabilityCodes} as depth guidance only — do NOT quote anchor text literally
 - Keep each question to 1-3 sentences in Korean
@@ -34,3 +36,4 @@ RULES:
 
 Output: JSON only, no markdown.
 Return a JSON object with a single key "questions" containing an array of exactly 3 Korean question strings.
+CRITICAL: All output must be in Korean only. Do not use any other language.

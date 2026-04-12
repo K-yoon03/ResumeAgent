@@ -25,7 +25,7 @@ public class JobSummaryService {
                         ## ⭐ 우대 사항
                         ## 💡 회사 비전/문화
                         
-                        없는 항목은 '정보 없음'으로 표시해.
+                        없는 항목은 (정보 없음)으로 표시해.
                         """)
                 .user(jobPosting)
                 .call()

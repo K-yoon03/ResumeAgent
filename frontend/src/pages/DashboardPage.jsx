@@ -21,8 +21,7 @@ import { Progress } from "../components/ui/progress";
 import { toast } from "sonner";
 import { BASE_URL } from "../config";
 import capCodeMap from "../MappingTable/capCodeMap.json";
-import jobCodeMap from "../MappingTable/JobCodeMap.json";
-import { getGrade, getGradeColor, getGradeHex, getGradeMent, scoreToFill } from "../lib/gradeUtils";
+import { getGrade, getGradeColor, getGradeHex, getGradeMent, scoreToFill } from "../lib/Gradeutils";
 import CapabilityBoostModal from "../components/CapabilityBoostModal";
 
 const getAverageGrade = (competencyScores) => {
@@ -314,7 +313,11 @@ export function DashboardPage() {
           currentLevel={boostModal.currentLevel}
           assessmentId={primaryAssessment?.id}
           onClose={() => setBoostModal(null)}
-          onComplete={() => { setBoostModal(null); fetchDashboard(); }}
+          onComplete={(_result, shouldClose) => {
+            console.log("onComplete 호출됨, shouldClose:", shouldClose);
+            fetchDashboard();
+            if (shouldClose) setBoostModal(null);
+          }}
         />
       )}
       <div className="text-center space-y-4">
@@ -800,7 +803,8 @@ export function DashboardPage() {
                     ? Object.entries(gapReport.gaps || {})
                         .filter(([, gap]) => ["MISSING", "GAP", "CLOSE"].includes(gap.status))
                         .map(([code, gap]) => {
-                          const matched = (primaryAssessment?.coreScores || []).find(c => c.capCode === code);
+                          const allScores = [...(primaryAssessment?.coreScores || []), ...(primaryAssessment?.nonCoreScores || [])];
+                          const matched = allScores.find(c => c.capCode === code);
                           return {
                             capCode: code,
                             name: capCodeMap[code] || code,

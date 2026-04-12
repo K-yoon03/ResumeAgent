@@ -46,6 +46,7 @@ public class SecurityConfig {
                         .requestMatchers("/h2-console/**").permitAll()
                         .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
                         .requestMatchers("/api/assessments/evaluate").authenticated()
+                        .requestMatchers("/api/auth/password-reset/**").permitAll()
 
                         // 인증 필요한 경로
                         .requestMatchers("/api/credits/admin/**").hasRole("ADMIN")

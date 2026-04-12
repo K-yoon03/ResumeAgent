@@ -13,6 +13,7 @@ import com.kyoon.resumeagent.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.chat.prompt.PromptTemplate;
 import org.springframework.ai.openai.OpenAiChatOptions;
@@ -48,10 +49,8 @@ public class AssessmentService {
         List<Competency> competencies = job.getCompetencies(); // ✅ 여기 선언
 
         ChatClient analyzerClient = ChatClient.builder(chatModel)
-                .defaultOptions(OpenAiChatOptions.builder()
+                .defaultOptions(ChatOptions.builder()
                         .temperature(0.0)
-                        .seed(42)
-                        .maxTokens(2000)
                         .build())
                 .build();
 
@@ -68,8 +67,15 @@ public class AssessmentService {
 
         String response = analyzerClient.prompt(prompt).call().content();
 
+        System.out.println("=== EXPERIENCE INPUT ===");
+        System.out.println(experience);
+        System.out.println("=== CAPABILITY CODES ===");
+        System.out.println(JobCapabilityProfile.getRelevantCodeNames(jobCode));
+
         System.out.println("=== ANALYZER RAW RESPONSE ===");
+        System.out.println("promptPath: " + promptPath);
         System.out.println(response);
+
 
         String cleanJson = response.trim()
                 .replaceAll("```json", "")
@@ -77,6 +83,8 @@ public class AssessmentService {
                 .trim();
 
         // ⚠️ CAPABILITY_VECTOR 블록 제거 후 JSON 파싱
+        System.out.println("=== CLEAN JSON ===");
+        System.out.println(cleanJson);
         JsonNode result = objectMapper.readTree(cleanJson);
 
         List<String> depthItems = new ArrayList<>();

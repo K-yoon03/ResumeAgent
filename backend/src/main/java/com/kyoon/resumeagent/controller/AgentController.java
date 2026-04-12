@@ -1,7 +1,6 @@
 package com.kyoon.resumeagent.controller;
 
 import com.kyoon.resumeagent.service.AgentService;
-import com.kyoon.resumeagent.service.AnalyzerService;
 import com.kyoon.resumeagent.service.JobSummaryService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.MediaType;
@@ -12,16 +11,12 @@ import org.springframework.web.multipart.MultipartFile;
 @RestController
 @RequestMapping("/api/v1/agent")
 public class AgentController {
-
-    private final AnalyzerService analyzerService;
     private final JobSummaryService jobSummaryService;
     private final AgentService agentService;
 
     public AgentController(
-            AnalyzerService analyzerService,
             JobSummaryService jobSummaryService,
             AgentService agentService) {
-        this.analyzerService = analyzerService;
         this.jobSummaryService = jobSummaryService;
         this.agentService = agentService;
     }
@@ -30,16 +25,6 @@ public class AgentController {
     record SummarizeRequest(String jobPosting) {}
     record FollowUpRequest(String experience, String analysis) {}
     record ParseJobPostingRequest(String rawText) {}
-
-    @PostMapping(value = "/analyze", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public Flux<String> analyze(@RequestBody String experience) {
-        return analyzerService.analyzeExperienceStream(experience);
-    }
-
-    @PostMapping("/score")
-    public ResponseEntity<AnalyzerService.ScoreResponse> score(@RequestBody ScoreRequest req) {
-        return ResponseEntity.ok(analyzerService.score(req.experience()));
-    }
 
     @PostMapping("/summarize")
     public String summarize(@RequestBody SummarizeRequest request) {

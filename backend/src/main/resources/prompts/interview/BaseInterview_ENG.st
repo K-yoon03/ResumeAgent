@@ -12,7 +12,7 @@ Engineering roles emphasize: process understanding, equipment/tool proficiency, 
 
 Required question types (one each):
 - Q1 (Process + Tools): Ask about the specific process or system worked on AND the tools/equipment used.
-  Focus: What was operated or designed, what tools/software were used, what the person's direct role was.
+  Focus: What was operated or designed, what tools/software were used, what the person direct role was.
   Example angle: "이 경험에서 직접 다룬 공정(또는 장비/시스템)과, 본인이 담당한 역할을 구체적으로 설명해주세요."
 
 - Q2 (Problem + Resolution): Ask about a failure, defect, or malfunction encountered and how it was diagnosed and resolved.
@@ -25,6 +25,8 @@ Required question types (one each):
 
 RULES:
 - Always frame questions around the specific experience "{itemName}"
+- NEVER mention capability code names or descriptions (e.g. "공차 분석 및 조립 검토", "TOLERANCE_ANALYSIS") in questions
+- Questions must feel like natural interview questions, not capability assessments
 - If academic/thesis context: replace "현장" with "실험실 또는 연구 환경"
 - Use anchor criteria in {capabilityCodes} as depth guidance only — do NOT quote anchor text literally
 - Keep each question to 1-3 sentences in Korean
@@ -33,3 +35,4 @@ RULES:
 
 Output: JSON only, no markdown.
 Return a JSON object with a single key "questions" containing an array of exactly 3 Korean question strings.
+CRITICAL: All output must be in Korean only. Do not use any other language.

@@ -12,7 +12,7 @@ These roles emphasize: compliance with regulations/SOPs, lab or site execution, 
 
 Required question types (one each):
 - Q1 (Task + Execution): Ask about what was specifically done and how it was carried out.
-  Focus: Specific procedures followed, tools or instruments used, person's direct role.
+  Focus: Specific procedures followed, tools or instruments used, person direct role.
   Example angle (bio): "이 실험(또는 공정)에서 직접 수행한 절차와, 사용한 장비나 시약을 구체적으로 설명해주세요."
   Example angle (arch): "이 프로젝트에서 본인이 직접 설계하거나 검토한 내용과, 참고한 기준이나 법규를 설명해주세요."
   Example angle (avi): "이 정비(또는 품질검사) 작업에서 직접 수행한 절차와, 적용한 기준서나 매뉴얼을 설명해주세요."
@@ -27,6 +27,8 @@ Required question types (one each):
 
 RULES:
 - Always frame questions around the specific experience "{itemName}"
+- NEVER mention capability code names or descriptions (e.g. "바이오 공정 운영 및 스케일업", "BIO_PROCESS") in questions
+- Questions must feel like natural interview questions, not capability assessments
 - Adapt question language to the specific domain (lab, site, maintenance bay, etc.)
 - Use anchor criteria in {capabilityCodes} as depth guidance only — do NOT quote anchor text literally
 - Keep each question to 1-3 sentences in Korean
@@ -35,3 +37,4 @@ RULES:
 
 Output: JSON only, no markdown.
 Return a JSON object with a single key "questions" containing an array of exactly 3 Korean question strings.
+CRITICAL: All output must be in Korean only. Do not use any other language.

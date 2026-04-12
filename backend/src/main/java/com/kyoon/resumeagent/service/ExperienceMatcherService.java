@@ -30,7 +30,7 @@ public class ExperienceMatcherService {
 
     public MatchResult matchFromExperience(String experience) throws Exception {
         ChatClient client = ChatClient.builder(chatModel)
-                .defaultOptions(ChatOptions.builder().temperature(0.0).maxTokens(300).build())
+                .defaultOptions(ChatOptions.builder().temperature(0.0).build())
                 .build();
 
         Resource promptResource = resourceLoader.getResource("classpath:prompts/common/ExperienceMatcher.st");

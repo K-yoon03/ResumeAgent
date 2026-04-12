@@ -78,7 +78,7 @@ public class StarGeneratorService {
 
             // 없으면 LLM 생성
             ChatClient client = ChatClient.builder(chatModel)
-                    .defaultOptions(ChatOptions.builder().temperature(0.7).maxTokens(800).build())
+                    .defaultOptions(ChatOptions.builder().temperature(0.7).build())
                     .build();
 
             var prompt = new PromptTemplate(resourceLoader.getResource("classpath:prompts/StarGenerator.st"))

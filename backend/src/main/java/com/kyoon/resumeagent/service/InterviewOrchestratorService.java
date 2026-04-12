@@ -55,7 +55,7 @@ public class InterviewOrchestratorService {
                 + (anchorContext.isEmpty() ? "" : "\n\n[역량 레벨 판단 기준]\n" + anchorContext);
 
         ChatClient client = ChatClient.builder(chatModel)
-                .defaultOptions(ChatOptions.builder().temperature(0.4).maxTokens(500).build())
+                .defaultOptions(ChatOptions.builder().temperature(0.4).build())
                 .build();
 
         var prompt = new PromptTemplate(resourceLoader.getResource(PromptPathResolver.baseInterview(jobCode)))
@@ -82,6 +82,7 @@ public class InterviewOrchestratorService {
     }
 
     private JsonNode analyzeAnswersWithExtra(Long assessmentId, String itemName, String qnaJson, String extraCapCode) throws Exception {
+        System.out.println("=== analyzeAnswersWithExtra 호출 - itemName: " + itemName + ", extraCapCode: " + extraCapCode);
         Assessment assessment = assessmentRepository.findById(assessmentId)
                 .orElseThrow(() -> new RuntimeException("Assessment not found"));
 
@@ -104,7 +105,7 @@ public class InterviewOrchestratorService {
         String userInput = assessment.getExperience() != null ? assessment.getExperience() : "";
 
         ChatClient client = ChatClient.builder(chatModel)
-                .defaultOptions(ChatOptions.builder().temperature(0.0).maxTokens(1500).build())
+                .defaultOptions(ChatOptions.builder().temperature(0.0).build())
                 .build();
 
         var prompt = new PromptTemplate(resourceLoader.getResource(PromptPathResolver.interviewAnalyzer(jobCode)))
@@ -118,7 +119,26 @@ public class InterviewOrchestratorService {
                 ));
 
         String response = client.prompt(prompt).call().content();
+        System.out.println("=== ANALYZER RAW RESPONSE ===");
+        System.out.println(response);
         String clean = response.trim().replaceAll("```json", "").replaceAll("```", "").trim();
+
+        System.out.println("=== CLEAN JSON ===");
+        System.out.println(clean);
+        System.out.println("=== CLEAN LENGTH: " + clean.length() + " ===");
+
+        System.out.println("=== CLEAN BYTES (first 10) ===");
+        byte[] bytes = clean.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        for (int i = 0; i < Math.min(10, bytes.length); i++) {
+            System.out.printf("%02X ", bytes[i]);
+        }
+        System.out.println();
+        System.out.println("=== CLEAN BYTES (last 10) ===");
+        for (int i = Math.max(0, bytes.length - 10); i < bytes.length; i++) {
+            System.out.printf("%02X ", bytes[i]);
+        }
+        System.out.println();
+
         return objectMapper.readTree(clean);
     }
 
@@ -134,13 +154,13 @@ public class InterviewOrchestratorService {
                 ? weakReason.replace("\"", "'").replace("\r\n", " ").replace("\n", " ").replace("\r", "") : "";
 
         ChatClient client = ChatClient.builder(chatModel)
-                .defaultOptions(ChatOptions.builder().temperature(0.4).maxTokens(200).build())
+                .defaultOptions(ChatOptions.builder().temperature(0.4).build())
                 .build();
 
         String systemPrompt = String.format(
                 "You are a friendly Korean career counselor. " +
                         "Generate exactly 1 follow-up question in Korean to extract better '%s' information for experience '%s'. " +
-                        "Reason it's weak: %s. " +
+                        "Reason it weak: %s. " +
                         "Question must be natural, conversational, and 1-2 sentences. Return just the question text, no JSON.",
                 followUpTarget, itemName, weakReason
         );
@@ -167,54 +187,57 @@ public class InterviewOrchestratorService {
      * analyzeAnswers + extractAndSave 를 하나로 합침
      * 반환값: analyzeAnswers 결과 (needsFollowUp, followUpTarget 등 프론트 사용)
      */
+
     public JsonNode analyzeAndSave(Long assessmentId, String itemName, String qnaJson) throws Exception {
-        return analyzeAndSave(assessmentId, itemName, qnaJson, null);
+        return analyzeAndSave(assessmentId, itemName, qnaJson, null, false);
     }
 
     public JsonNode analyzeAndSave(Long assessmentId, String itemName, String qnaJson, String extraCapCode) throws Exception {
+        return analyzeAndSave(assessmentId, itemName, qnaJson, extraCapCode, false);
+    }
+
+    public JsonNode analyzeAndSave(Long assessmentId, String itemName, String qnaJson, String extraCapCode, boolean skipDelete) throws Exception {
         Assessment assessment = assessmentRepository.findById(assessmentId)
                 .orElseThrow(() -> new RuntimeException("Assessment not found"));
         Job job = jobRepository.findByGroupCode(assessment.getEvaluatedJobCode()).orElse(null);
         String jobGroup = job != null ? job.getGroupName() : assessment.getEvaluatedJobCode();
 
-        // Step 1: InterviewAnalyzer → capability 판정 + weakReasons (extraCapCode 주입)
+        // Step 1
         JsonNode analyzerNode = analyzeAnswersWithExtra(assessmentId, itemName, qnaJson, extraCapCode);
 
-        // Step 2: DataExtractor → STAR 구조화
+        // Step 2
         ChatClient client = ChatClient.builder(chatModel)
-                .defaultOptions(ChatOptions.builder().temperature(0.0).maxTokens(600).build())
+                .defaultOptions(ChatOptions.builder().temperature(0.0).build())
                 .build();
 
         var prompt = new PromptTemplate(resourceLoader.getResource("classpath:prompts/DataExtractor.st"))
-                .create(Map.of(
-                        "jobGroup", jobGroup,
-                        "itemName", itemName,
-                        "qna", qnaJson
-                ));
+                .create(Map.of("jobGroup", jobGroup, "itemName", itemName, "qna", qnaJson));
 
         String response = client.prompt(prompt).call().content();
+        System.out.println("=== DATAEXTRACTOR RAW ===");
+        System.out.println(response);
         String clean = response.trim().replaceAll("```json", "").replaceAll("```", "").trim();
+        System.out.println("=== DATAEXTRACTOR CLEAN LENGTH: " + clean.length() + " ===");
         JsonNode extractorNode = objectMapper.readTree(clean);
 
-        // Step 3: weakFields, weakReasons 추출
+        // Step 3
         String weakFieldsJson = analyzerNode.has("weakFields")
-                ? objectMapper.writeValueAsString(analyzerNode.get("weakFields"))
-                : "[]";
+                ? objectMapper.writeValueAsString(analyzerNode.get("weakFields")) : "[]";
         String weakReasonsJson = analyzerNode.has("weakReasons")
-                ? objectMapper.writeValueAsString(analyzerNode.get("weakReasons"))
-                : "{}";
+                ? objectMapper.writeValueAsString(analyzerNode.get("weakReasons")) : "{}";
 
-        // Step 4: 기존 데이터 삭제 후 저장
-        interviewDataRepository.findByAssessmentIdOrderByCreatedAtAsc(assessmentId).stream()
-                .filter(d -> d.getItemName().equals(itemName))
-                .forEach(interviewDataRepository::delete);
+        // Step 4: skipDelete가 false일 때만 삭제
+        if (!skipDelete) {
+            interviewDataRepository.findByAssessmentIdOrderByCreatedAtAsc(assessmentId).stream()
+                    .filter(d -> d.getItemName().equals(itemName))
+                    .forEach(interviewDataRepository::delete);
+        }
 
         String techJson = extractorNode.has("tech")
                 ? objectMapper.writeValueAsString(extractorNode.get("tech")) : "[]";
 
         InterviewData data = InterviewData.builder()
-                .assessment(assessment)
-                .itemName(itemName)
+                .assessment(assessment).itemName(itemName)
                 .role(extractorNode.has("role") && !extractorNode.get("role").isNull()
                         ? extractorNode.get("role").asText() : null)
                 .action(extractorNode.has("action") && !extractorNode.get("action").isNull()
@@ -225,15 +248,12 @@ public class InterviewOrchestratorService {
                 .rawQna(qnaJson)
                 .completenessScore(analyzerNode.has("completenessScore")
                         ? analyzerNode.get("completenessScore").asDouble() : 0.0)
-                .weakFields(weakFieldsJson)
-                .weakReasons(weakReasonsJson)
+                .weakFields(weakFieldsJson).weakReasons(weakReasonsJson)
                 .capabilityResult(analyzerNode.has("capabilities")
                         ? objectMapper.writeValueAsString(analyzerNode.get("capabilities")) : null)
                 .build();
 
         interviewDataRepository.save(data);
-
-        // analyzeAnswers 결과 반환 (프론트에서 needsFollowUp 등 사용)
         return analyzerNode;
     }
 }

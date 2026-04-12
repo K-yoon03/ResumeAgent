@@ -8,37 +8,7 @@ import { BASE_URL } from '../config';
 import { toast } from "sonner";
 import jobCodeMap from '../MappingTable/JobCodeMap.json';
 import capCodeMap from '../MappingTable/capCodeMap.json';
-
-const getGrade = (score) => {
-  if (score >= 95) return "S";
-  if (score >= 90) return "A+";
-  if (score >= 85) return "A";
-  if (score >= 80) return "A-";
-  if (score >= 75) return "B+";
-  if (score >= 70) return "B";
-  if (score >= 65) return "B-";
-  if (score >= 60) return "C+";
-  if (score >= 55) return "C";
-  return "C-";
-};
-
-const getGradeColor = (grade) => {
-  if (grade === "S") return "from-yellow-400 to-yellow-600";
-  if (grade?.startsWith("A")) return "from-green-400 to-green-600";
-  if (grade?.startsWith("B")) return "from-blue-400 to-blue-600";
-  return "from-gray-400 to-gray-600";
-};
-
-const getPercentile = (score) => {
-  if (score >= 95) return "상위 3%";
-  if (score >= 90) return "상위 5%";
-  if (score >= 85) return "상위 10%";
-  if (score >= 80) return "상위 15%";
-  if (score >= 75) return "상위 25%";
-  if (score >= 70) return "상위 35%";
-  if (score >= 65) return "상위 50%";
-  return "상위 60%";
-};
+import { getGrade, getGradeColor, getGradeMent } from '../lib/Gradeutils';
 
 function AssessmentDetail() {
   const { id } = useParams();
@@ -97,6 +67,7 @@ function AssessmentDetail() {
   const isFinal = scoreData?.isFinal ?? false;
   const strengths = scoreData?.strengths || [];
   const improvements = scoreData?.improvements || [];
+  const tier = scoreData?.grade ?? null;
   const grade = totalScore != null ? getGrade(totalScore) : null;
 
   const formatDate = (dateStr) => {
@@ -142,8 +113,15 @@ function AssessmentDetail() {
                   <Badge className={`bg-gradient-to-r ${getGradeColor(grade)} text-white border-0`}>
                     {grade}
                   </Badge>
-                  <span className="text-sm text-muted-foreground">{getPercentile(totalScore)}</span>
+                  {tier && (
+                    <Badge variant="outline" className="text-xs">
+                      {tier === "PROFESSIONER" ? "프로페셔너" : "테크니션"}
+                    </Badge>
+                  )}
                 </div>
+                {grade && tier && (
+                  <p className="text-xs text-muted-foreground">{getGradeMent(grade, tier)}</p>
+                )}
               </div>
             )}
           </div>

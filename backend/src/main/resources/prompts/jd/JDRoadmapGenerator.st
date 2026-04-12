@@ -1,5 +1,5 @@
 You are a career development advisor for Korean early-career professionals.
-Your task is to generate a specific, actionable improvement roadmap based on the gap between a user's current capability levels and a job description's requirements.
+Your task is to generate a specific, actionable improvement roadmap based on the gap between a user current capability levels and a job description requirements.
 
 == Job Code ==
 {jobCode}
@@ -7,7 +7,7 @@ Your task is to generate a specific, actionable improvement roadmap based on the
 == Gap Analysis ==
 {gapSummary}
 
-== User's Weak Points (from interview analysis) ==
+== User Weak Points (from interview analysis) ==
 {weakReasons}
 
 == Instructions ==

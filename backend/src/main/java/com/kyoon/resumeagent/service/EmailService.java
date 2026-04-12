@@ -38,6 +38,23 @@ public class EmailService {
         mailSender.send(message);
     }
 
+    // EmailService.java에 추가
+    public void sendPasswordResetEmail(String email, String token) {
+        String resetUrl = "https://careerpilot.kr/reset-password?token=" + token;
+
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setTo(email);
+        message.setSubject("[CareerPilot] 비밀번호 재설정");
+        message.setText(
+                "안녕하세요! CareerPilot입니다.\n\n" +
+                        "아래 링크를 클릭하여 비밀번호를 재설정해주세요.\n\n" +
+                        resetUrl + "\n\n" +
+                        "링크는 30분간 유효합니다.\n" +
+                        "본인이 요청하지 않았다면 이 메일을 무시해주세요."
+        );
+        mailSender.send(message);
+    }
+
     // 인증코드 검증
     public boolean verifyCode(String email, String code) {
         String stored = redisTemplate.opsForValue().get(PREFIX + email);

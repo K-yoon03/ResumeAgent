@@ -32,7 +32,6 @@ public class JobMatcherService {
         ChatClient jobMatcherClient = ChatClient.builder(chatModel)
                 .defaultOptions(ChatOptions.builder()
                         .temperature(0.1)
-                        .maxTokens(500)
                         .build())
                 .build();
 

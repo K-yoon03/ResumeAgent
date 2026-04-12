@@ -125,7 +125,7 @@ public class DepthInterviewController {
             for (Map<String, Object> item : request.items()) {
                 String itemName = (String) item.get("itemName");
                 String qnaJson = objectMapper.writeValueAsString(item.get("qna"));
-                orchestratorService.analyzeAndSave(id, itemName, qnaJson);
+                orchestratorService.analyzeAndSave(id, itemName, qnaJson, null, true);
             }
 
             // 3. FinalScorer로 점수 계산 (DB에서 읽음)
