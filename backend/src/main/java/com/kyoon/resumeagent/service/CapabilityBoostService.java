@@ -1,5 +1,6 @@
 package com.kyoon.resumeagent.service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kyoon.resumeagent.Capability.CapabilityCode;
@@ -182,14 +183,15 @@ public class CapabilityBoostService {
             당신은 취업 준비생의 역량 코치입니다.
             반드시 아래 Q&A에 등장하는 실제 프로젝트명, 기술명, 상황을 구체적으로 언급하세요.
             
-            [절대 금지 - 로드맵 항목에 포함하면 안 되는 내용]
-            - 강의 수강, 책 읽기, 스터디 참여, 튜토리얼 따라하기 등 수동적 학습 행위
-            - "공부하기", "학습하기", "알아보기", "찾아보기" 등 막연한 표현
+            [절대 금지]
+            - 강의 수강, 책 읽기, 스터디, 튜토리얼 등 수동적 학습 행위
+            - "공부하기", "학습하기", "알아보기" 등 막연한 표현
             - Q&A에 없는 프로젝트나 기술 언급
+            - 하나의 항목에 행동을 2개 이상 넣는 것 ("~하고, ~했다" 형태 금지)
             
-            [반드시 포함해야 하는 내용]
-            - Q&A에 등장한 실제 프로젝트에서 직접 구현/적용/개선한 행동
-            - "~을 적용했다", "~를 개선했다", "~를 설계했다", "~를 구현했다" 형태의 완료형 문장
+            [반드시 포함]
+            - Q&A에 등장한 실제 프로젝트에서 직접 구현/적용/개선한 단일 행동
+            - 행동 1개 + 그 결과물 1개로 구성
             - 구체적인 기술명과 상황 명시
             
             반드시 JSON만 반환하세요. 마크다운 없이 순수 JSON만.
@@ -199,9 +201,18 @@ public class CapabilityBoostService {
               "analysis": "Q&A의 실제 프로젝트명을 언급하며 현재 상태 분석 (2문장)",
               "specificFeedback": "Q&A에서 발견한 구체적 개선 포인트 (어떤 프로젝트에서 무엇이 부족했는지)",
               "roadmap": [
-                "Q&A 기반 직접 실행 항목 1 (완료형 문장)",
-                "Q&A 기반 직접 실행 항목 2 (완료형 문장)",
-                "Q&A 기반 직접 실행 항목 3 (완료형 문장)"
+                {
+                  "action": "단일 행동 하나 (완료형, 25자 이내)",
+                  "checkpoint": "이 행동을 완료했다고 볼 수 있는 구체적 산출물 또는 상태 (1문장)"
+                },
+                {
+                  "action": "단일 행동 하나 (완료형, 25자 이내)",
+                  "checkpoint": "구체적 산출물 또는 상태 (1문장)"
+                },
+                {
+                  "action": "단일 행동 하나 (완료형, 25자 이내)",
+                  "checkpoint": "구체적 산출물 또는 상태 (1문장)"
+                }
               ],
               "estimatedScoreUp": 숫자(1~15 사이 정수),
               "targetLevel": "%s"
@@ -249,7 +260,7 @@ public class CapabilityBoostService {
                 nextLevel != null ? nextLevel : "L4",
                 result.has("analysis") ? result.get("analysis").asText() : "",
                 result.has("specificFeedback") ? result.get("specificFeedback").asText() : "",
-                result.has("roadmap") ? objectMapper.convertValue(result.get("roadmap"), List.class) : List.of(),
+                result.has("roadmap") ? objectMapper.convertValue(result.get("roadmap"), new TypeReference<List<Map<String, String>>>() {}) : List.of(),
                 result.has("estimatedScoreUp") ? result.get("estimatedScoreUp").asInt(5) : 5,
                 null
         );
@@ -341,10 +352,10 @@ public class CapabilityBoostService {
         int scoreBefore = prevScoreData.has("totalScore") ? prevScoreData.get("totalScore").asInt() : 0;
 
         List<String> checkedItems = new ArrayList<>();
-        List<String> allItems = roadmap.getRoadmap();
+        List<Map<String, String>> allItems = roadmap.getRoadmap();
         for (int idx : checkedIndexes) {
             if (idx >= 0 && idx < allItems.size()) {
-                checkedItems.add(allItems.get(idx));
+                checkedItems.add(allItems.get(idx).getOrDefault("action", ""));
             }
         }
 
@@ -410,7 +421,7 @@ public class CapabilityBoostService {
             String targetLevel,
             String analysis,
             String specificFeedback,
-            List<String> roadmap,
+            List<Map<String, String>> roadmap,
             int estimatedScoreUp,
             Long roadmapId
     ) {}

@@ -306,20 +306,8 @@ export function DashboardPage() {
   const credits = data?.credits || { remaining: 0, daily: 50, used: 0 };
 
   return (
-    <div className="max-w-7xl mx-auto space-y-8 p-6">
-      {boostModal && (
-        <CapabilityBoostModal
-          capCode={boostModal.capCode}
-          currentLevel={boostModal.currentLevel}
-          assessmentId={primaryAssessment?.id}
-          onClose={() => setBoostModal(null)}
-          onComplete={(_result, shouldClose) => {
-            console.log("onComplete 호출됨, shouldClose:", shouldClose);
-            fetchDashboard();
-            if (shouldClose) setBoostModal(null);
-          }}
-        />
-      )}
+    <>
+    <div className={`max-w-7xl mx-auto space-y-8 p-6 transition-[filter] duration-200 ${boostModal ? "blur-sm pointer-events-none" : ""}`}>
       <div className="text-center space-y-4">
         <div className="inline-flex items-center justify-center p-3 rounded-full bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500">
           <LayoutDashboard className="h-8 w-8 text-white" />
@@ -978,5 +966,19 @@ export function DashboardPage() {
         </Card>
       </div>
     </div>
+    {boostModal && (
+      <CapabilityBoostModal
+        capCode={boostModal.capCode}
+        currentLevel={boostModal.currentLevel}
+        assessmentId={primaryAssessment?.id}
+        onClose={() => setBoostModal(null)}
+        onComplete={(_result, shouldClose) => {
+          console.log("onComplete 호출됨, shouldClose:", shouldClose);
+          fetchDashboard();
+          if (shouldClose) setBoostModal(null);
+        }}
+      />
+    )}
+    </>
   );
 }

@@ -122,8 +122,8 @@ export default function CapabilityBoostModal({ capCode, currentLevel, assessment
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-md max-h-[85vh] overflow-hidden">
+  <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm isolate">
+    <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden mx-4">
 
         {/* 헤더 */}
         {view !== "loading" && view !== "success" && (
@@ -226,7 +226,16 @@ export default function CapabilityBoostModal({ capCode, currentLevel, assessment
                       ? <CheckCircle2 className="h-4 w-4 text-purple-500 shrink-0 mt-0.5" />
                       : <Circle className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
                     }
-                    <span className={`text-sm ${checkedIndexes.includes(i) ? "text-foreground" : "text-muted-foreground"}`}>{step}</span>
+                    <div className="flex flex-col gap-0.5">
+                      <span className={`text-sm font-medium ${checkedIndexes.includes(i) ? "text-foreground" : "text-muted-foreground"}`}>
+                        {step.action}
+                      </span>
+                      {step.checkpoint && (
+                        <span className="text-xs text-muted-foreground leading-relaxed">
+                          {step.checkpoint}
+                        </span>
+                      )}
+                    </div>
                   </button>
                 ))}
               </div>

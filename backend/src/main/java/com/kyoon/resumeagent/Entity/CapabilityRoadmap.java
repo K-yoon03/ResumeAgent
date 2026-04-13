@@ -9,6 +9,7 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 @Entity
 @Table(name = "capability_roadmap")
@@ -38,10 +39,9 @@ public class CapabilityRoadmap {
     @Column(name = "specific_feedback", columnDefinition = "TEXT")
     private String specificFeedback;
 
-    // 체크리스트 항목 (직접 실행/적용 경험만)
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "json")
-    private List<String> roadmap;
+    private List<Map<String, String>> roadmap;
 
     @Column(name = "estimated_score_up")
     private Integer estimatedScoreUp;
