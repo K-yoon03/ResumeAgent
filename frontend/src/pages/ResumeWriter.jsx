@@ -785,17 +785,19 @@ const fetchSavedPostings = async () => {
         return postings.map(p => {
           let parsed = null;
           try { parsed = JSON.parse(p.parsedData); } catch {}
+          // parsedData가 jobForm 형식인지 JD 분석 결과인지 구분
+          const isJobFormData = parsed && parsed.mainTasks !== undefined;
           return {
             id: `company_${p.id}`,
             companyName: c.companyName,
-            position: p.position || parsed?.position || "",
-            mainTasks: parsed?.mainTasks || "",
-            requirements: parsed?.requirements || "",
-            preferred: parsed?.preferred || "",
-            techStack: parsed?.techStack || "",
-            workPlace: parsed?.workPlace || "",
-            employmentType: parsed?.employmentType || "",
-            vision: parsed?.vision || "",
+            position: p.position || (isJobFormData ? parsed?.position : "") || "",
+            mainTasks: isJobFormData ? parsed?.mainTasks || "" : "",
+            requirements: isJobFormData ? parsed?.requirements || "" : "",
+            preferred: isJobFormData ? parsed?.preferred || "" : "",
+            techStack: isJobFormData ? parsed?.techStack || "" : "",
+            workPlace: isJobFormData ? parsed?.workPlace || "" : "",
+            employmentType: isJobFormData ? parsed?.employmentType || "" : "",
+            vision: isJobFormData ? parsed?.vision || "" : "",
             _source: "company",
             _companyId: c.id,
             _postingId: p.id,
@@ -914,10 +916,10 @@ const deleteSavedPosting = async (id) => {
     const cached = sessionStorage.getItem(cacheKey);
     if (cached) {
       try {
-        const { resume: r, editableSections: es, feedback: fb } = JSON.parse(cached);
-        const hasValidSections = es && Object.values(es).some(v => v.trim().length > 0);
-        if (hasValidSections) {
-          setResume(r); setEditableSections(es); setEditedResume(getDisplayTextFromSections(es));
+        const { resume: r, feedback: fb } = JSON.parse(cached);
+        if (r && r.trim().length > 0) {
+          const cleanText = r.replace(/\[FEEDBACK\][\s\S]*?\[\/FEEDBACK\]/g, "").trim();
+          setResume(r); setEditedResume(cleanText);
           if (fb) setResumeFeedback(fb);
           setLoading(false);
           toast.success("이전에 생성한 자소서를 불러왔습니다.");
@@ -970,10 +972,9 @@ const deleteSavedPosting = async (id) => {
 
     const feedback = parseFeedback(fullText);
     if (feedback) setResumeFeedback(feedback);
-    const sections = parseResumeToSections(fullText);
-    setEditableSections(sections);
-    setEditedResume(getDisplayTextFromSections(sections));
-    sessionStorage.setItem(cacheKey, JSON.stringify({ resume: fullText, editableSections: sections, feedback }));
+    const cleanText = fullText.replace(/\[FEEDBACK\][\s\S]*?\[\/FEEDBACK\]/g, "").trim();
+    setEditedResume(cleanText);
+    sessionStorage.setItem(cacheKey, JSON.stringify({ resume: fullText, editableSections: null, feedback }));
     saveToHistory(cacheKey, fullText, jobForm, jobMode, jobPosting);
     setLoading(false);
   };
@@ -1720,7 +1721,7 @@ const deleteSavedPosting = async (id) => {
                     <Edit className="mr-2 h-4 w-4" />
                     {loading ? "AI가 작성 중입니다..." : "✍️ 자소서 생성하기"}
                   </Button>
-                  {editableSections && (
+                  {editedResume && (
                     <Button variant="outline" size="sm" onClick={resetResume} className="shrink-0 text-muted-foreground">
                       <X className="mr-1.5 h-3.5 w-3.5" />초기화
                     </Button>
@@ -1728,7 +1729,7 @@ const deleteSavedPosting = async (id) => {
                 </div>
               )}
 
-              {(loading || editableSections) && (
+              {(loading || editedResume) && (
                 <Card className={`border transition-all duration-500 ${isConfirmed ? "border-green-400/50" : "border-border/50"}`}>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-base">

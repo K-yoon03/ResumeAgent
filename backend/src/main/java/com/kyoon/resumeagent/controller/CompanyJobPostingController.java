@@ -58,6 +58,7 @@ public class CompanyJobPostingController {
                     .company(company)
                     .position(request.position())
                     .rawText(request.rawText())
+                    .parsedData(request.parsedData())  // 추가
                     .status(CompanyJobPosting.Status.ACTIVE)
                     .isPrimary(isPrimary)
                     .build();
@@ -75,19 +76,35 @@ public class CompanyJobPostingController {
             @PathVariable Long postingId,
             @AuthenticationPrincipal UserDetails userDetails) {
         User user = getUser(userDetails);
-        getCompany(companyId, user);
+        Company company = getCompany(companyId, user);
 
-        // 기존 주 목표 공고 해제
+        // 기존 primary 공고 해제
         postingRepository.findByCompanyUserEmailAndIsPrimaryTrue(user.getEmail())
                 .ifPresent(p -> {
                     p.setIsPrimary(false);
                     postingRepository.save(p);
                 });
 
-        // 새 주 목표 공고 설정
+        // 기존 primary 회사 해제
+        if (user.getPrimaryCompany() != null &&
+                !user.getPrimaryCompany().getId().equals(companyId)) {
+            Company oldPrimary = user.getPrimaryCompany();
+            oldPrimary.setIsPrimary(false);
+            companyRepository.save(oldPrimary);
+        }
+
+        // 새 공고 primary 설정
         return postingRepository.findById(postingId).map(p -> {
             p.setIsPrimary(true);
-            return ResponseEntity.ok((Object) toResponse(postingRepository.save(p), p.getCompany()));
+            postingRepository.save(p);
+
+            // 해당 공고의 회사도 primary로 설정
+            company.setIsPrimary(true);
+            user.setPrimaryCompany(company);
+            companyRepository.save(company);
+            userRepository.save(user);
+
+            return ResponseEntity.ok((Object) toResponse(p, company));
         }).orElse(ResponseEntity.notFound().build());
     }
 
@@ -160,7 +177,7 @@ public class CompanyJobPostingController {
         );
     }
 
-    record CreatePostingRequest(String rawText, String position) {}
+    record CreatePostingRequest(String rawText, String position, String parsedData) {}
 
     record PostingResponse(
             Long id, Long companyId, String companyName,

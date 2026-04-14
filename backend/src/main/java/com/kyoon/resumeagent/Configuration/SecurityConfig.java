@@ -37,23 +37,23 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/v1/jobs/**").permitAll()
-                        .requestMatchers("/api/test/**").permitAll()
-                        .requestMatchers("/api/v1/agent/**").permitAll()
+                        // 완전 공개
                         .requestMatchers("/api/auth/**").permitAll()
-                        .requestMatchers("/api/resume/generate").permitAll()
-                        .requestMatchers("/api/interview/**").permitAll()
+                        .requestMatchers("/api/auth/password-reset/**").permitAll()
                         .requestMatchers("/h2-console/**").permitAll()
                         .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
-                        .requestMatchers("/api/assessments/evaluate").authenticated()
-                        .requestMatchers("/api/auth/password-reset/**").permitAll()
 
-                        // 인증 필요한 경로
+                        // SSE 스트리밍 (인증 없이 허용)
+                        .requestMatchers("/api/interview/question").permitAll()
+                        .requestMatchers("/api/interview/feedback").permitAll()
+                        .requestMatchers("/api/interview/summary").permitAll()
+                        .requestMatchers("/api/resume/generate").permitAll()
+
+                        // 관리자 전용
                         .requestMatchers("/api/credits/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/interview/advanced/**").hasRole("ADMIN")
-                        .requestMatchers("/api/projects/**").authenticated()
 
-                        // 나머지는 인증 필요
+                        // 나머지 전부 인증 필요
                         .anyRequest().authenticated()
                 )
                 .headers(headers -> headers.frameOptions(frame -> frame.disable()))

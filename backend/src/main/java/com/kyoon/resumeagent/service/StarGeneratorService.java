@@ -44,7 +44,15 @@ public class StarGeneratorService {
 
     public List<StarResult> generateStars(Long assessmentId, String jobCode, String jobContext) throws Exception {
         List<InterviewData> dataList = interviewDataRepository
-                .findByAssessmentIdOrderByCreatedAtAsc(assessmentId);
+                .findByAssessmentIdOrderByCreatedAtAsc(assessmentId)
+                .stream()
+                .filter(d -> {
+                    String name = d.getItemName();
+                    return name != null &&
+                            !name.startsWith("[역량 보완]") &&
+                            !name.startsWith("[경험 추가]");
+                })
+                .toList();
 
         if (dataList.isEmpty()) return List.of();
 

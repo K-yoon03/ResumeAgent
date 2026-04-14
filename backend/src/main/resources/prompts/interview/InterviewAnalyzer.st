@@ -63,9 +63,9 @@ Evidence → Level mapping:
 - QA: vague or brief mention                               -> L1~L2, score: 30~50
 - QA: specific implementation, no rationale                -> L2, score: 50~65
 - QA: problem diagnosis + resolution, no rationale         -> L2, score: 55~65
-- QA: chose approach + stated reason or trade-off          -> L3, score: 66~80
-- QA: design decision + explicit rationale + outcome       -> L3, score: 70~85
-- QA: team-level standard setting or propagation           -> L4, score: 86~100
+- QA: chose approach + stated reason or trade-off          -> L3, score: 66~75
+- QA: design decision + explicit rationale + outcome       -> L3, score: 70~75
+- QA: team-level standard setting or propagation           -> L4, score: 76~100
 
 STRICT SCORING RULES:
 - L1 score range: 10~40. NEVER assign score > 40 for L1.

@@ -59,7 +59,11 @@ const PostingModal = ({ companyId, postingId = null, parsedJson = null, onClose,
         const res = await fetch(`${BASE_URL}/api/companies/${companyId}/postings`, {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ position: form.position, rawText: parsedData }),
+          body: JSON.stringify({ 
+            position: form.position, 
+            rawText: parsedData,
+            parsedData: parsedData  // 추가
+          }),
         });
         if (!res.ok) throw new Error("저장 실패");
         const saved = await res.json();

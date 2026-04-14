@@ -57,13 +57,11 @@ public class JwtFilter extends OncePerRequestFilter {
      * 공개 경로 체크 (JWT 검증 불필요)
      */
     private boolean isPublicPath(String path) {
-        return path.startsWith("/api/auth/") ||
-                path.startsWith("/api/v1/agent/") ||
-                path.startsWith("/api/v1/jobs/") ||
-                path.startsWith("/api/resume/generate") ||
-                path.startsWith("/api/interview/") ||
-                path.startsWith("/h2-console/") ||
-                path.startsWith("/oauth2/") ||
-                path.startsWith("/login/oauth2/");
+        return path.startsWith("/api/auth/") ||          // 로그인/회원가입
+                path.startsWith("/oauth2/") ||            // OAuth
+                path.startsWith("/login/oauth2/") ||      // OAuth 콜백
+                path.equals("/api/interview/question") || // SSE (토큰 없이도 가능하게)
+                path.equals("/api/interview/feedback") ||
+                path.equals("/api/interview/summary");
     }
 }

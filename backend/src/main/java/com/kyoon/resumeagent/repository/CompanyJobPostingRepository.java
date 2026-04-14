@@ -11,4 +11,5 @@ public interface CompanyJobPostingRepository extends JpaRepository<CompanyJobPos
     List<CompanyJobPosting> findByCompanyUserEmailOrderByCreatedAtDesc(String email);
     Optional<CompanyJobPosting> findByCompanyUserEmailAndIsPrimaryTrue(String email);
     void deleteByCompanyId(Long companyId);
+    List<CompanyJobPosting> findAllByCompanyUserEmailAndIsPrimaryTrue(String email);
 }

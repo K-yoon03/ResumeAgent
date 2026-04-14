@@ -68,6 +68,36 @@ public class CompanyService {
         }
     }
 
+    // CompanyService.java
+    @Transactional
+    public void setPrimaryPosting(User user, Long companyId, Long postingId) {
+        Company company = companyRepository.findByIdAndUser(companyId, user)
+                .orElseThrow(() -> new RuntimeException("Company not found"));
+
+        // 기존 primary 공고 해제
+        clearPrimaryPosting(user);
+
+        // 기존 primary 회사가 다른 회사면 해제
+        if (user.getPrimaryCompany() != null &&
+                !user.getPrimaryCompany().getId().equals(companyId)) {
+            Company oldPrimary = user.getPrimaryCompany();
+            oldPrimary.setIsPrimary(false);
+            companyRepository.save(oldPrimary);
+        }
+
+        // 새 공고 primary 설정
+        CompanyJobPosting posting = companyJobPostingRepository.findById(postingId)
+                .orElseThrow(() -> new RuntimeException("Posting not found"));
+        posting.setIsPrimary(true);
+        companyJobPostingRepository.save(posting);
+
+        // 해당 회사 primary 설정
+        company.setIsPrimary(true);
+        user.setPrimaryCompany(company);
+        companyRepository.save(company);
+        userRepository.save(user);
+    }
+
     @Transactional
     public void removePrimaryCompany(User user) {
         if (user.getPrimaryCompany() != null) {
@@ -100,8 +130,8 @@ public class CompanyService {
 
     // primary posting 해제 헬퍼
     private void clearPrimaryPosting(User user) {
-        companyJobPostingRepository.findByCompanyUserEmailAndIsPrimaryTrue(user.getEmail())
-                .ifPresent(p -> {
+        companyJobPostingRepository.findAllByCompanyUserEmailAndIsPrimaryTrue(user.getEmail())
+                .forEach(p -> {
                     p.setIsPrimary(false);
                     companyJobPostingRepository.save(p);
                 });

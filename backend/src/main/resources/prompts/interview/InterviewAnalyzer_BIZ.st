@@ -63,9 +63,9 @@ Evidence → Level mapping:
 - QA: activity described without judgment basis            -> L1, score: 30~40
 - QA: task completed with assigned metrics, no rationale   -> L2, score: 50~65
 - QA: proactive action taken, no explicit reason stated    -> L2, score: 55~65
-- QA: self-initiated analysis + stated reasoning           -> L3, score: 66~80
-- QA: owned KPI + data-driven judgment + outcome           -> L3, score: 70~85
-- QA: org-level impact or cross-team leadership            -> L4, score: 86~100
+- QA: self-initiated analysis + stated reasoning           -> L3, score: 66~75
+- QA: owned KPI + data-driven judgment + outcome           -> L3, score: 70~75
+- QA: org-level impact or cross-team leadership            -> L4, score: 76~100
 
 STRICT SCORING RULES:
 - L1 score range: 10~40. NEVER assign score > 40 for L1.

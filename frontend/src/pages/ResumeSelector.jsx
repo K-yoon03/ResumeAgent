@@ -3,30 +3,12 @@ import { useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { FileText, Plus, Clock, Sparkles, MessageCircle, ChevronRight } from "lucide-react";
+import { FileText, Plus, Clock, Sparkles, MessageCircle, ChevronRight, Search } from "lucide-react";
 import { BASE_URL } from '../config';
 import { toast } from "sonner";
 import jobCodeMap from '../MappingTable/JobCodeMap.json';
-
-const getGrade = (score) => {
-  if (score >= 95) return "S";
-  if (score >= 90) return "A+";
-  if (score >= 85) return "A";
-  if (score >= 80) return "A-";
-  if (score >= 75) return "B+";
-  if (score >= 70) return "B";
-  if (score >= 65) return "B-";
-  if (score >= 60) return "C+";
-  if (score >= 55) return "C";
-  return "C-";
-};
-
-const getGradeColor = (grade) => {
-  if (grade === "S") return "from-yellow-400 to-yellow-600";
-  if (grade?.startsWith("A")) return "from-green-400 to-green-600";
-  if (grade?.startsWith("B")) return "from-blue-400 to-blue-600";
-  return "from-gray-400 to-gray-600";
-};
+import { usePaginatedSearch } from '../hooks/usePaginatedSearch';
+import {getGrade, getGradeColor} from '../lib/Gradeutils';
 
 function AssessmentCard({ assessment, depthSummary }) {
   const navigate = useNavigate();
@@ -123,6 +105,13 @@ function ResumeSelector() {
   const [depthSummaries, setDepthSummaries] = useState({});
   const [loading, setLoading] = useState(true);
 
+  const { paged, filtered, query, handleQuery, Pagination } = usePaginatedSearch(
+    assessments, 5,
+    (a, q) =>
+      (jobCodeMap[a.evaluatedJobCode] || a.evaluatedJobCode || "").toLowerCase().includes(q) ||
+      (a.evaluatedJobCode || "").toLowerCase().includes(q)
+  );
+
   useEffect(() => { fetchAssessments(); }, []);
 
   const fetchAssessments = async () => {
@@ -194,13 +183,29 @@ function ResumeSelector() {
         </Card>
       ) : (
         <div className="space-y-4">
-          {assessments.map((assessment) => (
-            <AssessmentCard
-              key={assessment.id}
-              assessment={assessment}
-              depthSummary={depthSummaries[assessment.id] || []}
+          {/* 검색 */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="직무명으로 검색..."
+              value={query}
+              onChange={e => handleQuery(e.target.value)}
+              className="w-full pl-9 pr-4 py-2 rounded-lg border border-input bg-muted/30 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--gradient-mid)]/50"
             />
-          ))}
+          </div>
+          {filtered.length === 0 && query ? (
+            <p className="text-sm text-muted-foreground text-center py-6">검색 결과가 없어요</p>
+          ) : (
+            paged.map((assessment) => (
+              <AssessmentCard
+                key={assessment.id}
+                assessment={assessment}
+                depthSummary={depthSummaries[assessment.id] || []}
+              />
+            ))
+          )}
+          <Pagination />
         </div>
       )}
 

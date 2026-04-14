@@ -107,11 +107,11 @@ const EditModal = ({ company, onClose, onSave }) => {
 };
 
 // ── 채용공고 섹션 ──
-const JobPostingsSection = ({ company }) => {
+const JobPostingsSection = ({ company, onPrimaryChange }) => {
   const navigate = useNavigate();
   const [postings, setPostings] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(company.isPrimary || false);
   const [showMagicPaste, setShowMagicPaste] = useState(false);
   const [saving, setSaving] = useState(false);
   const [analyzingId, setAnalyzingId] = useState(null);
@@ -119,8 +119,21 @@ const JobPostingsSection = ({ company }) => {
   const [expandedGap, setExpandedGap] = useState(null);
   // PostingModal: { mode: 'new'|'edit', parsedJson, postingId }
   const [postingModal, setPostingModal] = useState(null);
+  const [reAnalyzeTarget, setReAnalyzeTarget] = useState(null);
+
+  useEffect(() => {
+    if (company.isPrimary) fetchPostings();
+  }, []);
 
   const handleAnalyze = async (posting) => {
+    if (posting.analyzedJobCode) {
+      setReAnalyzeTarget(posting);
+      return;
+    }
+    await doAnalyze(posting);
+  };
+
+  const doAnalyze = async (posting) => {
     const token = localStorage.getItem("token");
     setAnalyzingId(posting.id);
     try {
@@ -229,6 +242,7 @@ const JobPostingsSection = ({ company }) => {
       });
       if (res.ok) {
         setPostings(prev => prev.map(p => ({ ...p, isPrimary: p.id === postingId })));
+        onPrimaryChange?.();
         toast.success("주 목표 공고로 설정되었습니다!");
       }
     } catch { toast.error("설정에 실패했어요"); }
@@ -241,6 +255,7 @@ const JobPostingsSection = ({ company }) => {
         method: "DELETE", headers: { Authorization: `Bearer ${token}` }
       });
       setPostings(prev => prev.map(p => ({ ...p, isPrimary: false })));
+      onPrimaryChange?.();
       toast.success("주 목표 공고가 해제되었습니다.");
     } catch { toast.error("해제에 실패했어요"); }
   };
@@ -277,6 +292,26 @@ const JobPostingsSection = ({ company }) => {
             setPostingModal(null);
           }}
         />
+      )}
+
+      {reAnalyzeTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-card border border-border rounded-2xl shadow-2xl p-6 space-y-4 max-w-sm w-full">
+            <h3 className="text-lg font-bold text-foreground">재분석</h3>
+            <p className="text-sm text-muted-foreground">
+              이미 분석된 공고입니다. 재분석하시겠습니까?
+            </p>
+            <div className="flex gap-3">
+              <Button
+                className="flex-1 bg-gradient-to-r from-[var(--gradient-start)] to-[var(--gradient-end)] text-white hover:opacity-90"
+                onClick={() => { doAnalyze(reAnalyzeTarget); setReAnalyzeTarget(null); }}
+              >
+                재분석
+              </Button>
+              <Button variant="outline" className="flex-1" onClick={() => setReAnalyzeTarget(null)}>취소</Button>
+            </div>
+          </div>
+        </div>
       )}
 
       <div className="flex items-center justify-between">
@@ -590,7 +625,7 @@ const Companies = () => {
                 </div>
 
                 {/* 채용공고 섹션 */}
-                <JobPostingsSection company={company} />
+                <JobPostingsSection key={`${company.id}-${company.isPrimary}`} company={company} onPrimaryChange={fetchCompanies} />
               </CardContent>
             </Card>
           ))}
