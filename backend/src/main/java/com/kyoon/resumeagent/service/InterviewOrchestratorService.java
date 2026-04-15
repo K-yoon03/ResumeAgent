@@ -34,6 +34,77 @@ public class InterviewOrchestratorService {
     private final JobRepository jobRepository;
     private final RagAnchorService ragAnchorService;
 
+    // 1. ExperienceParsed record 추가 (클래스 상단)
+    private record ExperienceParsed(String career, String skills, String fullText) {}
+
+    // 2. parseExperience 헬퍼
+    private ExperienceParsed parseExperience(String raw) {
+        if (raw == null) return new ExperienceParsed("", "", "");
+        try {
+            JsonNode node = objectMapper.readTree(raw);
+            if (node.isObject() && node.has("career")) {
+                String career = node.has("career") ? node.get("career").asText("") : "";
+                String skills = node.has("skills") ? node.get("skills").asText("") : "";
+                Map<String, String> labelMap = new LinkedHashMap<>(Map.of(
+                        "age", "나이", "school", "학교", "major", "전공",
+                        "career", "경력 및 경험", "certifications", "자격증",
+                        "skills", "보유 직무역량", "language", "어학", "extra", "기타"
+                ));
+                StringBuilder sb = new StringBuilder();
+                labelMap.forEach((key, label) -> {
+                    if (node.has(key) && !node.get(key).asText("").isBlank())
+                        sb.append(label).append(": ").append(node.get(key).asText()).append("\n");
+                });
+                return new ExperienceParsed(career, skills, sb.toString().trim());
+            }
+        } catch (Exception ignored) {}
+        return new ExperienceParsed(raw, "", raw);
+    }
+
+    // 3. filterCapabilityCodesByExperience 헬퍼
+    private String filterCapabilityCodesByExperience(String rawCodes, String skills, String jobCode) {
+        if (skills.isBlank()) return rawCodes;
+
+        String skillsLower = skills.toLowerCase();
+        Map<com.kyoon.resumeagent.Capability.CapabilityCode,
+                com.kyoon.resumeagent.Capability.CapabilityWeight> profile =
+                JobCapabilityProfile.JOB_PROFILES.getOrDefault(jobCode, Map.of());
+
+        List<String> filtered = Arrays.stream(rawCodes.split(",\\s*"))
+                .map(String::trim)
+                .filter(codeStr -> {
+                    String codeName = codeStr.contains("(")
+                            ? codeStr.substring(0, codeStr.indexOf("(")).trim() : codeStr;
+                    try {
+                        com.kyoon.resumeagent.Capability.CapabilityCode code =
+                                com.kyoon.resumeagent.Capability.CapabilityCode.valueOf(codeName);
+                        boolean isCore = profile.getOrDefault(code,
+                                        new com.kyoon.resumeagent.Capability.CapabilityWeight(0, null, false))
+                                .isCore();
+                        if (isCore) return true;
+                    } catch (IllegalArgumentException ignored) {
+                        return true;
+                    }
+                    // non-core: skills 텍스트에 관련 키워드 있을 때만 포함
+                    String codeLower = codeName.toLowerCase().replace("_", " ");
+                    return Arrays.stream(codeLower.split(" "))
+                            .anyMatch(token -> token.length() > 2 && skillsLower.contains(token));
+                })
+                .collect(Collectors.toList());
+
+        // 필터링 결과가 너무 적으면 (core만 남는 극단적 케이스) 원본 반환
+        return filtered.size() >= 2 ? String.join(", ", filtered) : rawCodes;
+    }
+
+    // 4. getResidualSkills 헬퍼
+    private String getResidualSkills(String rawCodes, String filteredCodes, String skills) {
+        if (skills.isBlank()) return "";
+        Set<String> filteredSet = new HashSet<>(Arrays.asList(filteredCodes.split(",\\s*")));
+        return Arrays.stream(rawCodes.split(",\\s*"))
+                .map(String::trim)
+                .filter(code -> !filteredSet.contains(code))
+                .collect(Collectors.joining(", "));
+    }
     /**
      * Base 3문항 생성
      */
@@ -45,14 +116,22 @@ public class InterviewOrchestratorService {
         Job job = jobRepository.findByGroupCode(jobCode).orElse(null);
         String jobGroup = job != null ? job.getGroupName() : jobCode;
 
+        ExperienceParsed exp = parseExperience(assessment.getExperience());
+
         String rawCodes = JobCapabilityProfile.getRelevantCodeNames(jobCode);
-        List<String> relevantCodes = Arrays.stream(rawCodes.split(",\\s*"))
+        String filteredCodes = filterCapabilityCodesByExperience(rawCodes, exp.skills(), jobCode);
+        String residualSkills = getResidualSkills(rawCodes, filteredCodes, exp.skills());
+
+        List<String> relevantCodes = Arrays.stream(filteredCodes.split(",\\s*"))
                 .map(s -> s.contains("(") ? s.substring(0, s.indexOf("(")).trim() : s.trim())
                 .filter(s -> !s.isEmpty())
                 .collect(Collectors.toList());
         String anchorContext = ragAnchorService.getAnchorContextForCodes(relevantCodes);
-        String capCodesWithAnchor = rawCodes
-                + (anchorContext.isEmpty() ? "" : "\n\n[역량 레벨 판단 기준]\n" + anchorContext);
+
+        String capCodesWithAnchor = filteredCodes
+                + (anchorContext.isEmpty() ? "" : "\n\n[역량 레벨 판단 기준]\n" + anchorContext)
+                + (residualSkills.isEmpty() ? "" :
+                "\n\n[추가 확인 역량 - 보유 역량으로 명시됐으나 경험과의 연관성이 불명확함. 경험과 자연스럽게 연결 가능한 경우에만 질문할 것]\n" + residualSkills);
 
         ChatClient client = ChatClient.builder(chatModel)
                 .defaultOptions(ChatOptions.builder().temperature(0.4).build())
@@ -73,7 +152,6 @@ public class InterviewOrchestratorService {
         node.get("questions").forEach(q -> questions.add(q.asText()));
         return questions;
     }
-
     /**
      * 답변 분석 → capability별 레벨 판정 + followUp 여부 반환
      */
@@ -102,7 +180,8 @@ public class InterviewOrchestratorService {
                 .filter(s -> !s.isEmpty())
                 .collect(Collectors.toList());
         String anchorContext = ragAnchorService.getAnchorContextForCodes(relevantCodes);
-        String userInput = assessment.getExperience() != null ? assessment.getExperience() : "";
+        ExperienceParsed exp = parseExperience(assessment.getExperience());
+        String userInput = exp.fullText();
 
         ChatClient client = ChatClient.builder(chatModel)
                 .defaultOptions(ChatOptions.builder().temperature(0.0).build())

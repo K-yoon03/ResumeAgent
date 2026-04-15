@@ -41,6 +41,26 @@ public class DepthInterviewService {
     private final VectorSimilarityService vectorSimilarityService;
     private final RagAnchorService ragAnchorService;
 
+    private String parseExperienceFullText(String raw) {
+        if (raw == null) return "";
+        try {
+            JsonNode node = objectMapper.readTree(raw);
+            if (node.isObject() && node.has("career")) {
+                StringBuilder sb = new StringBuilder();
+                Map<String, String> labelMap = new LinkedHashMap<>();
+                labelMap.put("age", "나이"); labelMap.put("school", "학교");
+                labelMap.put("major", "전공"); labelMap.put("career", "경력 및 경험");
+                labelMap.put("certifications", "자격증"); labelMap.put("skills", "보유 직무역량");
+                labelMap.put("language", "어학"); labelMap.put("extra", "기타");
+                labelMap.forEach((key, label) -> {
+                    if (node.has(key) && !node.get(key).asText("").isBlank())
+                        sb.append(label).append(": ").append(node.get(key).asText()).append("\n");
+                });
+                return sb.toString().trim();
+            }
+        } catch (Exception ignored) {}
+        return raw;
+    }
     /**
      * 심층 질문 생성
      */
@@ -91,7 +111,7 @@ public class DepthInterviewService {
                 .filter(s -> !s.isEmpty())
                 .collect(java.util.stream.Collectors.toList());
         String anchorContext = ragAnchorService.getAnchorContextForCodes(relevantCodesForAnalyzer);
-        String userInput = assessment.getExperience() != null ? assessment.getExperience() : "";
+        String userInput = parseExperienceFullText(assessment.getExperience());
 
         Prompt analyzerPromptObj = analyzerTemplate.create(Map.of(
                 "jobName", job.getGroupName(),
