@@ -161,7 +161,9 @@ const Analyzer = () => {
       const res = await fetch(`${BASE_URL}/api/assessments/match-job`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ experience: question }),
+        body: JSON.stringify({
+          experience: JSON.stringify({ ...structForm, targetJob, noneChecked }),
+        }),
       });
       if (!res.ok) throw new Error();
       const match = await res.json();
@@ -217,7 +219,14 @@ const Analyzer = () => {
       const res = await fetch(`${BASE_URL}/api/assessments/evaluate`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ jobCode: confirmedJobCode ?? undefined, experience: question }),
+        body: JSON.stringify({
+          jobCode: confirmedJobCode ?? undefined,
+          experience: JSON.stringify({
+            ...structForm,
+            targetJob,
+            noneChecked,
+          }),
+        }),
       });
       if (!res.ok) {
         if (res.status === 400) {
