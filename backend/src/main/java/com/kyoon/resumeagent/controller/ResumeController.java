@@ -32,9 +32,8 @@ public class ResumeController {
     private final AssessmentRepository assessmentRepository;
     private final JobPostingRepository jobPostingRepository;
     private final UserRepository userRepository;
-    private final AgentService agentService;  // 추가!
+    private final AgentService agentService;
 
-    // 자소서 생성 (SSE 스트리밍) - 기존 유지
     record GenerateRequest(String experience, String analysis, String jobPosting, String additionalInfo) {}
 
     @PostMapping(value = "/generate", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
@@ -43,7 +42,6 @@ public class ResumeController {
                 request.experience(), request.analysis(), request.jobPosting(), request.additionalInfo());
     }
 
-    // 자소서 저장
     record SaveResumeRequest(
             String content,
             String title,
@@ -91,7 +89,6 @@ public class ResumeController {
                 ? jobPostingRepository.findById(req.jobPostingId()).orElse(null)
                 : null;
 
-        // title 자동 생성 (없으면 회사명 + 직무)
         String title = req.title();
         if ((title == null || title.isBlank()) && jobPosting != null) {
             title = (jobPosting.getCompanyName() != null ? jobPosting.getCompanyName() : "")
@@ -121,7 +118,6 @@ public class ResumeController {
         ));
     }
 
-    // 내 자소서 목록 조회
     @GetMapping
     public ResponseEntity<List<ResumeResponse>> getMyResumes(
             @AuthenticationPrincipal UserDetails userDetails) {
@@ -145,7 +141,6 @@ public class ResumeController {
         return ResponseEntity.ok(response);
     }
 
-    // 자소서 삭제
     @DeleteMapping("/{id}")
     public ResponseEntity<?> delete(
             @PathVariable Long id,
@@ -162,11 +157,6 @@ public class ResumeController {
         return ResponseEntity.ok().build();
     }
 
-    // ========== 수정/확정/평가 엔드포인트 ==========
-
-    /**
-     * 자소서 수정 - 수정 시 DRAFT로 복귀
-     */
     @PutMapping("/{id}")
     public ResponseEntity<ResumeResponse> updateResume(
             @PathVariable Long id,
@@ -186,9 +176,8 @@ public class ResumeController {
         if (content != null) resume.setContent(content);
         if (title != null) resume.setTitle(title);
 
-        // 수정 시 상태를 DRAFT로 변경 (재확정 필요)
         resume.setStatus("DRAFT");
-        resume.setEvaluation(null);  // 평가 초기화
+        resume.setEvaluation(null);
         resume.setUpdatedAt(LocalDateTime.now());
 
         Resume saved = resumeRepository.save(resume);
@@ -206,9 +195,6 @@ public class ResumeController {
         ));
     }
 
-    /**
-     * 자소서 확정
-     */
     @PutMapping("/{id}/confirm")
     public ResponseEntity<ResumeResponse> confirmResume(
             @PathVariable Long id,
@@ -240,7 +226,8 @@ public class ResumeController {
     }
 
     /**
-     * 자소서 평가 - AgentService 연동 (캐싱 지원)
+     * 자소서 평가 - 크레딧 차감은 CreditInterceptor에서 처리 (1 cr)
+     * 이미 평가된 경우 캐시 반환 (인터셉터 통과 전에 캐시 확인 불가 → 서비스 레이어에서 처리)
      */
     @PostMapping("/{id}/evaluate")
     public ResponseEntity<ResumeResponse> evaluateResume(
@@ -254,7 +241,7 @@ public class ResumeController {
             return ResponseEntity.status(403).build();
         }
 
-        // 이미 평가된 경우 재사용 (크레딧 차감 X)
+        // 이미 평가된 경우 재사용 (크레딧은 인터셉터에서 이미 차감됨 — 캐시 히트 시 환불 불가 구조 주의)
         if (resume.getEvaluation() != null && !resume.getEvaluation().isBlank()) {
             return ResponseEntity.ok(new ResumeResponse(
                     resume.getId(),
@@ -269,14 +256,6 @@ public class ResumeController {
             ));
         }
 
-        // 🔥 AI 호출 전 크레딧 체크 및 차감
-        if (!user.hasEnoughCredits(1)) {
-            return ResponseEntity.status(402).build(); // Payment Required
-        }
-        user.useCredits(1);
-        userRepository.save(user);
-
-        // AgentService를 통한 AI 평가
         String evaluation = agentService.evaluateResume(resume.getContent());
 
         resume.setEvaluation(evaluation);

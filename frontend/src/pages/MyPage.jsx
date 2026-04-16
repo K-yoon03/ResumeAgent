@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { User, Mail, Calendar, AlertCircle, Check, X } from "lucide-react";
+import { User, Mail, Calendar, AlertCircle, Check, X, Lock } from "lucide-react";
 import { BASE_URL } from '../config';
 import CareerPilotHelmIcon from '../components/CareerPilotHelmIcon';
 
@@ -17,6 +17,10 @@ function MyPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [pwForm, setPwForm] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
+  const [pwError, setPwError] = useState("");
+  const [pwSuccess, setPwSuccess] = useState("");
+  const [pwLoading, setPwLoading] = useState(false);
 
   const monthRef = useRef(null);
   const dayRef = useRef(null);
@@ -101,6 +105,49 @@ function MyPage() {
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handlePasswordChange = async () => {
+    setPwError("");
+    setPwSuccess("");
+    const { currentPassword, newPassword, confirmPassword } = pwForm;
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setPwError("모든 항목을 입력해주세요.");
+      return;
+    }
+    if (newPassword.length < 8) {
+      setPwError("새 비밀번호는 8자 이상이어야 해요.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPwError("새 비밀번호가 일치하지 않아요.");
+      return;
+    }
+    if (currentPassword === newPassword) {
+      setPwError("현재 비밀번호와 동일한 비밀번호로 변경할 수 없어요.");
+      return;
+    }
+    setPwLoading(true);
+    try {
+      const res = await fetch(`${BASE_URL}/api/auth/change-password`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${user.token}`,
+        },
+        body: JSON.stringify({ currentPassword, newPassword }),
+      });
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.message || "비밀번호 변경 실패");
+      }
+      setPwSuccess("비밀번호가 변경되었어요.");
+      setPwForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
+    } catch (err) {
+      setPwError(err.message);
+    } finally {
+      setPwLoading(false);
     }
   };
 
@@ -244,6 +291,80 @@ function MyPage() {
               disabled={loading}
             >
               {loading ? "저장 중..." : "저장"}
+            </Button>
+
+          </CardContent>
+        </Card>
+
+        {/* 비밀번호 변경 */}
+        <Card className="border border-border/50 shadow-lg">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-xl">비밀번호 변경</CardTitle>
+            <CardDescription>현재 비밀번호를 확인 후 변경할 수 있어요</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+
+            {pwError && (
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                {pwError}
+              </div>
+            )}
+            {pwSuccess && (
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-green-500/10 border border-green-500/20 text-green-600 text-sm">
+                <Check className="h-4 w-4 shrink-0" />
+                {pwSuccess}
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium flex items-center gap-2 text-foreground">
+                <Lock className="h-4 w-4 text-[var(--gradient-mid)]" />
+                현재 비밀번호
+              </label>
+              <input
+                type="password"
+                value={pwForm.currentPassword}
+                onChange={(e) => setPwForm(prev => ({ ...prev, currentPassword: e.target.value }))}
+                placeholder="현재 비밀번호 입력"
+                className={inputClass}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium flex items-center gap-2 text-foreground">
+                <Lock className="h-4 w-4 text-[var(--gradient-mid)]" />
+                새 비밀번호
+              </label>
+              <input
+                type="password"
+                value={pwForm.newPassword}
+                onChange={(e) => setPwForm(prev => ({ ...prev, newPassword: e.target.value }))}
+                placeholder="새 비밀번호 (8자 이상)"
+                className={inputClass}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium flex items-center gap-2 text-foreground">
+                <Lock className="h-4 w-4 text-[var(--gradient-mid)]" />
+                새 비밀번호 확인
+              </label>
+              <input
+                type="password"
+                value={pwForm.confirmPassword}
+                onChange={(e) => setPwForm(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                placeholder="새 비밀번호 재입력"
+                className={inputClass}
+              />
+            </div>
+
+            <Button
+              className="w-full bg-gradient-to-r from-[var(--gradient-start)] via-[var(--gradient-mid)] to-[var(--gradient-end)] text-white hover:opacity-90 transition-opacity mt-2"
+              onClick={handlePasswordChange}
+              disabled={pwLoading}
+            >
+              {pwLoading ? "변경 중..." : "비밀번호 변경"}
             </Button>
 
           </CardContent>

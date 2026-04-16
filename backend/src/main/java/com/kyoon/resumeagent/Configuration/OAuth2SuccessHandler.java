@@ -33,9 +33,14 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
 
         System.out.println("🎫 JWT 토큰 생성 완료");
 
-        // 프론트엔드로 리다이렉트 (토큰 포함)
+        // 신규 유저 여부 (CustomOAuth2UserService에서 주입한 attribute)
+        Boolean isNewUser = (Boolean) oAuth2User.getAttribute("isNewUser");
+        boolean isNew = Boolean.TRUE.equals(isNewUser);
+
+        // 프론트엔드로 리다이렉트 (토큰 + 신규 여부 포함)
         String targetUrl = UriComponentsBuilder.fromUriString("http://localhost:5173/oauth2/callback")
                 .queryParam("token", token)
+                .queryParam("isNew", isNew)
                 .build().toUriString();
 
         getRedirectStrategy().sendRedirect(request, response, targetUrl);

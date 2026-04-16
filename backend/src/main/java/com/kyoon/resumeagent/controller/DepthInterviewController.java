@@ -24,6 +24,16 @@ public class DepthInterviewController {
     private final DepthInterviewService depthInterviewService;
     private final ObjectMapper objectMapper;
 
+    // ── 심층면접 시작 (크레딧 차감 시점, 3 cr) ──
+    @PostMapping("/{id}/interview/start")
+    public ResponseEntity<?> startInterview(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        // 인터셉터에서 크레딧 차감 처리됨
+        // 별도 초기화 로직 필요 시 여기에 추가
+        return ResponseEntity.ok(Map.of("started", true));
+    }
+
     // ── 기본 3문항 생성 ──
     public record BaseQuestionsRequest(String itemName) {}
     public record BaseQuestionsResponse(List<String> questions) {}
@@ -42,7 +52,7 @@ public class DepthInterviewController {
         }
     }
 
-    // ── 답변 분석 → 추가 질문 필요 여부 (followUp 판단용, 저장 없음) ──
+    // ── 답변 분석 → 추가 질문 필요 여부 (저장 없음) ──
     public record AnalyzeRequest(String itemName, List<Map<String, String>> qna) {}
 
     @PostMapping("/{id}/interview/analyze")
@@ -118,17 +128,14 @@ public class DepthInterviewController {
             @RequestBody FinalRequest request,
             @AuthenticationPrincipal UserDetails userDetails) {
         try {
-            // 1. 기존 데이터 초기화
             orchestratorService.deleteInterviewDataByAssessmentId(id);
 
-            // 2. 각 항목별 분석(InterviewAnalyzer) + STAR 추출(DataExtractor) + 저장
             for (Map<String, Object> item : request.items()) {
                 String itemName = (String) item.get("itemName");
                 String qnaJson = objectMapper.writeValueAsString(item.get("qna"));
                 orchestratorService.analyzeAndSave(id, itemName, qnaJson, null, true);
             }
 
-            // 3. FinalScorer로 점수 계산 (DB에서 읽음)
             Assessment assessment = depthInterviewService.calculateFinalScore(id);
             return ResponseEntity.ok(new FinalResponse(
                     assessment.getId(),

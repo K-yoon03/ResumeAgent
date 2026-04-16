@@ -33,21 +33,18 @@ const DepthInterview = () => {
   const [currentIdx, setCurrentIdx] = useState(0);
   const [queue, setQueue] = useState([]);
 
-  // 현재 경험 질문/답변
   const [questions, setQuestions] = useState([]);
   const [answers, setAnswers] = useState([]);
   const [loadingQuestions, setLoadingQuestions] = useState(false);
 
-  // 추가 질문
   const [followUpQuestion, setFollowUpQuestion] = useState(null);
   const [followUpAnswer, setFollowUpAnswer] = useState("");
   const [analyzeResult, setAnalyzeResult] = useState(null);
   const [loadingFollowUp, setLoadingFollowUp] = useState(false);
 
-  // 전체 완료된 항목 데이터
   const [allItems, setAllItems] = useState([]);
   const [submitting, setSubmitting] = useState(false);
-  const [partialScore, setPartialScore] = useState(null); // { score, completed, grade }
+  const [partialScore, setPartialScore] = useState(null);
 
   const toggleExperience = (idx) => {
     setSelectedExperiences(prev => prev.map((e, i) => i === idx ? { ...e, selected: !e.selected } : e));
@@ -58,6 +55,25 @@ const DepthInterview = () => {
     const activeComplex = complexItems.map(i => ({ type: "complex", name: i.name }));
     const fullQueue = [...activeExperiences, ...activeComplex];
     if (fullQueue.length === 0) { toast.error("분석할 항목이 없어요!"); return; }
+
+    // 크레딧 차감 시점 (3 cr) — 인터셉터에서 처리
+    try {
+      const token = localStorage.getItem("token");
+      const startRes = await fetch(`${BASE_URL}/api/assessments/${assessmentId}/interview/start`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      });
+      if (startRes.status === 402) {
+        const err = await startRes.json();
+        toast.error(`크레딧이 부족해요. (필요: ${err.required}cr, 보유: ${err.remaining}cr)`);
+        return;
+      }
+      if (!startRes.ok) throw new Error("시작 실패");
+    } catch (err) {
+      toast.error(err.message || "심층면접을 시작할 수 없어요");
+      return;
+    }
+
     setQueue(fullQueue);
     setCurrentIdx(0);
     setPhase("interview");
@@ -89,7 +105,6 @@ const DepthInterview = () => {
     }
   };
 
-  // Base 답변 완료 → 분석 → 추가질문 여부 판단
   const handleBaseAnswersDone = async () => {
     const item = queue[currentIdx];
     const qna = questions.map((q, i) => ({ question: q, answer: answers[i] || "" }));
@@ -107,7 +122,6 @@ const DepthInterview = () => {
       setAnalyzeResult(analysis);
 
       if (analysis.needsFollowUp && analysis.followUpTarget) {
-        // 추가 질문 생성
         const followRes = await fetch(`${BASE_URL}/api/assessments/${assessmentId}/interview/followup`, {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -125,17 +139,14 @@ const DepthInterview = () => {
         }
       }
 
-      // 추가 질문 불필요 → 바로 다음으로
       await proceedToNext(item.name, qna, null);
     } catch {
-      // 분석 실패해도 계속 진행
       await proceedToNext(item.name, questions.map((q, i) => ({ question: q, answer: answers[i] || "" })), null);
     } finally {
       setLoadingFollowUp(false);
     }
   };
 
-  // 추가 질문 답변 완료
   const handleFollowUpDone = async () => {
     const item = queue[currentIdx];
     const qna = questions.map((q, i) => ({ question: q, answer: answers[i] || "" }));
@@ -154,7 +165,6 @@ const DepthInterview = () => {
   };
 
   const proceedToNext = async (itemName, qna, _unused) => {
-    // 경험 1개 완료 → 즉시 저장 + 부분 채점
     try {
       const token = localStorage.getItem("token");
       const res = await fetch(`${BASE_URL}/api/assessments/${assessmentId}/interview/submit-one`, {
@@ -272,8 +282,16 @@ const DepthInterview = () => {
           </Card>
         )}
 
+        {/* 크레딧 안내 */}
+        <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-[#6366f1]/5 border border-[#6366f1]/20">
+          <Sparkles className="h-4 w-4 text-[#6366f1] shrink-0" />
+          <p className="text-xs text-muted-foreground">
+            심층 인터뷰 시작 시 <span className="font-semibold text-[#6366f1]">3 크레딧</span>이 사용됩니다.
+          </p>
+        </div>
+
         <Button className="w-full bg-gradient-to-r from-[var(--gradient-start)] via-[var(--gradient-mid)] to-[var(--gradient-end)] text-white hover:opacity-90" onClick={startInterview}>
-          시작하기<ArrowRight className="ml-2 h-4 w-4" />
+          시작하기 (3 cr)<ArrowRight className="ml-2 h-4 w-4" />
         </Button>
       </div>
     );

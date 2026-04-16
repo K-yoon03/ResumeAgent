@@ -223,6 +223,21 @@ public class AuthService implements UserDetailsService {
         );
     }
 
+    public void changePassword(String email, String currentPassword, String newPassword) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (!passwordEncoder.matches(currentPassword, user.getPassword())) {
+            throw new IllegalArgumentException("현재 비밀번호가 일치하지 않아요.");
+        }
+        if (passwordEncoder.matches(newPassword, user.getPassword())) {
+            throw new IllegalArgumentException("현재 비밀번호와 동일한 비밀번호로 변경할 수 없어요.");
+        }
+
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+    }
+
     // 회원탈퇴
     public void deleteMyAccount(String email) {
         User user = userRepository.findByEmail(email)

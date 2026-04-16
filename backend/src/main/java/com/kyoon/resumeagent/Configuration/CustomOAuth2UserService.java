@@ -6,10 +6,12 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserService;
 import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
+import org.springframework.security.oauth2.core.user.DefaultOAuth2User;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
 
@@ -32,14 +34,17 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
         String email;
         String nickname;
         String providerId;
+        String nameAttributeKey;
 
         if ("google".equals(provider)) {
             email = (String) attributes.get("email");
             nickname = (String) attributes.get("name");
             providerId = (String) attributes.get("sub");
+            nameAttributeKey = "sub";
         } else if ("kakao".equals(provider)) {
             providerId = attributes.get("id").toString();
             email = "kakao_" + providerId + "@careerpilot.local";
+            nameAttributeKey = "id";
 
             Map<String, Object> kakaoAccount = (Map<String, Object>) attributes.get("kakao_account");
             if (kakaoAccount != null) {
@@ -54,39 +59,43 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
 
         System.out.println("✅ 파싱 완료 - email: " + email + ", nickname: " + nickname);
 
-        // DB에서 찾거나 생성
-        User user = userRepository.findByEmail(email)
-                .orElseGet(() -> {
-                    System.out.println("🆕 신규 사용자 생성: " + email);
+        // 신규 유저 여부 판단
+        boolean isNewUser = userRepository.findByEmail(email).isEmpty();
 
-                    // 중복 방지를 위한 유니크 닉네임 생성
-                    String uniqueNickname = generateUniqueNickname(nickname);
+        if (isNewUser) {
+            System.out.println("🆕 신규 사용자 생성: " + email);
+            String uniqueNickname = generateUniqueNickname(nickname);
+            User newUser = User.builder()
+                    .email(email)
+                    .nickname(uniqueNickname)
+                    .provider(provider.toUpperCase())
+                    .providerId(providerId)
+                    .lastLoginAt(LocalDateTime.now())
+                    .build();
+            userRepository.save(newUser);
+        }
 
-                    User newUser = User.builder()
-                            .email(email)
-                            .nickname(uniqueNickname)
-                            .provider(provider.toUpperCase())
-                            .providerId(providerId)
-                            .lastLoginAt(LocalDateTime.now())
-                            .build();
-                    return userRepository.save(newUser);
-                });
+        System.out.println("✅ 로그인 처리 완료: " + email + " (신규: " + isNewUser + ")");
 
-        System.out.println("✅ 로그인 성공: " + user.getEmail());
+        // isNewUser를 attribute에 주입해서 SuccessHandler로 전달
+        Map<String, Object> modifiedAttributes = new HashMap<>(attributes);
+        modifiedAttributes.put("isNewUser", isNewUser);
+        modifiedAttributes.put("_email", email); // kakao 대응용 통일 이메일 키
 
-        return oAuth2User;
+        return new DefaultOAuth2User(
+                oAuth2User.getAuthorities(),
+                modifiedAttributes,
+                nameAttributeKey
+        );
     }
 
     private String generateUniqueNickname(String baseNickname) {
         String nickname = baseNickname;
         Random random = new Random();
-
-        // 닉네임이 중복되면 랜덤 숫자 추가
         while (userRepository.findByNickname(nickname).isPresent()) {
-            int randomNum = random.nextInt(10000); // 0~9999
+            int randomNum = random.nextInt(10000);
             nickname = baseNickname + randomNum;
         }
-
         return nickname;
     }
 }

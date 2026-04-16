@@ -226,7 +226,7 @@ function InterviewAgent() {
               onClick={startInterview}
             >
               <ChevronRight className="mr-2 h-4 w-4" />
-              면접 시작
+              면접 시작 (2 cr)
             </Button>
           </CardContent>
         </Card>

@@ -1,14 +1,22 @@
 package com.kyoon.resumeagent.controller;
 
 import com.kyoon.resumeagent.Component.JwtUtil;
+import com.kyoon.resumeagent.Entity.User;
 import com.kyoon.resumeagent.service.AuthService;
 import com.kyoon.resumeagent.service.EmailService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 import com.kyoon.resumeagent.repository.UserRepository;
 import com.kyoon.resumeagent.DTO.UserInfoResponse;
 import com.kyoon.resumeagent.DTO.UpdateRequest;
+
+
+
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -33,6 +41,7 @@ public class AuthController {
     public record RefreshRequest(String refreshToken) {}  // ← 여기 같이 있어야 해요
     public record SendCodeRequest(String email) {}
     public record VerifyCodeRequest(String email, String code) {}
+    public record ChangePasswordRequest(String currentPassword, String newPassword) {}
 
     @PostMapping("/register")
     public ResponseEntity<AuthResponse> register(@RequestBody RegisterRequest req) {
@@ -100,5 +109,20 @@ public class AuthController {
     @PostMapping("/verify-code")
     public ResponseEntity<Boolean> verifyCode(@RequestBody VerifyCodeRequest req) {
         return ResponseEntity.ok(emailService.verifyCode(req.email(), req.code()));
+    }
+
+    @PostMapping("/change-password")
+    public ResponseEntity<?> changePassword(
+            @RequestBody ChangePasswordRequest request,
+            @RequestHeader("Authorization") String authHeader) {
+        try {
+            String email = extractEmail(authHeader);
+            authService.changePassword(email, request.currentPassword(), request.newPassword());
+            return ResponseEntity.ok(Map.of("message", "비밀번호가 변경되었어요."));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(Map.of("message", "비밀번호 변경 실패"));
+        }
     }
 }

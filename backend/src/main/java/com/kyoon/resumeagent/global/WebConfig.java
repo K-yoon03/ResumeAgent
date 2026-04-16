@@ -30,14 +30,12 @@ public class WebConfig implements WebMvcConfigurer {
 
         registry.addInterceptor(creditInterceptor)
                 .addPathPatterns(
-                        "/api/v1/agent/analyze",                    // Analyzer (1 credit)
-                        "/api/assessments/*/interview/submit-one",  // DepthInterview 경험 1개 (1 credit)
-                        "/api/jd/analyze",                          // JD 분석 (1 credit)
-                        "/api/jd/gap",                              // Gap 분석 (1 credit)
-                        "/api/resume/generate",                     // 자소서 생성 (2 credit)
-                        "/api/interview/question",                  // 면접 준비 (2 credit)
-                        "/api/interview/feedback",
-                        "/api/interview/summary"
+                        "/api/assessments/*/interview/start",  // 심층면접 시작 (3 cr)
+                        "/api/capability/roadmap",             // 역량 로드맵 생성 (1 cr)
+                        "/api/jd/analyze",                     // JD 분석 (1 cr)
+                        "/api/resume/generate",                // 자소서 생성 (2 cr)
+                        "/api/resume/*/evaluate",              // 자소서 평가 (1 cr)
+                        "/api/interview/question"              // 모의면접 시작 (2 cr)
                 );
     }
 }

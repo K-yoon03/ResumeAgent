@@ -29,6 +29,7 @@ function Register() {
   const [emailVerified, setEmailVerified] = useState(false);
   const [codeLoading, setCodeLoading] = useState(false);
   const [codeError, setCodeError] = useState("");
+  const [agreed, setAgreed] = useState(false);
 
   const monthRef = useRef(null);
   const dayRef = useRef(null);
@@ -117,6 +118,11 @@ function Register() {
 
   const handleSubmit = async () => {
     setError("");
+
+    if (!agreed) {
+      setError("이용약관 및 개인정보처리방침에 동의해주세요.");
+      return;
+    }
     
     if (!emailVerified) {
       setError("이메일 인증을 완료해주세요.");
@@ -371,10 +377,37 @@ function Register() {
               <p className="text-xs text-muted-foreground pl-1">예: 2001 / 10 / 5</p>
             </div>
 
+            {/* 약관 동의 */}
+            <div className="px-1 py-2 rounded-xl bg-[#6366f1]/5 border border-[#6366f1]/20 px-4 py-3 space-y-2">
+              <p className="text-xs text-muted-foreground">
+                ⚠️ 본 서비스는 현재 베타 운영 중입니다. 일부 기능이 변경되거나 불안정할 수 있습니다.
+              </p>
+              <label className="flex items-start gap-3 cursor-pointer group">
+                <div className="relative mt-0.5">
+                  <input
+                    type="checkbox"
+                    checked={agreed}
+                    onChange={(e) => setAgreed(e.target.checked)}
+                    className="sr-only"
+                  />
+                  <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${agreed ? 'bg-[#6366f1] border-[#6366f1]' : 'border-muted-foreground group-hover:border-[#6366f1]'}`}>
+                    {agreed && (
+                      <svg className="w-3 h-3 text-white" viewBox="0 0 12 12" fill="none">
+                        <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    )}
+                  </div>
+                </div>
+                <span className="text-xs text-foreground leading-relaxed">
+                  <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-[#6366f1] underline underline-offset-2">이용약관 및 개인정보처리방침</a>을 확인하였으며, 이에 동의합니다. <span className="text-[#6366f1] font-medium">(필수)</span>
+                </span>
+              </label>
+            </div>
+
             <Button
               className="w-full bg-gradient-to-r from-[var(--gradient-start)] via-[var(--gradient-mid)] to-[var(--gradient-end)] text-white hover:opacity-90 transition-opacity mt-2"
               onClick={handleSubmit}
-              disabled={loading || !emailVerified}
+              disabled={loading || !emailVerified || !agreed}
             >
               {loading ? "가입 중..." : "회원가입"}
             </Button>

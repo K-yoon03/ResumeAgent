@@ -11,11 +11,16 @@ export default function OAuth2Callback() {
 
   useEffect(() => {
     const token = searchParams.get("token");
-    
+    const isNew = searchParams.get("isNew") === "true";
+
     if (token) {
       localStorage.setItem("token", token);
-      refreshUser().then(() => {    // ← setTimeout 대신 refreshUser 후 이동
-        navigate("/dashboard");
+      refreshUser().then(() => {
+        if (isNew) {
+          navigate("/register/social"); // 신규 유저 → 약관 동의
+        } else {
+          navigate("/dashboard");       // 기존 유저 → 바로 이동
+        }
       });
     } else {
       toast.error("로그인에 실패했습니다.");

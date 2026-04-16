@@ -205,12 +205,14 @@ function Nav() {
 
           {/* 크레딧 */}
           {user && credits !== null && (
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-100 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
-              <Coins className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
-              <span className="text-xs font-semibold text-amber-700 dark:text-amber-300">
-                {credits >= 999999 ? "∞" : credits} cr
-              </span>
-            </div>
+            <Link to="/credits">
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-100 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 hover:border-amber-400 transition-colors cursor-pointer">
+                <Coins className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                <span className="text-xs font-semibold text-amber-700 dark:text-amber-300">
+                  {credits >= 999999 ? "∞" : credits} cr
+                </span>
+              </div>
+            </Link>
           )}
 
           {/* 다크모드 */}

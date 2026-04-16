@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { 
   LayoutDashboard, 
   Briefcase,
@@ -243,7 +243,8 @@ export function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [companyList, setCompanyList] = useState([]);
-  const [boostModal, setBoostModal] = useState(null); // { capCode, currentLevel }
+  const [boostModal, setBoostModal] = useState(null);
+  const navigate = useNavigate();
 
   useEffect(() => { fetchDashboard(); }, []);
 
@@ -368,7 +369,7 @@ export function DashboardPage() {
             }
           </CardContent>
         </Card>
-        <Card>
+        <Card className="cursor-pointer border border-transparent hover:border-[#8b5cf6] transition-all duration-200" onClick={() => navigate("/credits")}>
           <CardHeader>
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
               <Sparkles className="h-4 w-4" />크레딧
@@ -376,7 +377,7 @@ export function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-4xl font-bold mb-2">
-              {credits.remaining}
+              {credits.remaining >= 999999 ? "∞" : credits.remaining}
               <span className="text-lg text-muted-foreground"> 크레딧</span>
             </div>
             <p className="text-sm text-muted-foreground">충전형 크레딧 · 소진 시 충전 필요</p>

@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from "react";
 import { BASE_URL } from '../config';
+import { setLogoutCallback } from '../utils/authFetch';
 
 const AuthContext = createContext(null);
 
@@ -7,6 +8,15 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [credits, setCredits] = useState(null); // 🔥 크레딧 state 추가!
+
+  useEffect(() => {
+    setLogoutCallback(() => {
+      setUser(null);
+      setCredits(null);
+      // toast + navigate는 컴포넌트에서 처리
+      window.dispatchEvent(new Event("force-logout"));
+    });
+  }, []);
 
   // 앱 시작 시 token 있으면 DB에서 유저 정보 가져오기
   useEffect(() => {
@@ -75,7 +85,7 @@ export function AuthProvider({ children }) {
       if (res.ok) {
         const fullData = await res.json();
         setUser({ token: data.token, refreshToken: data.refreshToken, ...fullData });
-        setCredits(fullData.remainingCredits);
+        setCredits(fullData.credits);
       } else {
         setUser(data);
         setCredits(data.credits);

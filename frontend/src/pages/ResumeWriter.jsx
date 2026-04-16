@@ -1719,7 +1719,7 @@ const deleteSavedPosting = async (id) => {
                     onClick={generateResume} disabled={loading}
                   >
                     <Edit className="mr-2 h-4 w-4" />
-                    {loading ? "AI가 작성 중입니다..." : "✍️ 자소서 생성하기"}
+                    {loading ? "AI가 작성 중입니다..." : "✍️ 자소서 생성하기 (2 cr)"}
                   </Button>
                   {editedResume && (
                     <Button variant="outline" size="sm" onClick={resetResume} className="shrink-0 text-muted-foreground">
@@ -1842,7 +1842,7 @@ const deleteSavedPosting = async (id) => {
                               className="flex-1 bg-gradient-to-r from-blue-500 to-indigo-500 text-white"
                             >
                               {evaluating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <BarChart className="mr-2 h-4 w-4" />}
-                              평가받기
+                              평가받기 (1 cr)
                             </Button>
                           )}
                           {/* 모의면접 버튼 */}
@@ -1852,7 +1852,7 @@ const deleteSavedPosting = async (id) => {
                               className="flex-1 bg-gradient-to-r from-[var(--gradient-start)] to-[var(--gradient-end)] text-white"
                               onClick={() => navigate("/interview", { state: { resume: editedResume, jobPosting, analysis } })}
                             >
-                              모의면접 시작<ArrowRight className="ml-2 h-5 w-5" />
+                              모의면접 시작 (2 cr)<ArrowRight className="ml-2 h-5 w-5" />
                             </Button>
                           )}
                         </div>
