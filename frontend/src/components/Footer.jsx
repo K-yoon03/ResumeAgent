@@ -32,6 +32,7 @@ const BUSINESS_INFO = {
   ceo: "고윤",
   registration: "408-33-68560",
   email: "CareerPilot.dev@gmail.com",
+  address : "서울특별시 구로구 경인로 20나길 36 아크로팰리스 3층 322호",
 };
 
 function Footer() {
@@ -79,6 +80,7 @@ function Footer() {
               <p>상호: {BUSINESS_INFO.name} · 대표: {BUSINESS_INFO.ceo}</p>
               <p>사업자등록번호: {BUSINESS_INFO.registration}</p>
               <p>이메일: {BUSINESS_INFO.email}</p>
+              <p>주소: {BUSINESS_INFO.address}</p>
             </div>
           )}
         </div>
