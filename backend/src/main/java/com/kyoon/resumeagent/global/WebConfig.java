@@ -19,7 +19,8 @@ public class WebConfig implements WebMvcConfigurer {
         registry.addMapping("/**")
                 .allowedOrigins(
                         "http://localhost:5173",
-                        "http://careerpilot-frontend-static-s3.s3-website.ap-northeast-2.amazonaws.com"
+                        "http://careerpilot-frontend-static-s3.s3-website.ap-northeast-2.amazonaws.com",
+                        "http://careerpilot.kr"
                 )
                 .allowedMethods("*")
                 .allowedHeaders("*")
