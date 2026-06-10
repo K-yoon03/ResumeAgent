@@ -17,6 +17,8 @@ import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.chat.prompt.PromptTemplate;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
 import java.util.Arrays;
@@ -92,9 +94,8 @@ public class InterviewOrchestratorService {
 
         String rawCodes = JobCapabilityProfile.getRelevantCodeNames(jobCode);
 
-        // extraCapCode가 있으면 해당 역량만 단독으로 분석 (직군 외 역량 정확도 보장)
         if (extraCapCode != null && !rawCodes.contains(extraCapCode)) {
-            rawCodes = extraCapCode; // 단독 분석
+            rawCodes = extraCapCode;
         }
 
         List<String> relevantCodes = Arrays.stream(rawCodes.split(",\\s*"))
@@ -178,42 +179,50 @@ public class InterviewOrchestratorService {
     /**
      * 인터뷰 데이터 초기화
      */
+    @Transactional
     public void deleteInterviewDataByAssessmentId(Long assessmentId) {
         interviewDataRepository.deleteByAssessmentId(assessmentId);
     }
 
     /**
      * Q&A 분석 + STAR 추출 + weakReasons 저장 (통합)
-     * analyzeAnswers + extractAndSave 를 하나로 합침
-     * 반환값: analyzeAnswers 결과 (needsFollowUp, followUpTarget 등 프론트 사용)
+     * REQUIRES_NEW: 호출 시점에 독립 트랜잭션으로 실행 → 커밋 완료 후 반환
+     * calculateFinalScore와의 트랜잭션 간섭(StaleObjectStateException) 방지
      */
-
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public JsonNode analyzeAndSave(Long assessmentId, String itemName, String qnaJson) throws Exception {
-        return analyzeAndSave(assessmentId, itemName, qnaJson, null, false);
+        return analyzeAndSaveInternal(assessmentId, itemName, qnaJson, null, false);
     }
 
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public JsonNode analyzeAndSave(Long assessmentId, String itemName, String qnaJson, String extraCapCode) throws Exception {
-        return analyzeAndSave(assessmentId, itemName, qnaJson, extraCapCode, false);
+        return analyzeAndSaveInternal(assessmentId, itemName, qnaJson, extraCapCode, false);
     }
 
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public JsonNode analyzeAndSave(Long assessmentId, String itemName, String qnaJson, String extraCapCode, boolean skipDelete) throws Exception {
+        return analyzeAndSaveInternal(assessmentId, itemName, qnaJson, extraCapCode, skipDelete);
+    }
+
+    /**
+     * 실제 로직 (오버로드 진입점들이 공통으로 호출)
+     */
+    private JsonNode analyzeAndSaveInternal(Long assessmentId, String itemName, String qnaJson, String extraCapCode, boolean skipDelete) throws Exception {
         Assessment assessment = assessmentRepository.findById(assessmentId)
                 .orElseThrow(() -> new RuntimeException("Assessment not found"));
         Job job = jobRepository.findByGroupCode(assessment.getEvaluatedJobCode()).orElse(null);
         String jobGroup = job != null ? job.getGroupName() : assessment.getEvaluatedJobCode();
 
-        // 공백 답변 QnA 필터링
         String filteredQnaJson = filterEmptyAnswers(qnaJson);
         if (filteredQnaJson == null) {
-            // 유효한 QnA가 하나도 없으면 빈 노드 반환 (저장 스킵)
             System.out.println("=== analyzeAndSave 스킵: 유효한 QnA 없음 - itemName: " + itemName);
             return objectMapper.createObjectNode();
         }
 
-        // Step 1
+        // Step 1: 분석
         JsonNode analyzerNode = analyzeAnswersWithExtra(assessmentId, itemName, filteredQnaJson, extraCapCode);
 
-        // Step 2
+        // Step 2: STAR 추출
         ChatClient client = ChatClient.builder(chatModel)
                 .defaultOptions(ChatOptions.builder().temperature(0.0).build())
                 .build();
@@ -228,19 +237,24 @@ public class InterviewOrchestratorService {
         System.out.println("=== DATAEXTRACTOR CLEAN LENGTH: " + clean.length() + " ===");
         JsonNode extractorNode = objectMapper.readTree(clean);
 
-        // Step 3
+        // Step 3: weakFields/weakReasons 추출
         String weakFieldsJson = analyzerNode.has("weakFields")
                 ? objectMapper.writeValueAsString(analyzerNode.get("weakFields")) : "[]";
         String weakReasonsJson = analyzerNode.has("weakReasons")
                 ? objectMapper.writeValueAsString(analyzerNode.get("weakReasons")) : "{}";
 
-        // Step 4: skipDelete가 false일 때만 삭제
+        // Step 4: 기존 데이터 삭제 (skipDelete=false일 때만)
         if (!skipDelete) {
-            interviewDataRepository.findByAssessmentIdOrderByCreatedAtAsc(assessmentId).stream()
+            List<InterviewData> toDelete = interviewDataRepository
+                    .findByAssessmentIdOrderByCreatedAtAsc(assessmentId)
+                    .stream()
                     .filter(d -> d.getItemName().equals(itemName))
-                    .forEach(interviewDataRepository::delete);
+                    .collect(Collectors.toList());
+            interviewDataRepository.deleteAll(toDelete);
+            interviewDataRepository.flush(); // 삭제를 즉시 DB에 반영 후 INSERT
         }
 
+        // Step 5: 새 데이터 저장
         String techJson = extractorNode.has("tech")
                 ? objectMapper.writeValueAsString(extractorNode.get("tech")) : "[]";
 
@@ -267,7 +281,6 @@ public class InterviewOrchestratorService {
 
     /**
      * 공백 답변 QnA 필터링
-     * A가 빈 문자열인 항목 제거, 전부 공백이면 null 반환
      */
     private String filterEmptyAnswers(String qnaJson) {
         try {
@@ -283,7 +296,7 @@ public class InterviewOrchestratorService {
             if (filtered.isEmpty()) return null;
             return objectMapper.writeValueAsString(filtered);
         } catch (Exception e) {
-            return qnaJson; // 파싱 실패 시 원본 유지
+            return qnaJson;
         }
     }
 }
