@@ -199,4 +199,80 @@ public class AssessmentService {
         }
         return new HashMap<>();
     }
+
+    public Map<String, Object> evaluateGuest(String jobCode, String experience) throws Exception {
+        Job job = jobRepository.findByGroupCode(jobCode)
+                .orElseThrow(() -> new RuntimeException("Job not found: " + jobCode));
+
+        ChatClient analyzerClient = ChatClient.builder(chatModel)
+                .defaultOptions(ChatOptions.builder().temperature(0.0).build())
+                .build();
+
+        String promptPath = PromptPathResolver.analyzer(job.getMeasureType().name());
+        Resource promptResource = resourceLoader.getResource(promptPath);
+        PromptTemplate template = new PromptTemplate(promptResource);
+
+        Prompt prompt = template.create(Map.of(
+                "jobName", job.getGroupName(),
+                "jobCode", job.getGroupCode(),
+                "experience", experience,
+                "capabilityCodes", JobCapabilityProfile.getRelevantCodeNames(jobCode)
+        ));
+
+        String response = analyzerClient.prompt(prompt).call().content();
+        String cleanJson = response.trim().replaceAll("```json", "").replaceAll("```", "").trim();
+        JsonNode result = objectMapper.readTree(cleanJson);
+
+        // evaluateCompetency랑 동일한 파싱 로직
+        List<Map<String, Object>> competencyResults = new ArrayList<>();
+        List<Map<String, String>> complexItems = new ArrayList<>();
+        List<String> depthItems = new ArrayList<>();
+        List<String> emptyItems = new ArrayList<>();
+
+        if (result.get("competencyResults") != null) {
+            result.get("competencyResults").forEach(item -> {
+                String capCode = item.has("capCode") ? item.get("capCode").asText() : item.get("name").asText();
+                String displayName;
+                try {
+                    displayName = com.kyoon.resumeagent.Capability.CapabilityCode.valueOf(capCode).getDescription();
+                } catch (IllegalArgumentException e) {
+                    displayName = capCode;
+                }
+                String status = item.get("status").asText();
+                String reason = item.has("reason") ? item.get("reason").asText() : "";
+                String rewriteHint = item.has("rewriteHint") ? item.get("rewriteHint").asText() : "";
+                String field = item.has("field") ? item.get("field").asText() : "career";
+
+                Map<String, Object> compResult = new HashMap<>();
+                compResult.put("capCode", capCode);
+                compResult.put("name", displayName);
+                compResult.put("status", status);
+                compResult.put("reason", reason);
+                compResult.put("rewriteHint", rewriteHint);
+                compResult.put("field", field);
+                competencyResults.add(compResult);
+
+                switch (status) {
+                    case "depth" -> depthItems.add(displayName);
+                    case "empty" -> emptyItems.add(displayName);
+                    case "complex" -> {
+                        Map<String, String> complexItem = new HashMap<>();
+                        complexItem.put("name", displayName);
+                        complexItem.put("certName", item.has("certName") ? item.get("certName").asText() : "");
+                        complexItem.put("reason", reason);
+                        complexItems.add(complexItem);
+                    }
+                }
+            });
+        }
+
+        Map<String, Object> analysisData = new HashMap<>();
+        analysisData.put("experiences", result.get("experiences"));
+        analysisData.put("competencyResults", competencyResults);
+        analysisData.put("depthItems", depthItems);
+        analysisData.put("emptyItems", emptyItems);
+        analysisData.put("complexItems", complexItems);
+
+        return analysisData;
+    }
 }

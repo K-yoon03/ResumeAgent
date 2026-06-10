@@ -208,12 +208,43 @@ const Analyzer = () => {
 
     try {
       if (!token) {
-        const res = await fetch(`${BASE_URL}/api/v1/agent/analyze`, { method: "POST", headers: { "Content-Type": "text/plain" }, body: question });
+        // 비회원: 직무 매칭 후 분석
+        let guestJobCode = confirmedJobCode;
+        if (!guestJobCode) {
+          const matchRes = await fetch(`${BASE_URL}/api/assessments/match-job`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ experience: JSON.stringify({ ...structForm, targetJob, noneChecked }) }),
+          });
+          if (matchRes.ok) {
+            const match = await matchRes.json();
+            guestJobCode = match.jobCode;
+            if (match.noMatch || !guestJobCode) {
+              setJobMatchModal({ noMatch: true, reason: match.reason });
+              return;
+            }
+            // 자동 매칭된 경우 모달로 확인
+            if (!confirmedJobCode) {
+              setJobMatchModal({ jobCode: match.jobCode, jobName: match.jobName, reason: match.reason, topMatches: match.topMatches || [] });
+              setPendingExperience(question);
+              return;
+            }
+          }
+        }
+
+        const res = await fetch(`${BASE_URL}/api/v1/agent/analyze`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ jobCode: guestJobCode, experience: question }),
+        });
         if (!res.ok) throw new Error("분석 실패");
-        const reader = res.body.getReader(); const decoder = new TextDecoder("utf-8"); let result = "";
-        while (true) { const { value, done } = await reader.read(); if (done) break; result += decoder.decode(value, { stream: true }); }
-        setShowSignupPrompt(true); setShowResult(true);
-        toast.info("전체 결과를 보려면 가입이 필요합니다!"); return;
+        const data = await res.json();
+        setScoreData(data);
+        scoreDataRef.current = data;
+        setShowResult(true);
+        setShowSignupPrompt(true);
+        toast.info("전체 결과를 보려면 가입이 필요합니다!");
+        return;
       }
 
       const res = await fetch(`${BASE_URL}/api/assessments/evaluate`, {

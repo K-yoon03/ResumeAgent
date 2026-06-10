@@ -45,6 +45,7 @@ const DepthInterview = () => {
   const [allItems, setAllItems] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [partialScore, setPartialScore] = useState(null);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const toggleExperience = (idx) => {
     setSelectedExperiences(prev => prev.map((e, i) => i === idx ? { ...e, selected: !e.selected } : e));
@@ -165,6 +166,8 @@ const DepthInterview = () => {
   };
 
   const proceedToNext = async (itemName, qna, _unused) => {
+    if (isProcessing) return;
+    setIsProcessing(true);
     try {
       const token = localStorage.getItem("token");
       const res = await fetch(`${BASE_URL}/api/assessments/${assessmentId}/interview/submit-one`, {
@@ -191,9 +194,11 @@ const DepthInterview = () => {
       setPhase("interview");
       await loadBaseQuestions(queue[nextIdx]);
     }
+    setIsProcessing(false);
   };
 
   const handleSkip = async () => {
+    if (isProcessing || loadingQuestions || loadingFollowUp) return;
     const item = queue[currentIdx];
     await proceedToNext(item.name, [], null);
   };
@@ -441,13 +446,13 @@ const DepthInterview = () => {
           )}
 
           <div className="flex gap-2 pt-2">
-            <Button variant="outline" className="flex-1 gap-1.5 text-muted-foreground" onClick={handleSkip} disabled={loadingFollowUp}>
+            <Button variant="outline" className="flex-1 gap-1.5 text-muted-foreground" onClick={handleSkip} disabled={isProcessing || loadingQuestions || loadingFollowUp}>
               <SkipForward className="h-4 w-4" />건너뛰기
             </Button>
             <Button
               className="flex-1 bg-gradient-to-r from-[var(--gradient-start)] to-[var(--gradient-end)] text-white hover:opacity-90 gap-1.5"
               onClick={handleBaseAnswersDone}
-              disabled={loadingQuestions || loadingFollowUp || !canProceed}
+              disabled={isProcessing || loadingQuestions || loadingFollowUp || !canProceed}
             >
               {loadingFollowUp ? "분석 중..." : currentIdx + 1 >= queue.length ? "완료" : "다음"}
               <ArrowRight className="h-4 w-4" />

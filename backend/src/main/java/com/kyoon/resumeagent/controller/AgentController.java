@@ -1,6 +1,7 @@
 package com.kyoon.resumeagent.controller;
 
 import com.kyoon.resumeagent.service.AgentService;
+import com.kyoon.resumeagent.service.AssessmentService;
 import com.kyoon.resumeagent.service.JobSummaryService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.MediaType;
@@ -8,17 +9,23 @@ import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.Map;
+
 @RestController
 @RequestMapping("/api/v1/agent")
 public class AgentController {
     private final JobSummaryService jobSummaryService;
     private final AgentService agentService;
+    private final AssessmentService assessmentService;
 
     public AgentController(
             JobSummaryService jobSummaryService,
-            AgentService agentService) {
+            AgentService agentService,
+            AssessmentService assessmentService)
+    {
         this.jobSummaryService = jobSummaryService;
         this.agentService = agentService;
+        this.assessmentService = assessmentService;
     }
 
     record ScoreRequest(String experience) {}
@@ -75,6 +82,18 @@ public class AgentController {
             return ResponseEntity.ok(new com.fasterxml.jackson.databind.ObjectMapper().readValue(result, java.util.Map.class));
         } catch (Exception e) {
             return ResponseEntity.internalServerError().body("개선 실패: " + e.getMessage());
+        }
+    }
+
+    record GuestAnalyzeRequest(String jobCode, String experience) {}
+
+    @PostMapping("/analyze")
+    public ResponseEntity<?> guestAnalyze(@RequestBody GuestAnalyzeRequest req) {
+        try {
+            Map<String, Object> result = assessmentService.evaluateGuest(req.jobCode(), req.experience());
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().build();
         }
     }
 }

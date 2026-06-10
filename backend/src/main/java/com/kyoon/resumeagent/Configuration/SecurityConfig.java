@@ -42,6 +42,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/password-reset/**").permitAll()
                         .requestMatchers("/h2-console/**").permitAll()
                         .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
+                        .requestMatchers("/api/v1/agent/analyze").permitAll()
+                        .requestMatchers("/api/assessments/match").permitAll()
 
                         // SSE 스트리밍 (인증 없이 허용)
                         .requestMatchers("/api/interview/question").permitAll()
