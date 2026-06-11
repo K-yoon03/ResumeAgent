@@ -43,7 +43,7 @@ public class SecurityConfig {
                         .requestMatchers("/h2-console/**").permitAll()
                         .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
                         .requestMatchers("/api/v1/agent/analyze").permitAll()
-                        .requestMatchers("/api/assessments/match").permitAll()
+                        .requestMatchers("/api/assessments/match-job").permitAll()
 
                         // SSE 스트리밍 (인증 없이 허용)
                         .requestMatchers("/api/interview/question").permitAll()
