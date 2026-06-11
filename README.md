@@ -1,6 +1,8 @@
 # CareerPilot
 > AI 기반 취업 준비 자동화 플랫폼 — 경험을 역량 수준으로, 직무 적합도를 수치로.
 
+Link : [https://CareerPilot.kr/](https://careerpilot.kr/)
+
 ---
 
 ## 소개
