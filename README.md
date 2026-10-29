@@ -24,7 +24,7 @@ CareerPilot은 취업 준비 전 과정을 AI로 자동화하는 플랫폼이다
 | ORM | Spring Data JPA + Hibernate | |
 | Auth | Spring Security + JWT | RefreshToken 전략 |
 | AI | Spring AI 1.1.0 | ChatClient, Advisor |
-| LLM | gpt-5.4-mini / gpt-5.4-nano | 생성/피드백 vs 분류/판단 역할 분리 |
+| LLM | gpt-5.4-mini (OpenAI API) | 생성·분류·판단 공통 모델 |
 | DB (dev) | PostgreSQL + pgvector | capability_anchors 임베딩 저장 |
 | DB (prod) | PostgreSQL + pgvector | OpenStack 배포 |
 | Vector | pgvector (cosine similarity) | 역량 앵커 RAG 검색 |
@@ -77,14 +77,14 @@ TECHNICIAN / PROFESSIONER 등급 + 부족 역량 gap 리포트
 ### AI 면접 파이프라인
 
 ```
-AnswerClassifier (Depth/Complex/Empty 분류, temp=0.0, seed=42)
+AnswerClassifier (Depth/Complex/Empty 분류, temp=0.0)
     ↓
 DepthInterview (심층 꼬리 질문 생성, 경험별 점수 누적)
     ↓
 FinalScorer (STAR 프레임 기반 종합 평가)
 ```
 
-- LLM temperature `0.0`, seed `42` 고정 → 재현 가능한 평가
+- 판정·분류 호출은 temperature `0.0`으로 실행 (seed는 따로 고정하지 않음)
 - `submit-one` 엔드포인트로 경험별 점수 실시간 업데이트
 - DepthAnswer DB 영속화, 세션 종료 후에도 이력 조회 가능
 - Hallucination 대응: evidence 출처·품질 기반 레벨 상한 제어
@@ -146,7 +146,7 @@ PostgreSQL + pgvector (prod)  /  PortOne V2 (payment)
 ```
 
 - LLM 호출은 서버 사이드 전용 — API 키 클라이언트 노출 없음
-- gpt-5.4-mini: 생성·피드백 / gpt-5.4-nano: 분류·판단 역할 분리
+- LLM은 gpt-5.4-mini 하나로 생성·분류·판단을 모두 처리 (호출마다 temperature만 다르게 설정)
 - RAG: capability_anchors 123개 코드 임베딩 → pgvector 코사인 유사도 검색
 
 ---
